@@ -1,4 +1,6 @@
 <?php
+echo "<h1>Access Denied!</h1>";
+return
 include 'classes/db_access.php';
 include 'classes/core.php';
 include 'classes/user_model.php';
