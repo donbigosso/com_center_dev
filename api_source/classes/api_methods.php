@@ -24,7 +24,7 @@ class ApiMethods extends Core
     /**
      * Main entry point: Process the incoming request and route accordingly
      */
-    public function processRequest($core): void
+    public function processRequest(): void
     {
         // Ensure a request method exists
         if (!isset($_SERVER['REQUEST_METHOD'])) {
@@ -36,7 +36,7 @@ class ApiMethods extends Core
 
         switch ($method) {
             case 'GET':
-                $this->handleGetRequest($core);
+                $this->handleGetRequest();
                 break;
             case 'POST':
                 $this->handlePostRequest();
@@ -55,7 +55,7 @@ class ApiMethods extends Core
     /**
      * Handle GET requests - override or extend this in child classes
      */
-    protected function handleGetRequest($core): void
+    protected function handleGetRequest(): void
     {
         // Example: Fetch data, list resources, etc.
         // You can access $_GET here safely
@@ -76,7 +76,7 @@ class ApiMethods extends Core
                     break;
                 case 'list_files':{
                     $folder = __DIR__ . '/../uploads';
-                    $this->send_JSON_Response(true, "Files requested", "", "", ['files' => $core->create_file_details_table($folder)]);
+                    $this->send_JSON_Response(true, "Files requested", "", "", ['files' => $this->create_file_details_table($folder)]);
                     break;
                 }
                 case 'download':

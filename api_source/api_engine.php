@@ -11,6 +11,6 @@
     $pass = getenv('MYSQL_PASSWORD');
     $dba = new DatabaseAccess('mysql', $db, $user, $pass);
     $api = new ApiMethods();
-    $api->processRequest($core); // This will handle everything and output JSON
+    $api->processRequest(); // This will handle everything and output JSON
 
 ?>
