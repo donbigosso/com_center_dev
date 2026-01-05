@@ -10,7 +10,7 @@
     $user = getenv('MYSQL_USER');
     $pass = getenv('MYSQL_PASSWORD');
     $dba = new DatabaseAccess('mysql', $db, $user, $pass);
-    $api = new ApiMethods();
+    $api = new ApiMethods($dba);
     $api->processRequest(); // This will handle everything and output JSON
 
 ?>

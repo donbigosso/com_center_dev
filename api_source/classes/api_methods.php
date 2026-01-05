@@ -2,6 +2,9 @@
 
 class ApiMethods extends Core
 {
+    private $db_access;
+     function __construct($db_access) {
+     $this->db_access = $db_access; }
     /**
      * Create a standardized API response array
      */
@@ -113,13 +116,7 @@ class ApiMethods extends Core
         if (isset($input['request'])) {
             switch ($input['request']) {
                 case 'create_user':
-                    if (empty($input['name'])) {
-                        $this->send_JSON_Response(false, "", "", "Name is required.");
-                        return;
-                    }
-                    // Simulate creation
-                    $newUser = ['id' => 123, 'name' => $input['name']];
-                    $this->send_JSON_Response(true, "User created successfully.", "", "", $newUser);
+                   $this->handle_create_user($input);
                     break;
 
                 case 'login':
@@ -139,6 +136,39 @@ class ApiMethods extends Core
         }
     }
 
+
+     private function handle_create_user(array $input): void
+{
+    // Validate required field
+    if (empty($input['name'])) {
+        $this->send_JSON_Response(false, "", "", "Name is required.");
+        return;
+    }
+   // $mockDBA = null;
+   $user_name = $input['name'];
+   $user = new UserModel($this->db_access);
+   $check_name = $user->getByName($user_name);
+   if (!empty($check_name)){
+     $this->send_JSON_Response(true, "Creation request initiated", "User already exist", "", ['user_created' => false]);
+     return;
+   }
+    // Simulate user creation (replace with real logic/DB insert when needed)
+    $newUser = [
+        
+        'name' => $user_name,
+        'name_check' => $check_name
+      
+    ];
+
+    // Success response with the new user data
+    $this->send_JSON_Response(
+        true,
+        "User created successfully DEB342.",
+        "",          // you can put a code here if you use it elsewhere
+        "",          // message/details field (empty in your example)
+        $newUser
+    );
+}   
     /**
      * Helper: Get input data (supports JSON body for POST/PUT etc.)
      */
