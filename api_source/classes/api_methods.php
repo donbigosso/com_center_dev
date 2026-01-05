@@ -118,6 +118,9 @@ class ApiMethods extends Core
                 case 'create_user':
                    $this->handle_create_user($input);
                     break;
+                case 'delete_user':
+                    $this->handle_delete_user($input);
+                    break;
 
                 case 'login':
                     // Add login logic here
@@ -146,13 +149,22 @@ class ApiMethods extends Core
     }
    // $mockDBA = null;
    $user_name = $input['name'];
+   if(isset($input['password'])){
+        $password = $input['password'];
+   }
+   else {
+     $this->send_JSON_Response(true, "Creation request initiated", "No password provided", "", ['user_created' => false]);
+     return;
+   }
+
    $user = new UserModel($this->db_access);
    $check_name = $user->getByName($user_name);
    if (!empty($check_name)){
-     $this->send_JSON_Response(true, "Creation request initiated", "User already exist", "", ['user_created' => false]);
+     $this->send_JSON_Response(false, "", "", "User already exist", ['user_created' => false]);
      return;
    }
     // Simulate user creation (replace with real logic/DB insert when needed)
+    $user->create($user_name,  "blah_blah");
     $newUser = [
         
         'name' => $user_name,
@@ -169,6 +181,29 @@ class ApiMethods extends Core
         $newUser
     );
 }   
+
+
+
+    private function handle_delete_user(array $input): void{
+           if (empty($input['name'])) {
+        $this->send_JSON_Response(false, "", "", "Name is required.");
+        return;
+    }
+        $user_name = $input['name'];
+        $user = new UserModel($this->db_access);
+        $delete_user = $user->delete($user_name);
+       $response = null;
+        if($delete_user===0){
+            $response = false;
+        }
+        else
+        {
+            $response = true;
+        }    
+        $this->send_JSON_Response(true, "User deleted", "", "", ['user_deleted' => $response]);
+        return;
+       
+    }
     /**
      * Helper: Get input data (supports JSON body for POST/PUT etc.)
      */

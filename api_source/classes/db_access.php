@@ -107,6 +107,30 @@ class DatabaseAccess
         return $stmt->execute($params);
     }
 
+    // Generic delete
+    public function delete(string $table, array $where): int
+{
+    if (empty($where)) {
+        throw new InvalidArgumentException("DELETE requires at least one condition for safety.");
+    }
+
+    $conditions = [];
+    $params = [];
+
+    foreach ($where as $column => $value) {
+        $placeholder = ":where_$column";
+        $conditions[] = "`$column` = $placeholder";
+        $params[$placeholder] = $value;
+    }
+
+    $sql = "DELETE FROM `$table` WHERE " . implode(' AND ', $conditions);
+
+    $stmt = $this->connection->prepare($sql);
+    $stmt->execute($params);
+
+    return $stmt->rowCount(); // Returns number of deleted rows
+}
+
     // Describe table
         public function describeTable(string $tableName): array
         {

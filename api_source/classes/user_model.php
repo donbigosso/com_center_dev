@@ -27,6 +27,14 @@ class UserModel
         ]);
     }
 
+
+    public function delete (string $name){
+         return $this->db->delete('users', [
+            'name'       => $name,
+                        
+        ]);       
+    }
+
     public function login(string $email, string $password): ?array
     {
         $user = $this->getByEmail($email);
