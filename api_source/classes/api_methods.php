@@ -127,8 +127,10 @@ class ApiMethods extends Core
                     $this->send_JSON_Response(true, "Login successful (mock).", "", "", ['token' => 'abc123']);
                     break;
                 case 'verify_user_password':
-                    $this->send_JSON_Response(true, "Password verification", "", "",['password_verified'=>true]);
+                     $this->verify_user_password($input);
                     break;
+                
+                   
 
                 default:
                     $this->send_JSON_Response(false, "", "", "Unknown request: " . $input['request']);
@@ -164,7 +166,7 @@ class ApiMethods extends Core
      return;
    }
     // Simulate user creation (replace with real logic/DB insert when needed)
-    $user->create($user_name,  "blah_blah");
+    $user->create($user_name,  $password);
     $newUser = [
         
         'name' => $user_name,
@@ -175,10 +177,10 @@ class ApiMethods extends Core
     // Success response with the new user data
     $this->send_JSON_Response(
         true,
-        "User created successfully DEB342.",
+        "User $user_name created successfully.",
         "",          // you can put a code here if you use it elsewhere
         "",          // message/details field (empty in your example)
-        $newUser
+        ['user_created' => true]
     );
 }   
 
@@ -193,17 +195,40 @@ class ApiMethods extends Core
         $user = new UserModel($this->db_access);
         $delete_user = $user->delete($user_name);
        $response = null;
+       $message ="";
+       $warning="";
         if($delete_user===0){
             $response = false;
+            $warning="User $user_name does not exist.";
         }
         else
-        {
+        {   
+            $message = "User $user_name deleted.";
             $response = true;
         }    
-        $this->send_JSON_Response(true, "User deleted", "", "", ['user_deleted' => $response]);
+        $this->send_JSON_Response(true, $message, $warning, "", ['user_deleted' => $response]);
         return;
        
     }
+
+
+    private function verify_user_password(array $input): void{
+         if (empty($input['name'])) {
+            $this->send_JSON_Response(false, "", "", "Name is required.");
+            return; 
+        }
+        if(empty($input['password'])){
+            $this->send_JSON_Response(false, "", "", "Password is required.");
+            return; 
+        } 
+     $user_name = $input['name'];
+     $password = $input['password'];
+    $user = new UserModel($this->db_access);
+    $verification = $user->verify_user_password($user_name, $password);
+  
+    $this->send_JSON_Response(true, "Password verification", "", "",['password_verification'=>$verification]);
+            return; 
+}
     /**
      * Helper: Get input data (supports JSON body for POST/PUT etc.)
      */

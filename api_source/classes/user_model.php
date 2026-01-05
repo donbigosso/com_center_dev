@@ -35,6 +35,18 @@ class UserModel
         ]);       
     }
 
+    public function verify_user_password(string $username, string $password){
+            $user = $this->getByName($username);
+
+         if ($user[0]) {
+            
+            $test_verify =  password_verify($password, $user[0]["password"]);
+            return $test_verify ;
+        }
+        return false; 
+
+       
+    }
     public function login(string $email, string $password): ?array
     {
         $user = $this->getByEmail($email);
