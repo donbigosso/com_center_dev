@@ -21,7 +21,7 @@ echo "<br><br>";
 $hashed_pwd = password_hash('Mont3Negr0!', PASSWORD_DEFAULT);
 // var_dump($db->insert('users', ['name' => 'bigos', 'password' => $hashed_pwd]));
 
-$found_user = $userModel->getByName('bigos');
+$found_user = $userModel->get_by_name('bigos');
 if($found_user){
     print_r($found_user);
 }

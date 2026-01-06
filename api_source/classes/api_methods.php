@@ -84,7 +84,8 @@ class ApiMethods extends Core
                 }
                 case 'download':
                     $this->handle_download();
-                    break;  
+                    break;
+                
                 default:
                 $this->send_JSON_Response(false, "", "", "Unknown 'request' value: " . $input['request']);
             }
@@ -129,9 +130,14 @@ class ApiMethods extends Core
                 case 'verify_user_password':
                      $this->verify_user_password($input);
                     break;
-                
-                   
+                case 'create_user_token':
+                    $this->handle_create_user_token($input);
+                    break;
 
+                case 'test_function':
+                    $this->handle_test_function($input);
+                    break;  
+                   
                 default:
                     $this->send_JSON_Response(false, "", "", "Unknown request: " . $input['request']);
                     break;
@@ -160,7 +166,7 @@ class ApiMethods extends Core
    }
 
    $user = new UserModel($this->db_access);
-   $check_name = $user->getByName($user_name);
+   $check_name = $user->get_by_name($user_name);
    if (!empty($check_name)){
      $this->send_JSON_Response(false, "", "", "User already exist", ['user_created' => false]);
      return;
@@ -229,6 +235,53 @@ class ApiMethods extends Core
     $this->send_JSON_Response(true, "Password verification", "", "",['password_verification'=>$verification]);
             return; 
 }
+
+public function handle_test_function(array $input): void{
+
+      $message = "Reseting token";
+      $user = new UserModel($this->db_access);
+      $success = false;
+      $error = "Error reseting token";
+         
+       $result=$user->reset_user_token($input['name']);
+      
+      if($result){
+            $success = true;
+            $error ="";
+      } 
+       $this->send_JSON_Response($success, $message, "", $error, ['token_and_validity' => $result]);
+      return;
+        
+      
+    }
+
+ public function handle_create_user_token(array $input): void
+    {
+        $message = "Token creation";
+        if (empty($input['name'])) {
+            $this->send_JSON_Response(false, $message, "", "Name is required.");
+            return; 
+        }
+        if(empty($input['token'])){
+            $this->send_JSON_Response(false, $message, "", "Token is required.");
+            return; 
+        } 
+         
+
+        $user_name = $input['name'];
+        $token = $input['token'];
+        
+        $user = new UserModel($this->db_access);
+   
+        $result = $user->create_user_token($user_name, $token);
+        if($result){
+            $this->send_JSON_Response(true, $message, "", "", ['token_created' => $result]);
+        return;}
+        else {
+            $this->send_JSON_Response(false, $message, "", "Failed to create token.",['token_created' => $result]);
+        }
+    }
+
     /**
      * Helper: Get input data (supports JSON body for POST/PUT etc.)
      */
