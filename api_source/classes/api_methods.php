@@ -130,8 +130,11 @@ class ApiMethods extends Core
                 case 'verify_user_password':
                      $this->verify_user_password($input);
                     break;
-                case 'create_user_token':
-                    $this->handle_create_user_token($input);
+                case 'verify_user_token':
+                    $this->handle_verify_token($input);
+                    break;
+                case 'set_user_token':
+                    $this->handle_set_token_and_validity($input);
                     break;
 
                 case 'test_function':
@@ -255,9 +258,9 @@ public function handle_test_function(array $input): void{
       
     }
 
- public function handle_create_user_token(array $input): void
+ public function handle_set_token_and_validity(array $input): void
     {
-        $message = "Token creation";
+        $message = "Token and validity creation";
         if (empty($input['name'])) {
             $this->send_JSON_Response(false, $message, "", "Name is required.");
             return; 
@@ -273,13 +276,44 @@ public function handle_test_function(array $input): void{
         
         $user = new UserModel($this->db_access);
    
-        $result = $user->create_user_token($user_name, $token);
+        $result = $user->set_token_and_validity($user_name, $token);
         if($result){
             $this->send_JSON_Response(true, $message, "", "", ['token_created' => $result]);
         return;}
         else {
             $this->send_JSON_Response(false, $message, "", "Failed to create token.",['token_created' => $result]);
         }
+    }
+
+    public function handle_verify_token(array $input){
+        $message = "Token verification";
+        $error ="";
+        $success = false;
+        $warning = "";
+        $data = [];
+        $result = false;
+        
+        
+        if(empty($input["name"])||empty($input["token"])){
+            $error = "Name and token are required.";
+            $this->send_JSON_Response($success, $message, $warning, $error, ['token_verified' => $result]);
+            return;
+        }
+   
+        $user = new UserModel($this->db_access);
+        $result = $user->verify_user_token($input["name"], $input["token"]);
+       
+        if($result){
+            $success = true;
+            $warning = "";
+            $error = "";
+        }
+        else {
+            $success = false;
+            $warning = "";
+            $error = "Token verification failed.";
+        }
+        $this->send_JSON_Response($success, $message, $warning, $error, ['token_verified' => $result]);
     }
 
     /**

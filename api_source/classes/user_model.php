@@ -110,8 +110,18 @@ class UserModel
     public function verify_user_token(string $username, string $token): bool
     {
         $user = $this->get_by_name($username);
+        if (!$user) {
+            return false;
+        }
+       
+        $username = $user[0]['name'];
         if ($user && isset($user[0]['token']) && $user[0]['token'] === $token) {
-            return true;
+            if(isset($user[0]['token_validity']) && $user[0]['token_validity'] > date('Y-m-d H:i:s')) {
+                return true;
+            }
+            else {
+                return false;
+            }
         }
         return false;
     }
