@@ -136,6 +136,9 @@ class ApiMethods extends Core
                 case 'set_user_token':
                     $this->handle_set_token_and_validity($input);
                     break;
+                case 'reset_password':
+                    $this->handle_password_reset($input);
+                    break;
 
                 case 'test_function':
                     $this->handle_test_function($input);
@@ -235,7 +238,25 @@ class ApiMethods extends Core
     $user = new UserModel($this->db_access);
     $verification = $user->verify_user_password($user_name, $password);
   
-    $this->send_JSON_Response(true, "Password verification", "", "",['password_verification'=>$verification]);
+    $this->send_JSON_Response($verification, "Password verification", "", "",['password_verification'=>$verification]);
+            return; 
+}
+
+    private function handle_password_reset(array $input): void{
+         if (empty($input['name'])) {
+            $this->send_JSON_Response(false, "", "", "Name is required.");
+            return; 
+        }
+        if(empty($input['password'])){
+            $this->send_JSON_Response(false, "", "", "Password is required.");
+            return; 
+        } 
+     $user_name = $input['name'];
+     $password = $input['password'];
+    $user = new UserModel($this->db_access);
+    $result = $user->reset_user_password($user_name, $password);
+  
+    $this->send_JSON_Response(true, "Password reset", "", "",['password_reset'=>$result]);
             return; 
 }
 

@@ -22,7 +22,7 @@ class UserModel
     {
         return $this->db->insert('users', [
             'name'       => $name,
-            'password'   => password_hash($password, PASSWORD_DEFAULT)
+            'password'   => $verification
             
         ]);
     }
@@ -38,7 +38,7 @@ class UserModel
     public function verify_user_password(string $username, string $password){
             $user = $this->get_by_name($username);
 
-         if ($user[0]) {
+         if ($user) {
             
             $test_verify =  password_verify($password, $user[0]["password"]);
             return $test_verify ;
@@ -124,6 +124,16 @@ class UserModel
             }
         }
         return false;
+    }
+
+    public function reset_user_password( string $username, string $password){
+            $user = $this->get_by_name($username);
+        if (!$user) {
+            return false;
+        }
+        $username = $user[0]['name'];
+        $this->db->update('users', ['password' => password_hash($password, PASSWORD_DEFAULT)], ['name' => $username]);
+        return true;
     }
 }
 
