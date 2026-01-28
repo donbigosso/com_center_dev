@@ -117,7 +117,7 @@ class ApiMethods extends Core
         if (isset($input['request'])) {
             switch ($input['request']) {
                 case 'create_user':
-                   $this->handle_create_user($input);
+                   $this->new_handel_user_create($input);
                     break;
                 case 'delete_user':
                     $this->handle_delete_user($input);
@@ -153,12 +153,25 @@ class ApiMethods extends Core
         }
     }
 
+    private function new_handel_user_create(array $input){
+        if(!isset($input['name']) && !isset($input['password'])){
+            $this->send_JSON_Response(false, "", "", "Name and password are required.", ['user_created' => false]);
+            return;
+         }
+         $username = $input['name'];
+         $password = $input['password'];
+         $user = new UserModel($this->db_access);
+         $creation_output = $user->new_user_create($username, $password);
+        // $creation_output = "blablah";
+         $this->send_JSON_Response(true, "Creation request initiated for user: " . $username, "", "", ['user_created' => $creation_output]);
+            
+    }
 
      private function handle_create_user(array $input): void
 {
     // Validate required field
     if (empty($input['name'])) {
-        $this->send_JSON_Response(false, "", "", "Name is required.");
+        $this->send_JSON_Response(false, "", "", "Name is required.", ['user_created' => false]);
         return;
     }
    // $mockDBA = null;

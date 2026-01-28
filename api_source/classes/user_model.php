@@ -27,6 +27,28 @@ class UserModel
         ]);
     }
 
+    public function new_user_create(string $name, string $password){
+        if(!empty($this->get_by_name($name))){
+            return false;
+        }
+        if(empty($name) || empty($password)){
+            return false;
+        }
+        $pass_regex = '/^(?=.*[A-Z])(?=.*\d).{10,}$/';
+        $pass_verify= preg_match($pass_regex, $password);
+        $user_regex = '/^[a-zA-Z0-9_]{4,16}$/';
+        $username_verify = preg_match($user_regex, $name);
+        if(!$pass_verify || !$username_verify){
+            return false;
+        }
+        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+        $this->db->insert('users', [
+            'name'       => $name,
+            'password'   => $hashed_password
+        ]);
+        return true;
+    }
+
 
     public function delete (string $name){
          return $this->db->delete('users', [
