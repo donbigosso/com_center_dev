@@ -142,6 +142,9 @@ class ApiMethods extends Core
                 case 'check_token_existence':
                     $this->handle_check_token_existence($input);
                     break;
+                case 'get_user_by_token':
+                    $this->handle_get_user_by_token($input);
+                    break;
 
                 case 'test_function':
                     $this->handle_test_function($input);
@@ -369,6 +372,39 @@ public function handle_check_token_existence(array $input): void
             $error = "Token verification failed.";
         }
         $this->send_JSON_Response($success, $message, $warning, $error, ['token_verified' => $result]);
+    }
+
+    public function handle_get_user_by_token(array $input){
+        $message = "Get user by token";
+        $error ="";
+        $success = false;
+        $warning = "";
+        $data = [];
+        $result = null;
+        
+        
+        if(empty($input["token"])){
+            $error = "Token is required.";
+            $this->send_JSON_Response($success, $message, $warning, $error, ['user_found' => $result]);
+            return;
+        }
+   
+        $user = new UserModel($this->db_access);
+        $result = $user->getByToken($input["token"]);
+       
+        if($result){
+            $success = true;
+            $warning = "";
+            $error = "";
+            $username = $result[0]['name'];
+        }
+        else {
+            $success = false;
+            $warning = "";
+            $error = "User not found.";
+            $username = null;
+        }
+        $this->send_JSON_Response($success, $message, $warning, $error, ['user_found' => $username]);
     }
 
     /**

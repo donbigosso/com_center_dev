@@ -18,6 +18,16 @@ class UserModel
         return $this->db->select('users', ['name' => $name]);
     }
 
+    public function getByToken(string $token): ?array
+    {
+        if($this->check_token_validity($token)) {
+            return $this->db->select('users', ['token' => $token]);
+        }
+        return null;
+    }
+
+
+
     public function create(string $name,  string $password): int
     {
         return $this->db->insert('users', [
@@ -129,6 +139,18 @@ class UserModel
     }
     
 
+    public function check_token_validity(string $token): bool
+    {
+        $user = $this->db->select('users', ['token' => $token]);
+        if (!$user) {
+            return false;
+        }
+        if(isset($user[0]['token_validity']) && $user[0]['token_validity'] > date('Y-m-d H:i:s')) {
+            return true;
+        }
+        return false;
+    }
+
     public function verify_user_token(string $username, string $token): bool
     {
         $user = $this->get_by_name($username);
@@ -138,7 +160,7 @@ class UserModel
        
         $username = $user[0]['name'];
         if ($user && isset($user[0]['token']) && $user[0]['token'] === $token) {
-            if(isset($user[0]['token_validity']) && $user[0]['token_validity'] > date('Y-m-d H:i:s')) {
+            if($this->check_token_validity($token)) {
                 return true;
             }
             else {
@@ -147,6 +169,7 @@ class UserModel
         }
         return false;
     }
+    
 
     public function reset_user_password( string $username, string $password){
             $user = $this->get_by_name($username);
