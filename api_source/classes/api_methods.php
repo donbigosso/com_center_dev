@@ -139,6 +139,9 @@ class ApiMethods extends Core
                 case 'reset_password':
                     $this->handle_password_reset($input);
                     break;
+                case 'check_token_existence':
+                    $this->handle_check_token_existence($input);
+                    break;
 
                 case 'test_function':
                     $this->handle_test_function($input);
@@ -275,22 +278,38 @@ class ApiMethods extends Core
 
 public function handle_test_function(array $input): void{
 
-      $message = "Reseting token";
+      $message = "Looking up token";
       $user = new UserModel($this->db_access);
       $success = false;
-      $error = "Error reseting token";
+      $error = "";
          
-       $result=$user->reset_user_token($input['name']);
+       $result=$user->check_token_existence($input['token']);
       
       if($result){
             $success = true;
             $error ="";
       } 
-       $this->send_JSON_Response($success, $message, "", $error, ['token_and_validity' => $result]);
+       $this->send_JSON_Response($success, $message, "", $error, ['token_found' => $result]);
       return;
         
       
     }
+
+public function handle_check_token_existence(array $input): void
+{
+     $message = "Looking up token";
+      $user = new UserModel($this->db_access);
+      $success = false;
+      $error = "";
+      $result=$user->check_token_existence($input['token']);
+      
+      if($result){
+            $success = true;
+            $error ="";
+      } 
+       $this->send_JSON_Response($success, $message, "", $error, ['token_found' => $result]);
+      return;
+}
 
  public function handle_set_token_and_validity(array $input): void
     {
@@ -303,14 +322,16 @@ public function handle_test_function(array $input): void{
             $this->send_JSON_Response(false, $message, "", "Token is required.");
             return; 
         } 
-         
+        if(empty($input['days'])){
+            $this->send_JSON_Response(false, $message, "", "Validity is required.");
+            return; 
+        } 
 
-        $user_name = $input['name'];
-        $token = $input['token'];
+      
         
         $user = new UserModel($this->db_access);
    
-        $result = $user->set_token_and_validity($user_name, $token);
+        $result = $user->set_token_and_validity($input['name'], $input['token'], $input['days']);
         if($result){
             $this->send_JSON_Response(true, $message, "", "", ['token_created' => $result]);
         return;}

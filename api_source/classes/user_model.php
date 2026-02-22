@@ -157,6 +157,14 @@ class UserModel
         $this->db->update('users', ['password' => password_hash($password, PASSWORD_DEFAULT)], ['name' => $username]);
         return true;
     }
+
+    public function check_token_existence(string $token) : bool
+    {
+        $user = $this->db->select('users', ['token' => $token]);
+        return !empty($user);
+    }
+
 }
+
 
 ?>
