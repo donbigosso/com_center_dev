@@ -133,6 +133,9 @@ class ApiMethods extends Core
                 case 'verify_user_token':
                     $this->handle_verify_token($input);
                     break;
+                case 'clear_token':
+                    $this->handle_clear_token($input);
+                    break;
                 case 'set_user_token':
                     $this->handle_set_token_and_validity($input);
                     break;
@@ -277,6 +280,17 @@ class ApiMethods extends Core
   
     $this->send_JSON_Response(true, "Password reset", "", "",['password_reset'=>$result]);
             return; 
+}
+
+public function handle_clear_token(array $input): void{
+ $message = "Reseting user token";
+ $success = false;
+ $error = "";
+ $warning = "";   
+ $user = new UserModel($this->db_access);
+ $result = $user->reset_user_token($input['name']);
+ $success = true;
+ $this->send_JSON_Response($success, $message, $warning, $error, ['token_cleared' => $result]);
 }
 
 public function handle_test_function(array $input): void{
