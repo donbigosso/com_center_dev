@@ -18,7 +18,7 @@ class UserModel
         return $this->db->select('users', ['name' => $name]);
     }
 
-    public function getByToken(string $token): ?array
+    public function get_by_token(string $token): ?array
     {
         if($this->check_token_validity($token)) {
             return $this->db->select('users', ['token' => $token]);

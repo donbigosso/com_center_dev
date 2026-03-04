@@ -130,9 +130,6 @@ class ApiMethods extends Core
                 case 'verify_user_password':
                      $this->verify_user_password($input);
                     break;
-                case 'verify_user_token':
-                    $this->handle_verify_token($input);
-                    break;
                 case 'clear_token':
                     $this->handle_clear_token($input);
                     break;
@@ -152,6 +149,9 @@ class ApiMethods extends Core
                 case 'test_function':
                     $this->handle_test_function($input);
                     break;  
+                case 'rename_file':
+                    $this->handle_rename_file($input);
+                    break;
                    
                 default:
                     $this->send_JSON_Response(false, "", "", "Unknown request: " . $input['request']);
@@ -357,36 +357,7 @@ public function handle_check_token_existence(array $input): void
         }
     }
 
-    public function handle_verify_token(array $input){
-        $message = "Token verification";
-        $error ="";
-        $success = false;
-        $warning = "";
-        $data = [];
-        $result = false;
-        
-        
-        if(empty($input["name"])||empty($input["token"])){
-            $error = "Name and token are required.";
-            $this->send_JSON_Response($success, $message, $warning, $error, ['token_verified' => $result]);
-            return;
-        }
-   
-        $user = new UserModel($this->db_access);
-        $result = $user->verify_user_token($input["name"], $input["token"]);
-       
-        if($result){
-            $success = true;
-            $warning = "";
-            $error = "";
-        }
-        else {
-            $success = false;
-            $warning = "";
-            $error = "Token verification failed.";
-        }
-        $this->send_JSON_Response($success, $message, $warning, $error, ['token_verified' => $result]);
-    }
+
 
     public function handle_get_user_by_token(array $input){
         $message = "Get user by token";
@@ -404,7 +375,7 @@ public function handle_check_token_existence(array $input): void
         }
    
         $user = new UserModel($this->db_access);
-        $result = $user->getByToken($input["token"]);
+        $result = $user->get_by_token($input["token"]);
        
         if($result){
             $success = true;
@@ -455,6 +426,11 @@ public function handle_check_token_existence(array $input): void
                 exit;
             }
         }
+    }
+    public function handle_rename_file(array $input){
+     $file_model = new FileModel($this->db_access);
+     $rename_output= $file_model->rename_file($input);
+    $this->send_JSON_Response(true, "File renamed MOCK", "", "", ["rename_output" => $rename_output]);
     }
 
     /**
