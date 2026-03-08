@@ -78,8 +78,9 @@ class ApiMethods extends Core
                     $this->send_JSON_Response(true, "Users retrieved successfully.", "", "", ['users' => $users]);
                     break;
                 case 'list_files':{
-                    $folder = __DIR__ . '/../uploads';
-                    $this->send_JSON_Response(true, "Files requested", "", "", ['files' => $this->create_file_details_table($folder)]);
+                   
+                    $file_model = new FileModel($this->db_access);
+                    $this->send_JSON_Response(true, "Files requested", "", "", ['files' => $file_model->create_uploaded_files_table()]);
                     break;
                 }
                 case 'download':
@@ -139,18 +140,16 @@ class ApiMethods extends Core
                 case 'reset_password':
                     $this->handle_password_reset($input);
                     break;
-                case 'check_token_existence':
-                    $this->handle_check_token_existence($input);
-                    break;
+               
                 case 'get_user_by_token':
                     $this->handle_get_user_by_token($input);
                     break;
 
-                case 'test_function':
-                    $this->handle_test_function($input);
-                    break;  
                 case 'rename_file':
                     $this->handle_rename_file($input);
+                    break;
+                case 'delete_file':
+                    $this->handle_delete_file($input);
                     break;
                    
                 default:
@@ -293,40 +292,8 @@ public function handle_clear_token(array $input): void{
  $this->send_JSON_Response($success, $message, $warning, $error, ['token_cleared' => $result]);
 }
 
-public function handle_test_function(array $input): void{
 
-      $message = "Looking up token";
-      $user = new UserModel($this->db_access);
-      $success = false;
-      $error = "";
-         
-       $result=$user->check_token_existence($input['token']);
-      
-      if($result){
-            $success = true;
-            $error ="";
-      } 
-       $this->send_JSON_Response($success, $message, "", $error, ['token_found' => $result]);
-      return;
-        
-      
-    }
 
-public function handle_check_token_existence(array $input): void
-{
-     $message = "Looking up token";
-      $user = new UserModel($this->db_access);
-      $success = false;
-      $error = "";
-      $result=$user->check_token_existence($input['token']);
-      
-      if($result){
-            $success = true;
-            $error ="";
-      } 
-       $this->send_JSON_Response($success, $message, "", $error, ['token_found' => $result]);
-      return;
-}
 
  public function handle_set_token_and_validity(array $input): void
     {
@@ -432,6 +399,13 @@ public function handle_check_token_existence(array $input): void
      $rename_output= $file_model->rename_file($input);
     $this->send_JSON_Response(true, "File renamed MOCK", "", "", ["rename_output" => $rename_output]);
     }
+
+    public function handle_delete_file(array $input){
+        $file_model = new FileModel($this->db_access);
+        $delete_output = $file_model->delete_file($input);
+        $this->send_JSON_Response(true, "File deleted MOCK", "", "", ["delete_output" => $delete_output]);
+    }
+
 
     /**
      * Send JSON response and exit

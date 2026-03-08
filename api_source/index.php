@@ -40,7 +40,5 @@ $file = $folder . '/test_file.txt';
 
 
 
-echo($core->JSONencodeFileTable($folder));
-
 
 ?>
