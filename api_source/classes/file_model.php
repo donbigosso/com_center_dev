@@ -83,10 +83,19 @@
     $file_list = $this->show_files_in_folder($this->upload_folder);
     $file_to_delete = $input['file_to_delete'];
     if(in_array($file_to_delete, $file_list)){
-        return "file found";
+         $file_path = $this->upload_folder . '/' . $file_to_delete;
+         unlink($file_path);
+        return ["deleted"=>true, "error"=>""];
     }
-    return $file_list;
-    }
+    else{
+        return ["deleted"=>false, "error"=>"File does not exist."];
         
+      }
+        
+    }
+
+    public function insert_uploaded_files(array $input){
+        return ["inserted"=>false, "error"=>"Not implemented yet."];        
+    }
     }
 ?>

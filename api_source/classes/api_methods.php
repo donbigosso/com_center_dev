@@ -151,6 +151,9 @@ class ApiMethods extends Core
                 case 'delete_file':
                     $this->handle_delete_file($input);
                     break;
+                case 'upload_files':
+                    $this->handle_upload_files($input);
+                    break;
                    
                 default:
                     $this->send_JSON_Response(false, "", "", "Unknown request: " . $input['request']);
