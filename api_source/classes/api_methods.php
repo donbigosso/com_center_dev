@@ -408,7 +408,11 @@ public function handle_clear_token(array $input): void{
         $delete_output = $file_model->delete_file($input);
         $this->send_JSON_Response(true, "File deleted MOCK", "", "", ["delete_output" => $delete_output]);
     }
-
+    public function handle_upload_files(array $input){
+        $file_model = new FileModel($this->db_access);
+        $upload_output = $file_model->insert_uploaded_files($input);
+        $this->send_JSON_Response(true, "Files uploaded MOCK", "", "", ["upload_output" => $upload_output]);
+    }
 
     /**
      * Send JSON response and exit
