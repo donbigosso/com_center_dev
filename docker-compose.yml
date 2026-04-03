@@ -11,6 +11,7 @@ services:
     ports:
       - "8082:80"
     volumes:
+      - ./uploads.ini:/usr/local/etc/php/conf.d/uploads.ini:ro  #ini file with details of file uploads
       - ./api_source:/var/www/html
     depends_on:
       - mysql
