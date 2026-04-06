@@ -411,7 +411,10 @@ public function handle_clear_token(array $input): void{
     public function handle_upload_files(array $input){
         $file_model = new FileModel($this->db_access);
         $upload_output = $file_model->insert_uploaded_files($input);
-        $this->send_JSON_Response(true, "Files uploaded MOCK", "", "", ["upload_output" => $upload_output]);
+        $success = $upload_output["success"];
+        $message = $upload_output["message"];
+        $error = $upload_output["error"];
+        $this->send_JSON_Response($success, $message, "", $error, ["upload_output" => $upload_output]);
     }
 
     /**

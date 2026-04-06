@@ -94,8 +94,50 @@
         
     }
 
+    public function return_duplicated_file_array(){
+         $file_name_list = $_FILES['files']['name'];
+         $files_not_duplicated = $this->return_unique_file_array();
+         $files_duplicated = array_diff($file_name_list, $files_not_duplicated);
+         return $files_duplicated;
+
+    }
+
+    public function return_unique_file_array(){
+         $file_name_list = $_FILES['files']['name'];
+         $uploaded_files_array = $this->show_files_in_folder($this->upload_folder);
+         $files_not_duplicated = array_diff($file_name_list, $uploaded_files_array);
+         return $files_not_duplicated;
+
+    }
+
+    
+
+
     public function insert_uploaded_files(array $input){
-        return ["inserted"=>false, "error"=>"Not implemented yet."];        
+        $max_files = 5;    
+        $token = $input['token'];
+        $user = new UserModel($this->db);
+        $logged_user_verify = $user->get_by_token($token);
+        if(!$logged_user_verify){
+            return ["success"=>false, "error"=>"User is not logged in.", "message"=>""];        
+        }
+        if (empty($_FILES['files']['name'][0])) {
+            return ["success"=>false, "error"=>"No files uploaded.", "message"=>""];        
+        }
+        
+        $max_size  = 10 * 1024 * 1024; // 10 MB per file
+        $allowed  = ['jpg', 'jpeg', 'png', 'pdf', 'txt', 'docx'];
+        $file_name_list = $_FILES['files']['name'];
+  
+        $files_to_upload_array = $this->return_unique_file_array(); //should return only unique files not on server
+        //check if files are within limits
+        if (count($files_to_upload_array) > $max_files) {
+            return ["success"=>false, "error"=>"Maximum $max_files files allowed.", "message"=>""];        
+        }
+        $files_to_upload_string = implode(', ', $files_to_upload_array);
+        $files_omitted = $this->return_duplicated_file_array();
+        $files_omitted_string = implode(', ', $files_omitted);
+             return ["success"=>false, "error"=>"Following file(s) cannot be uploaded (already exist): $files_omitted_string.", "message"=>"Following files were uploaded: $files_to_upload_string."];        
     }
     }
 ?>
