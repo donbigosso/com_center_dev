@@ -120,9 +120,37 @@
         }
         return $forbidden_file_array;
     }
+
+    public function check_file_size($filtered_file_name_array, $max_size)
+        {
+            $too_large_file_array = [];
+            
+            // Get uploaded files data
+            $upload_filename_array = $_FILES['files']['name'];
+            $upload_filesize_array = $_FILES['files']['size'];
+            
+            // Loop through all uploaded files
+            foreach ($upload_filename_array as $index => $filename) {
+                
+                // Only check files that are in the filtered array (passed previous checks)
+                if (in_array($filename, $filtered_file_name_array)) {
+                    
+                    // Check if file size exceeds the limit
+                    if ($upload_filesize_array[$index] > $max_size) {
+                        $too_large_file_array[] = $filename;
+                    }
+                }
+            }
+            
+            return $too_large_file_array;
+        }
     
     public function remove_forbidden_files_from_array($file_name_array, $forbidden_file_array){
         return array_diff($file_name_array, $forbidden_file_array);
+    }
+
+    public function remove_too_large_files_from_array($file_name_array, $too_large_file_array){
+        return array_diff($file_name_array, $too_large_file_array);
     }
 
 
@@ -142,7 +170,7 @@
             return ["success"=>false, "error"=>"No files uploaded.", "message"=>""];        
         }
         
-        $max_size  = 10 * 1024 * 1024; // 10 MB per file
+        $max_size  = 1 * 1024 * 1024; // 10 MB per file
         $allowed  = ['jpg', 'jpeg', 'png', 'pdf', 'txt', 'docx'];
         $file_name_list = $_FILES['files']['name'];
   
@@ -154,14 +182,21 @@
         //check if extensions are allowed
         $forbidden_file_array = $this->check_extensions($unique_upload_file_array, $allowed);
         $unique_with_corr_ext_array = $this->remove_forbidden_files_from_array($unique_upload_file_array, $forbidden_file_array);
-        $final_upload_array = $unique_with_corr_ext_array;
-        $final_upload_string = implode(', ',  $final_upload_array);
+  
+        $too_large_file_array = $this->check_file_size($unique_with_corr_ext_array, $max_size);
+        
+       
         $files_duplicated = $this->return_duplicated_file_array();
         $files_duplicated_string = implode(', ', $files_duplicated);
         $files_forbidden_string = implode(', ', $forbidden_file_array);
+        $unique_with_corr_ext_and_size_array = $this->remove_too_large_files_from_array($unique_with_corr_ext_array, $too_large_file_array);
+         $final_upload_array = $unique_with_corr_ext_and_size_array; 
+        $final_upload_string = implode(', ',  $final_upload_array);
+       
+       $too_large_file_array_string = implode(', ', $too_large_file_array);
         $upload_error_begining = "Folowing file(s) cannot be uploaded: ";
         $upload_error_body ="";
-       if (!empty($files_duplicated) || !empty($forbidden_file_array)) {
+       if (!empty($files_duplicated) || !empty($forbidden_file_array || !empty($too_large_file_array))) {
 
     if (!empty($files_duplicated)) {
         $upload_error_body = $upload_error_body . " " . $files_duplicated_string." (duplicated)";
@@ -169,6 +204,15 @@
 
     if (!empty($forbidden_file_array)) {          // ← Changed to if (no else)
         $upload_error_body = $upload_error_body . " " . $files_forbidden_string." (forbidden)";
+    }
+
+    if (!empty($too_large_file_array)) {
+        $upload_error_body = $upload_error_body . " " . $too_large_file_array_string." (too large)";
+    }
+
+    if(!empty($final_upload_array)){
+      $upload_message = "Following files were uploaded: " . $final_upload_string . ".";
+        
     }
 
     $upload_error = $upload_error_begining . $upload_error_body.".";
