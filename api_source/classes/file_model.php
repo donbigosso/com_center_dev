@@ -109,8 +109,21 @@
          return $files_not_duplicated;
 
     }
-
     
+    public function check_extensions($file_name_array,$allowed_extensions){
+        $forbidden_file_array = [];
+        foreach($file_name_array as $file_name){
+            $ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+            if(!in_array($ext, $allowed_extensions)){
+                $forbidden_file_array[] = $file_name;
+            }
+        }
+        return $forbidden_file_array;
+    }
+    
+    public function remove_forbidden_files_from_array($file_name_array, $forbidden_file_array){
+        return array_diff($file_name_array, $forbidden_file_array);
+    }
 
 
     public function insert_uploaded_files(array $input){
@@ -118,6 +131,10 @@
         $token = $input['token'];
         $user = new UserModel($this->db);
         $logged_user_verify = $user->get_by_token($token);
+        $upload_message="";
+        //Following files were uploaded: $final_upload_string.
+        $upload_error ="";
+        //"Following file(s) cannot be uploaded (already exist): $files_duplicated_string."
         if(!$logged_user_verify){
             return ["success"=>false, "error"=>"User is not logged in.", "message"=>""];        
         }
@@ -129,15 +146,35 @@
         $allowed  = ['jpg', 'jpeg', 'png', 'pdf', 'txt', 'docx'];
         $file_name_list = $_FILES['files']['name'];
   
-        $files_to_upload_array = $this->return_unique_file_array(); //should return only unique files not on server
+        $unique_upload_file_array = $this->return_unique_file_array(); //should return only unique files not on server
         //check if files are within limits
-        if (count($files_to_upload_array) > $max_files) {
+        if (count($unique_upload_file_array) > $max_files) {
             return ["success"=>false, "error"=>"Maximum $max_files files allowed.", "message"=>""];        
         }
-        $files_to_upload_string = implode(', ', $files_to_upload_array);
-        $files_omitted = $this->return_duplicated_file_array();
-        $files_omitted_string = implode(', ', $files_omitted);
-             return ["success"=>false, "error"=>"Following file(s) cannot be uploaded (already exist): $files_omitted_string.", "message"=>"Following files were uploaded: $files_to_upload_string."];        
+        //check if extensions are allowed
+        $forbidden_file_array = $this->check_extensions($unique_upload_file_array, $allowed);
+        $unique_with_corr_ext_array = $this->remove_forbidden_files_from_array($unique_upload_file_array, $forbidden_file_array);
+        $final_upload_array = $unique_with_corr_ext_array;
+        $final_upload_string = implode(', ',  $final_upload_array);
+        $files_duplicated = $this->return_duplicated_file_array();
+        $files_duplicated_string = implode(', ', $files_duplicated);
+        $files_forbidden_string = implode(', ', $forbidden_file_array);
+        $upload_error_begining = "Folowing file(s) cannot be uploaded: ";
+        $upload_error_body ="";
+       if (!empty($files_duplicated) || !empty($forbidden_file_array)) {
+
+    if (!empty($files_duplicated)) {
+        $upload_error_body = $upload_error_body . " " . $files_duplicated_string." (duplicated)";
+    }
+
+    if (!empty($forbidden_file_array)) {          // ← Changed to if (no else)
+        $upload_error_body = $upload_error_body . " " . $files_forbidden_string." (forbidden)";
+    }
+
+    $upload_error = $upload_error_begining . $upload_error_body.".";
+}
+        
+             return ["success"=>false, "error"=>$upload_error, "message"=>$upload_message];        
     }
     }
 ?>

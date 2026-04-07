@@ -25,7 +25,7 @@ if (!empty($_FILES['files']['name'][0])) {
         exit;
     }
 
-    for ($i = 0; $i < $count; $i++) {
+    for ($i = 0;< $count; $i++) { $i 
 
         $name = $_FILES['files']['name'][$i];
         $tmp  = $_FILES['files']['tmp_name'][$i];
