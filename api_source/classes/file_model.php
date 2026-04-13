@@ -127,7 +127,9 @@ class FileModel {
 
         // Too large
         $too_large = $this->check_file_size($valid_ext_files, $max_size);
-        $final_files = array_diff($valid_ext_files, $too_large);
+        $valid_ext_and_corr_size = array_diff($valid_ext_files, $too_large);
+        $with_server_errors = $this->check_server_errors($valid_ext_and_corr_size);
+        $final_files = array_diff($valid_ext_files, $with_server_errors);
 
         $duplicated = array_diff($all_files, $unique_files);
 
@@ -135,24 +137,26 @@ class FileModel {
         if ($duplicated) $error_parts[] = implode(', ', $duplicated) . " (duplicated)";
         if ($forbidden) $error_parts[] = implode(', ', $forbidden) . " (forbidden extension)";
         if ($too_large) $error_parts[] = implode(', ', $too_large) . " (too large)";
+        if ($with_server_errors) $error_parts[] = implode(', ', $with_server_errors) . " (server error)";
         if (!empty($final_files)) {
-    $count = count($final_files);
-    $file_list = implode(', ', $final_files);
-    
-    $message = ($count === 1) 
-        ? "1 file was uploaded: $file_list." 
-        : "$count files were uploaded: $file_list.";
-} else {
-    $message = "";
-}
+            $count = count($final_files);
+            $file_list = implode(', ', $final_files); 
+            $message = ($count === 1) 
+                ? "1 file was uploaded: $file_list." 
+                : "$count files were uploaded: $file_list.";
+        } else {
+            $message = "";
+        }
         if ($error_parts) {
             $error = "Following " . count($error_parts) . " file(s) cannot be uploaded: " . implode(", ", $error_parts) . ".";
             $extensions = $max_size;
             //$extensions = getenv('API_KEYS');
-            return ["success" => false, "error" => $error, "message" =>$message."AA".$extensions];
+            return ["success" => false, "error" => $error, "message" =>$message];
         }
 
         // TODO: Actually move the files here (you probably do this in ApiMethods)
+
+
         return [
             "success" => true,
             "error" => "",
@@ -183,4 +187,33 @@ class FileModel {
         }
         return $too_large;
     }
+
+public function check_server_errors(array $file_name_list): array
+{
+    $errors = [];
+    $errorCodes = $_FILES['files']['error'];
+    $fileNames  = $_FILES['files']['name'];
+
+    foreach ($errorCodes as $i => $errorCode) {
+        $name = $fileNames[$i] ?? 'Unknown file';
+
+        // ONLY check files that are in the provided $file_name_list
+        if (!in_array($name, $file_name_list, true)) {
+            continue;   // skip this file
+        }
+
+        // If there is an actual upload error
+        if ($errorCode !== UPLOAD_ERR_OK) {
+            $readableMessage = $this->get_upload_error_message($errorCode);
+
+            $errors[] = [
+                'file'    => $name,
+                'code'    => $errorCode,
+                'message' => $readableMessage
+            ];
+        }
+    }
+
+    return $errors;
+}
 }
