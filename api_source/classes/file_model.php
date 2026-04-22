@@ -113,6 +113,9 @@ class FileModel {
     $max_files = $config['max_files'];
     $max_size  = $config['max_size_mb']*1024*1024;
     $allowed   = $config['allowed_ext'];
+    $message = "";
+    $error = "";
+    $error_file_count =0;
 
         $all_files = $_FILES['files']['name'];
         $unique_files = array_diff($all_files, $this->show_files_in_folder($this->upload_folder));
@@ -130,8 +133,8 @@ class FileModel {
         $valid_ext_and_corr_size = array_diff($valid_ext_files, $too_large);
         $with_server_errors = $this->check_server_errors($valid_ext_and_corr_size);
         $final_files = array_diff($valid_ext_files, $with_server_errors);
-
         $duplicated = array_diff($all_files, $unique_files);
+        $error_file_count= count($all_files) - count($final_files);
 
         $error_parts = [];
         if ($duplicated) $error_parts[] = implode(', ', $duplicated) . " (duplicated)";
@@ -148,19 +151,19 @@ class FileModel {
             $message = "";
         }
         if ($error_parts) {
-            $error = "Following " . count($error_parts) . " file(s) cannot be uploaded: " . implode(", ", $error_parts) . ".";
-            $extensions = $max_size;
-            //$extensions = getenv('API_KEYS');
-            return ["success" => false, "error" => $error, "message" =>$message];
+            $error = "Following " . $error_file_count . " file(s) cannot be uploaded: " . implode(", ", $error_parts) . ".";
+            /*$upload_test=implode(", ",$this->move_files_to_server($final_files));
+            return ["success" => false, "error" => $error, "message" =>$message.$upload_test];*/
         }
+        $this->move_files_to_server($final_files);
 
-        // TODO: Actually move the files here (you probably do this in ApiMethods)
-
+        
+       
 
         return [
             "success" => true,
-            "error" => "",
-            "message" => "Following files were uploaded: " . implode(',  ', $final_files) . "."
+            "error" => $error,
+            "message" => $message
         ];
     }
 
@@ -216,4 +219,35 @@ public function check_server_errors(array $file_name_list): array
 
     return $errors;
 }
+
+    public function move_files_to_server($file_list){
+        $file_names= $_FILES['files']['name'];
+        $file_temp_names = $_FILES['files']['tmp_name'];
+        $move_results =[];
+        foreach ($file_names as $index => $name) {
+            if (in_array($name, $file_list)) {
+                // TODO: Move the file
+                $temp_name = $file_temp_names[$index];
+                
+                $target = $this->upload_folder."/".$name;
+              
+                $move_result = move_uploaded_file($temp_name, $target);
+                $move_results[] = $move_result;
+
+                 /*
+         $target = $uploadDir . time() . "_" . basename($name);
+
+        if (move_uploaded_file($tmp, $target)) {
+            $success[] = $name;
+        } else {
+            $errors[] = "$name → cannot save";
+        }
+        */ 
+
+
+            }
+        }
+        
+        return $move_results;
+    }
 }
