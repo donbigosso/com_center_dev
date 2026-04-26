@@ -124,9 +124,9 @@ class ApiMethods extends Core
                     $this->handle_delete_user($input);
                     break;
 
-                case 'login':
+                case 'test':
                     // Add login logic here
-                    $this->send_JSON_Response(true, "Login successful (mock).", "", "", ['token' => 'abc123']);
+                    $this->verify_admin_by_token($input);
                     break;
                 case 'verify_user_password':
                      $this->verify_user_password($input);
@@ -434,4 +434,22 @@ public function handle_clear_token(array $input): void{
         echo json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         exit;
     }
+
+
+    private function verify_admin_by_token(array $input){
+       
+        
+        $user_model = new UserModel($this->db_access);
+      
+      
+         
+       $result = $user_model->verify_admin_by_token($input);
+      
+        $success= $result['success'];
+        $message= $result['message'];
+        $error= $result['error'];
+        
+        $this->send_JSON_Response($success, $message, "", $error, []);
+    }
+
 }

@@ -187,6 +187,39 @@ class UserModel
         return !empty($user);
     }
 
+    public function check_if_admin(string $username): bool
+    {   
+
+        $user = $this->get_by_name($username);
+        if (!$user) {
+            return false;
+        }
+        return $user[0]['is_admin'] === 1;
+    }
+
+    public function verify_admin_by_token(array $input){
+       
+       $success= false;
+        $message = "";
+        $error="";
+        $token = $input['token'] ?? '';
+        if($this->get_by_token($token)) {
+            $name = $this->get_by_token($token)[0]['name'];
+            $success = $this->check_if_admin($name);
+            $message = ($success) ? "User: $name is admin." : "User: $name is not admin.";
+        }
+        else {
+            $error = "Token not found or user not logged in.";
+        }
+        return [
+            "success" => $success,
+            "error" => $error,
+            "message" => $message
+        ];
+
+        
+    }
+
     
 
 }
