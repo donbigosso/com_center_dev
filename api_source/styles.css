@@ -1,0 +1,114 @@
+body {
+    background-color: #f5f8ff;  /*#f5f8ff */
+    min-height: 100vh;
+}
+
+/* stop shrinking width under 470 px */
+.container, .container-fluid, .header, .navbar {
+    min-width: 470px; /* Prevents shrinking below this width */
+}
+
+
+.navbar {
+    background: linear-gradient(to right, #0d6efd, #0a58ca) !important;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.08);
+}
+
+.btn-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+}
+
+.btn-warning {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #000;
+}
+
+.btn-warning:hover {
+    background-color: #ffca2c;
+    border-color: #ffc720;
+}
+
+.text-primary {
+    color: #0d6efd !important;
+}
+
+main {
+    padding-bottom: 3rem;
+}
+
+.logged-only { display: none; } /* when not logged in */
+
+
+/* Modal */
+#modal-alert-field {
+    display: none;
+}
+
+th {
+    position: relative;
+}
+
+.sort-icon {
+    font-size: 0.8rem;
+    opacity: 0.4;
+    transition: opacity 0.2s;
+}
+
+th:hover .sort-icon {
+    opacity: 0.8;
+}
+
+/* File upload */
+
+#upload-alert-field {
+    display: none;
+}
+
+#upload-success-line {
+  display: none;   
+}
+/* Optional: active sort indicator (you can toggle these classes with JS later) */
+th.sort-asc .sort-icon::before {
+    content: "\f574"; /* bi-arrow-up */
+    opacity: 1;
+}
+
+th.sort-desc .sort-icon::before {
+    content: "\f575"; /* bi-arrow-down */
+    opacity: 1;
+}
+
+
+/* test fields */
+.test_field {display: block;}
+
+/* Table */
+button .bi,
+button .bi svg {
+    pointer-events: none;
+}
+
+#global-feedback {
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+  font-size: 0.8rem;
+  z-index: 10;
+}
+
+
+/* Big screen only class */
+@media (max-width: 780px) {
+    .big-screen-only {
+        display: none;
+    }
+}

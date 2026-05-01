@@ -1,44 +1,47 @@
-<?php
-echo "<h1>Access Denied!</h1>";
-//return;
-include 'classes/db_access.php';
-include 'classes/core.php';
-include 'classes/user_model.php';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Denied</title>
 
-echo "<h2>Api source php file</h2>";
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .denied-container {
+            height: 100vh;
+        }
+        .logo {
+            width: 200px;
+            height: 200px;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body>
 
-$db   = getenv('MYSQL_DATABASE');
-$user = getenv('MYSQL_USER');
-$pass = getenv('MYSQL_PASSWORD');
-$core = new Core();
-$db = new DatabaseAccess('mysql', $db, $user, $pass);
-$userModel = new UserModel($db);
+<div class="container d-flex justify-content-center align-items-center denied-container">
+    <div class="text-center">
+        
+        <img src="/images/logo.png" alt="Logo" class="logo mb-4">
 
+        <h1 class="display-5 fw-bold text-danger">403 - Access Denied</h1>
+        
+        <p class="lead mt-3">
+            You are not allowed to access this page.
+        </p>
 
+       
 
+    </div>
+</div>
 
-echo "<br><br>";
-$hashed_pwd = password_hash('Mont3Negr0!', PASSWORD_DEFAULT);
-// var_dump($db->insert('users', ['name' => 'bigos', 'password' => $hashed_pwd]));
+<!-- Bootstrap JS (optional) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-$found_user = $userModel->get_by_name('bigos');
-if($found_user){
-    print_r($found_user);
-}
-else
-{
-    echo "User not found<br>";
-}   
-
-
-
-echo "<br><br>";
-
-$folder = __DIR__ . '/uploads';
-$file = $folder . '/test_file.txt';
-
-phpinfo();
-
-
-
-?>
+</body>
+</html>

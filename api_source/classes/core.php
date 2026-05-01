@@ -11,7 +11,44 @@ class Core
       return json_decode($json, true);
   }
 
- 
+ private function check_session_token_existence(){
+    if(!isset($_SESSION['token'])){
+        return false;
+    }
+  
+    return true;
+ }
+
+ public function check_user_for_token($dba){
+    if($this->check_session_token_existence()){
+        $token = $_SESSION['token'];
+        $user = new UserModel($dba);
+        $username = null;
+        if($user->get_by_token($token)){
+            $result = $user->get_by_token($token);
+            $username = $result[0]['name'];
+        }
+        return $username;
+    }
+    return false;
+ }
+
+public function redirect_to_login_screen($dba){
+    if(!$this->check_user_for_token($dba)){
+        header('Location: ./login.php');
+        exit;
+    }
+}
+
+public function auto_log_user($dba){
+    if($this->check_user_for_token($dba)){
+        header('Location: ./');
+        exit;
+    }
+}
+
+
 
 }
+
 ?>
