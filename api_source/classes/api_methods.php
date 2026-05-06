@@ -154,6 +154,10 @@ class ApiMethods extends Core
                 case 'upload_files':
                     $this->handle_upload_files($input);
                     break;
+                case 'send_table_to_frontend':
+                    $this->handle_send_table_to_frontend($input);
+                    break;
+
                    
                 default:
                     $this->send_JSON_Response(false, "", "", "Unknown request: " . $input['request']);
@@ -178,47 +182,7 @@ class ApiMethods extends Core
             
     }
 
-     private function handle_create_user(array $input): void
-{
-    // Validate required field
-    if (empty($input['name'])) {
-        $this->send_JSON_Response(false, "", "", "Name is required.", ['user_created' => false]);
-        return;
-    }
-   // $mockDBA = null;
-   $user_name = $input['name'];
-   if(isset($input['password'])){
-        $password = $input['password'];
-   }
-   else {
-     $this->send_JSON_Response(true, "Creation request initiated", "No password provided", "", ['user_created' => false]);
-     return;
-   }
-
-   $user = new UserModel($this->db_access);
-   $check_name = $user->get_by_name($user_name);
-   if (!empty($check_name)){
-     $this->send_JSON_Response(false, "", "", "User already exist", ['user_created' => false]);
-     return;
-   }
-    // Simulate user creation (replace with real logic/DB insert when needed)
-    $user->create($user_name,  $password);
-    $newUser = [
-        
-        'name' => $user_name,
-        'name_check' => $check_name
-      
-    ];
-
-    // Success response with the new user data
-    $this->send_JSON_Response(
-        true,
-        "User $user_name created successfully.",
-        "",          // you can put a code here if you use it elsewhere
-        "",          // message/details field (empty in your example)
-        ['user_created' => true]
-    );
-}   
+  
 
 
 
@@ -415,6 +379,26 @@ public function handle_clear_token(array $input): void{
         $message = $upload_output["message"];
         $error = $upload_output["error"];
         $this->send_JSON_Response($success, $message, "", $error, ["upload_output" => $upload_output]);
+    }
+
+    public function handle_send_table_to_frontend(array $input){
+        $s=true;
+        $msg="msg";
+        $err = "err";
+        $wrng="warn";    
+        
+                   
+        $tailored_db_methods = new TailoredDBMethods($this->db_access); 
+       
+       
+        $send_table_output = $tailored_db_methods->send_table_to_frontend($input);
+
+        $success = $send_table_output["success"];
+        $message = $send_table_output["message"];
+        $error = $send_table_output["error"];
+        $data = $send_table_output["data"];
+        $this->send_JSON_Response($success, $message, "", $error, $data);
+         return; 
     }
 
     /**

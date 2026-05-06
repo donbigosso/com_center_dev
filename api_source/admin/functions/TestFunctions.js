@@ -1,7 +1,7 @@
-import {  changeButtonText, showModal } from "./PageAppearance.js";
+import {  changeButtonText, drawTable } from "./PageAppearance.js";
 import { onClick } from "./EventFunctions.js";
-import {getSessionToken} from "./CustomFunctions.js";
-import {requestDeleteFile} from "./RequestFunctions.js";
+import {getSessionToken,  changeResultAreaHTMLTo} from "./CustomFunctions.js";
+import {requestDeleteFile, requestSendTableAdmin} from "./RequestFunctions.js";
 import {POSTJSONRequest, getSetting} from "./CoreFunctions.js";
 
 
@@ -42,8 +42,13 @@ const test_response= await requestDeleteFile("	sddefault.jpg", "supertoken1234")
 }
 
 export async function performAdminTests(){
-  const apiAdr = await getSetting("api_address");
-  const testRequest = await POSTJSONRequest({request:"dupa",smrod:"dupa"});
+  
+  const resultArea = document.getElementById('result-area');
+  const testRequest = await requestSendTableAdmin("users");
+  const tableData= testRequest.data;
+  console.log(tableData); 
+  const drawnTable =  drawTable(tableData, "nice-table");
+  resultArea.appendChild(drawnTable);
   return testRequest;
 }
 

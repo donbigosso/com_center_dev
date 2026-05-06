@@ -1,5 +1,5 @@
 import { checkHTMLInstance } from "./CoreFunctions.js";
-import { verifySession } from "./RequestFunctions.js";
+import { verifySession, createUser } from "./RequestFunctions.js";
 export function show(element, display = "inline-block") {
   if (!(element instanceof HTMLElement)) {
     console.warn("show(): invalid element");
@@ -117,4 +117,87 @@ export async function displayLoggedUser(){
     console.log("DEB 124 User is not logged in");
     return;
   }
+
+  
+  
   }
+
+  export function drawTable(data, className="") {
+    const [headers, ...rows] = data;
+
+    const table = document.createElement('table');
+    table.className = className;
+
+    // Header row
+    const thead = table.createTHead();
+    const headerRow = thead.insertRow();
+    headers.forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h;
+        headerRow.appendChild(th);
+    });
+
+    // Data rows
+    const tbody = table.createTBody();
+    rows.forEach(row => {
+        const tr = tbody.insertRow();
+        row.forEach(cell => {
+            const td = tr.insertCell();
+            td.textContent = cell ?? '';
+        });
+    });
+
+    return table;
+}
+
+export function drawUserCreationForm(onSubmit) {
+    const form = document.createElement('form');
+
+    const fields = [
+        { label: 'Username',         name: 'username',        type: 'text' },
+        { label: 'Password',         name: 'password',        type: 'password' },
+        { label: 'Confirm Password', name: 'confirmPassword', type: 'password' },
+    ];
+
+    fields.forEach(({ label, name, type }) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'mb-3 px-5';
+
+        const lbl = document.createElement('label');
+        lbl.textContent = label;
+        lbl.htmlFor = name;
+        lbl.className = 'form-label';
+
+        const input = document.createElement('input');
+        input.type = type;
+        input.name = name;
+        input.id = name;
+        input.className = 'form-control';
+
+        wrapper.appendChild(lbl);
+        wrapper.appendChild(input);
+        form.appendChild(wrapper);
+    });
+
+    const btn = document.createElement('button');
+    const btnWrapper = document.createElement('div');
+btnWrapper.className = 'd-flex justify-content-center';
+
+btnWrapper.appendChild(btn);
+    btn.type = 'button';
+    btn.textContent = 'Create User';
+    btn.className = 'btn btn-primary w-50';
+    btn.addEventListener('click', () => {
+        const username        = form.username.value.trim();
+        const password        = form.password.value;
+        const confirmPassword = form.confirmPassword.value;
+
+        if (!username || !password) return alert('Fill in all fields.');
+        if (password !== confirmPassword) return alert('Passwords do not match.');
+
+        onSubmit({ username, password });
+    });
+
+    form.appendChild(btnWrapper);
+    return form;
+}

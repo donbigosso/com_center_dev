@@ -89,3 +89,9 @@ export async function requestDeleteFile(filename, sessionToken){
 export  async function uploadFiles(files) {
     
 }
+
+export async function requestSendTableAdmin(tableName){
+    const token = window.SESSION.token;
+    const serverResponse = await POSTJSONRequest({request: "send_table_to_frontend", table_name: tableName, token: token});
+    return serverResponse;
+}

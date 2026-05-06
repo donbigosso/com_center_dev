@@ -4,7 +4,7 @@
     include '../classes/core.php';
     include '../classes/user_model.php';
     include '../classes/db_access.php';
-    include '../classes/tailored_db_methods.php';
+
     $db   = getenv('MYSQL_DATABASE');
     $user = getenv('MYSQL_USER');
     $pass = getenv('MYSQL_PASSWORD');
@@ -13,16 +13,22 @@
     $dba = new DatabaseAccess('mysql', $db, $user, $pass);
     $core->redirect_to_login_screen($dba);
     $username = $core->check_user_for_token($dba);
-    $tailored_db_methods = new TailoredDBMethods('mysql', $db, $user, $pass);
+
     
 ?>
+
+<script>
+    window.SESSION = {
+        token: "<?php echo htmlspecialchars($_SESSION['token'] ?? ''); ?>"
+    };
+</script>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel</title>
-
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
     <!-- Bootstrap CSS -->
       <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -33,7 +39,7 @@
    
 </head>
 <body>
-     <header class="navbar navbar-expand navbar-dark bg-primary shadow-sm">
+     <header class="navbar-expand navbar-dark shadow-sm navbar" id="admin_navbar">
         <div class="container-fluid">
             <a class="navbar-brand fw-bold fs-4" href="#">
            
@@ -46,7 +52,7 @@
                 <span class="text-light me-3 ">
                     <i class="bi bi-person-circle"></i>&nbsp;
                     <strong id="user-field">
-                       
+                       <?php echo htmlspecialchars($username); ?>
                     </strong>
                 </span>
                
@@ -54,7 +60,49 @@
             </div>
         </div>
     </header>
- <?php echo ($tailored_db_methods->return_table_for_ui_json('users')); ?>
+
+    <!-- Navigation Tiles -->
+    <section class="container my-4">
+        <h5 class="mb-3 text-muted">Quick Actions</h5>
+        <div class="row g-3">
+            <div class="col-6 col-md-3">
+                <button class="btn w-100 py-4 shadow-sm tile-btn" id="tile-users">
+                    <i class="bi bi-people fs-2 d-block mb-2"></i>
+                    Show users table
+                </button>
+            </div>
+         
+            <div class="col-6 col-md-3">
+                <button class="btn w-100 py-4 shadow-sm tile-btn" id="tile-create-user">
+                    <i class="bi bi-person-plus  fs-2 d-block mb-2"></i>
+                    Create user
+                </button>
+            </div>
+             <!--
+            <div class="col-6 col-md-3">
+                <button class="btn w-100 py-4 shadow-sm tile-btn" id="tile-products">
+                    <i class="bi bi-box-seam fs-2 d-block mb-2"></i>
+                    Products
+                </button>
+            </div>
+            <div class="col-6 col-md-3">
+                <button class="btn w-100 py-4 shadow-sm tile-btn" id="tile-settings">
+                    <i class="bi bi-gear fs-2 d-block mb-2"></i>
+                    Settings
+                </button>
+            </div>
+-->
+        </div>
+    
+
+    </section>
+ 
+    <div id="result-area" class="p-2" >
+            
+        </div>
+   
+
+ 
 
 
 </body>

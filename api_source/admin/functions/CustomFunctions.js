@@ -58,6 +58,16 @@ function showFeedback(text) {
   }, 1500);
 }
 
+export function changeResultAreaTextTo(text) {
+    const resultArea = document.getElementById('result-area');
+    resultArea.textContent = text;
+}
+
+export function changeResultAreaHTMLTo(html){
+    const resultArea = document.getElementById('result-area');
+    resultArea.innerHTML = html;    
+}
+
 
 export function showCopiedLinkFeedback() {
     

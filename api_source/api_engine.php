@@ -6,6 +6,7 @@
     include 'classes/api_methods.php';
     include 'classes/user_model.php';
     include 'classes/file_model.php';
+    include 'classes/tailored_db_methods_2.php';
     $core = new Core();
     $db   = getenv('MYSQL_DATABASE');
     $user = getenv('MYSQL_USER');
