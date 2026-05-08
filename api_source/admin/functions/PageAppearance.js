@@ -1,5 +1,5 @@
 import { checkHTMLInstance } from "./CoreFunctions.js";
-import { verifySession, createUser } from "./RequestFunctions.js";
+import { verifySession} from "./RequestFunctions.js";
 export function show(element, display = "inline-block") {
   if (!(element instanceof HTMLElement)) {
     console.warn("show(): invalid element");
@@ -195,9 +195,90 @@ btnWrapper.appendChild(btn);
         if (!username || !password) return alert('Fill in all fields.');
         if (password !== confirmPassword) return alert('Passwords do not match.');
 
+
         onSubmit({ username, password });
     });
 
     form.appendChild(btnWrapper);
+    return form;
+}
+
+export function drawUserDeletionForm(userList, onSubmit) {
+    const form = document.createElement('form');
+
+    // Mock users
+    
+
+    // Dropdown
+    const selectWrapper = document.createElement('div');
+    selectWrapper.className = 'mb-3 px-5';
+
+    const selectLabel = document.createElement('label');
+    selectLabel.textContent = 'Select User';
+    selectLabel.htmlFor = 'selectUser';
+    selectLabel.className = 'form-label';
+
+    const select = document.createElement('select');
+    select.name = 'selectUser';
+    select.id = 'selectUser';
+    select.className = 'form-select';
+
+    const defaultOption = document.createElement('option');
+    defaultOption.textContent = '-- Select a user --';
+    defaultOption.value = '';
+    select.appendChild(defaultOption);
+
+    userList.forEach(user => {
+        const option = document.createElement('option');
+        option.value = user;
+        option.textContent = user;
+        select.appendChild(option);
+    });
+
+    selectWrapper.appendChild(selectLabel);
+    selectWrapper.appendChild(select);
+    form.appendChild(selectWrapper);
+
+    // Confirm username input
+    const confirmWrapper = document.createElement('div');
+    confirmWrapper.className = 'mb-3 px-5';
+
+    const confirmLabel = document.createElement('label');
+    confirmLabel.textContent = 'Type username to confirm';
+    confirmLabel.htmlFor = 'confirmUsername';
+    confirmLabel.className = 'form-label';
+
+    const confirmInput = document.createElement('input');
+    confirmInput.type = 'text';
+    confirmInput.name = 'confirmUsername';
+    confirmInput.id = 'confirmUsername';
+    confirmInput.className = 'form-control';
+    confirmInput.placeholder = 'Type username here...';
+
+    confirmWrapper.appendChild(confirmLabel);
+    confirmWrapper.appendChild(confirmInput);
+    form.appendChild(confirmWrapper);
+
+    // Delete button
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = 'Delete User';
+    btn.className = 'btn btn-danger w-50';
+    btn.addEventListener('click', () => {
+        const selectedUser    = select.value;
+        const confirmedUser   = confirmInput.value.trim();
+
+        if (!selectedUser) return alert('Please select a user.');
+        if (!confirmedUser) return alert('Please type the username to confirm.');
+        if (selectedUser !== confirmedUser) return alert('Username does not match.');
+
+        onSubmit({ username: selectedUser });
+    });
+
+    const btnWrapper = document.createElement('div');
+    btnWrapper.className = 'd-flex justify-content-center mt-2 px-5';
+    btnWrapper.appendChild(btn);
+    form.appendChild(btnWrapper);
+
     return form;
 }

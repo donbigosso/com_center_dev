@@ -19,9 +19,9 @@
           return json_encode($result);
         }
 
-        public function return_table_for_ui(string $table_name): array
+        public function return_table_for_ui(string $table, array $conditions = [], array $columns = ['*']): array
             {
-                $rows = $this->db->select($table_name);
+                $rows = $this->db->select($table, $conditions, $columns);
                 if (empty($rows)) {
                     return [];
                 }
@@ -43,6 +43,7 @@
                 $error="";
                 $table=[];
                 $token = $input['token'] ?? '';
+                $columns = $input['columns'] ?? ['*'];
                 if(!$token){
                     $error = "Token not found or user not logged in.";
                     return [
@@ -56,7 +57,7 @@
                 if($admin_test['success']){
                     $success = true;
                     $message = "Table sent to frontend";
-                    $table= $this->return_table_for_ui($input['table_name']);
+                    $table= $this->return_table_for_ui($input['table_name'],[],$columns);
                     // TODO: Send table to frontend
                 }
                 else {

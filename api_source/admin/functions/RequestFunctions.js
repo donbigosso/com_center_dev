@@ -28,11 +28,16 @@ export async function createUser(username, password) {
     const isUsrNameValid = usrNameRegex.test(username);
     if(isPassValid && isUsrNameValid){
         // TODO: Call API to create user
-        console.log("DEB763 Creating user:", username, "pass valiod: ", isPassValid);
+     
         const serverResponse= await POSTJSONRequest({request: "create_user",name:username, password:password});
         if(serverResponse.success){
             console.log("DEB764 Server response - user creation:", serverResponse.data.user_created);
-            return true;
+            const user_was_created = serverResponse.data.user_created;
+                                  
+            const alertTextContent = user_was_created ? 'User created successfully!' : 'Failed to create user. Check if username is already taken.';
+
+            
+            return alert(alertTextContent);
         }
         else {
             console.error("DEB765 Server response:", serverResponse);
@@ -41,7 +46,7 @@ export async function createUser(username, password) {
     }
     else {
         console.warn("DEB762 Invalid username or password");
-        return false;
+        return alert('Username or password does not fulfill requirements.');
     }
 }
 
@@ -90,8 +95,8 @@ export  async function uploadFiles(files) {
     
 }
 
-export async function requestSendTableAdmin(tableName){
+export async function requestSendTableAdmin(tableName, conditions = [], columns = ['*']){
     const token = window.SESSION.token;
-    const serverResponse = await POSTJSONRequest({request: "send_table_to_frontend", table_name: tableName, token: token});
+    const serverResponse = await POSTJSONRequest({request: "send_table_to_frontend", table_name: tableName, token: token, conditions: conditions, columns: columns});
     return serverResponse;
 }

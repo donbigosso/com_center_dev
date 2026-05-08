@@ -78,13 +78,14 @@
                     Create user
                 </button>
             </div>
-             <!--
+             
             <div class="col-6 col-md-3">
-                <button class="btn w-100 py-4 shadow-sm tile-btn" id="tile-products">
-                    <i class="bi bi-box-seam fs-2 d-block mb-2"></i>
-                    Products
+                <button class="btn w-100 py-4 shadow-sm tile-btn" id="tile-delete-user">
+                    <i class="bi bi-person-dash fs-2 d-block mb-2"></i>
+                    Delete user
                 </button>
             </div>
+            <!--
             <div class="col-6 col-md-3">
                 <button class="btn w-100 py-4 shadow-sm tile-btn" id="tile-settings">
                     <i class="bi bi-gear fs-2 d-block mb-2"></i>
