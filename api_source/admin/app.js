@@ -1,11 +1,12 @@
 import { performAdminTests } from "./functions/TestFunctions.js";
-import { requestSendTableAdmin, createUser } from "./functions/RequestFunctions.js";
+import { requestSendTableAdmin, createUser, deleteUserByAdmin } from "./functions/RequestFunctions.js";
 import {drawTable, drawUserCreationForm, drawUserDeletionForm} from "./functions/PageAppearance.js";
 
 
 const logoutBtn = document.getElementById('logout-btn');
 const userTile = document.getElementById('tile-users');
 const createUserTile = document.getElementById('tile-create-user');
+const deleteUserTile = document.getElementById('tile-delete-user');
 const resultArea = document.getElementById('result-area');
 logoutBtn.addEventListener('click', () => {
            
@@ -13,7 +14,7 @@ logoutBtn.addEventListener('click', () => {
         });
 
 userTile.addEventListener('click', async () => {
-    const tableRequest = await requestSendTableAdmin('users',[],['user_id','name','is_admin','register_date']);
+     
     resultArea.innerHTML = '';  
     const tableData = tableRequest.data;
     const drawnTable = drawTable(tableData, "nice-table");
@@ -30,14 +31,17 @@ createUserTile.addEventListener('click', async () => {
     resultArea.appendChild(form);
 });
 
-const deleteUserTile = document.getElementById('tile-delete-user');
+
 deleteUserTile.addEventListener('click', async () => {
-    resultArea.innerHTML = '';  
-    const mockUsers = ['alice', 'wojtek', 'charlie', 'diana', 'evan'];
-    const form = drawUserDeletionForm(mockUsers, ({ username }) => {
-        console.log('Delete user:', username);
+    resultArea.innerHTML = '';
+    const tableRequest = await requestSendTableAdmin('users',[],['name']);
+    const tableData = tableRequest.data;
+    const result = tableData.flat().filter(Boolean).slice(1);
+    const userList = result;
+    const form = drawUserDeletionForm(userList, ({ username }) => {
+        //console.log('Delete user:', username);
         // call your API here
-        //deleteUser(username);
+        console.log(deleteUserByAdmin(username));
     });
     resultArea.appendChild(form);
 });

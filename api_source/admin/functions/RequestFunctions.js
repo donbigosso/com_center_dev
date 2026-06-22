@@ -100,3 +100,9 @@ export async function requestSendTableAdmin(tableName, conditions = [], columns 
     const serverResponse = await POSTJSONRequest({request: "send_table_to_frontend", table_name: tableName, token: token, conditions: conditions, columns: columns});
     return serverResponse;
 }
+
+export async function deleteUserByAdmin(username){
+    const token = window.SESSION.token;
+    const serverResponse = await POSTJSONRequest({request: "delete_user", name: username, token: token});
+    return serverResponse;
+}

@@ -220,6 +220,35 @@ class UserModel
         
     }
 
+    public function delete_user_by_admin (array $input){
+        $success = false;
+        $message = "";
+        $error = "";
+        $user_to_delete = $input['name'] ?? '';
+       if(!$this->verify_admin_by_token($input)) {
+    $error = "User is not admin.";
+    return [
+        "success" => $success,
+        "error" => $error,
+        "message" => $message
+    ];
+}  // ← closing brace goes HERE
+
+if($this->delete($user_to_delete)) {
+    $success = true;
+    $message = "User $user_to_delete deleted.";
+} else {
+    $error = "User $user_to_delete not found.";
+}
+return [
+    "success" => $success,
+    "error" => $error,
+    "message" => $message
+];
+        
+        
+    }
+
     
 
 }

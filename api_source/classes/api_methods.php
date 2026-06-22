@@ -121,7 +121,7 @@ class ApiMethods extends Core
                    $this->new_handel_user_create($input);
                     break;
                 case 'delete_user':
-                    $this->handle_delete_user($input);
+                    $this->handle_delete_user_by_admin($input);
                     break;
 
                 case 'test':
@@ -209,6 +209,12 @@ class ApiMethods extends Core
         $this->send_JSON_Response(true, $message, $warning, "", ['user_deleted' => $response]);
         return;
        
+    }
+
+    private function handle_delete_user_by_admin(array $input){
+        $user_model = new UserModel($this->db_access);
+        $delete_user = $user_model->delete_user_by_admin($input);
+        $this->send_JSON_Response($delete_user['success'], $delete_user['message'], $delete_user['error'], "", ['user_deleted' => $delete_user['success']]);
     }
 
 
