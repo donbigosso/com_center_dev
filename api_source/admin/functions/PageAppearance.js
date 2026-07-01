@@ -382,6 +382,7 @@ export function drawPasswordChangeForm(userList, onSubmit) {
         if (password !== confirmPassword) return showFeedback('Passwords do not match.',"red");
 
         onSubmit({ username, password });
+        return showFeedback('Password for ' + username + ' has been changed successfully!');
     });
 
     btnWrapper.appendChild(btn);
