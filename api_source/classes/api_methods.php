@@ -140,6 +140,9 @@ class ApiMethods extends Core
                 case 'reset_password':
                     $this->handle_password_reset($input);
                     break;
+                case 'reset_password_by_admin':
+                    $this->handle_password_reset_by_admin($input);
+                    break;
                
                 case 'get_user_by_token':
                     $this->handle_get_user_by_token($input);
@@ -234,6 +237,13 @@ class ApiMethods extends Core
   
     $this->send_JSON_Response($verification, "Password verification", "", "",['password_verification'=>$verification]);
             return; 
+}
+
+
+private function handle_password_reset_by_admin(array $input): void {
+    $user_model = new UserModel($this->db_access);
+    $result = $user_model->reset_password_by_admin($input);
+    $this->send_JSON_Response($result['success'], $result['message'], $result['error'], "", ['password_reset' => $result['success']]);
 }
 
     private function handle_password_reset(array $input): void{

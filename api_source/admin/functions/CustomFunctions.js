@@ -46,16 +46,17 @@ export function getSessionToken(){
     return getCookie("session_token");
 }
 
-function showFeedback(text) {
+export function showFeedback(text, color = 'green') {
   const feedbackElement = document.getElementById('global-feedback');
   feedbackElement.innerText = text;
   feedbackElement.classList.remove('opacity-0');
   feedbackElement.classList.add('opacity-100');
+  feedbackElement.style.color = color || '';
 
   setTimeout(() => {
     feedbackElement.classList.remove('opacity-100');
     feedbackElement.classList.add('opacity-0');
-  }, 1500);
+  }, 2000);
 }
 
 export function changeResultAreaTextTo(text) {
@@ -79,4 +80,8 @@ export function showRenameFeedback(){
 
 export function showDeleteFeedback(){
     showFeedback("File successfully deleted");
+}
+
+export function showUserDeleteFeedback(username){
+    showFeedback(`User ${username} has been successfully deleted`);
 }

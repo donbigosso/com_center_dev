@@ -85,19 +85,18 @@
                     Delete user
                 </button>
             </div>
-            <!--
-            <div class="col-6 col-md-3">
-                <button class="btn w-100 py-4 shadow-sm tile-btn" id="tile-settings">
-                    <i class="bi bi-gear fs-2 d-block mb-2"></i>
-                    Settings
+               <div class="col-6 col-md-3">
+                <button class="btn w-100 py-4 shadow-sm tile-btn" id="tile-change-password">
+                    <i class="bi bi-key fs-2 d-block mb-2"></i>
+                    Change password
                 </button>
-            </div>
--->
+            </div>     <div id="global-feedback" class="global-feedback opacity-0"></div>
         </div>
     
 
     </section>
  
+    
     <div id="result-area" class="p-2" >
             
         </div>

@@ -1,4 +1,5 @@
 import { checkHTMLInstance } from "./CoreFunctions.js";
+import { showFeedback } from "./CustomFunctions.js";
 import { verifySession} from "./RequestFunctions.js";
 export function show(element, display = "inline-block") {
   if (!(element instanceof HTMLElement)) {
@@ -83,6 +84,7 @@ export function changeButtonText(button, text) {
 
   button.textContent = text;
 }
+//Santamonika!1
 
 export function changeButtonStyle(button) {
  if(checkHTMLInstance(button)){
@@ -152,14 +154,15 @@ export async function displayLoggedUser(){
 
 export function drawUserCreationForm(onSubmit) {
     const form = document.createElement('form');
+    form.setAttribute('autocomplete', 'off');
 
     const fields = [
-        { label: 'Username',         name: 'username',        type: 'text' },
-        { label: 'Password',         name: 'password',        type: 'password' },
-        { label: 'Confirm Password', name: 'confirmPassword', type: 'password' },
+        { label: 'Username',         name: 'username',        type: 'text',     autocomplete: 'off' },
+        { label: 'Password',         name: 'password',        type: 'password', autocomplete: 'new-password' },
+        { label: 'Confirm Password', name: 'confirmPassword', type: 'password', autocomplete: 'new-password' },
     ];
 
-    fields.forEach(({ label, name, type }) => {
+    fields.forEach(({ label, name, type, autocomplete }) => {
         const wrapper = document.createElement('div');
         wrapper.className = 'mb-3 px-5';
 
@@ -173,6 +176,7 @@ export function drawUserCreationForm(onSubmit) {
         input.name = name;
         input.id = name;
         input.className = 'form-control';
+        input.autocomplete = autocomplete;
 
         wrapper.appendChild(lbl);
         wrapper.appendChild(input);
@@ -181,9 +185,9 @@ export function drawUserCreationForm(onSubmit) {
 
     const btn = document.createElement('button');
     const btnWrapper = document.createElement('div');
-btnWrapper.className = 'd-flex justify-content-center';
+    btnWrapper.className = 'd-flex justify-content-center';
 
-btnWrapper.appendChild(btn);
+    btnWrapper.appendChild(btn);
     btn.type = 'button';
     btn.textContent = 'Create User';
     btn.className = 'btn btn-primary w-50';
@@ -192,17 +196,19 @@ btnWrapper.appendChild(btn);
         const password        = form.password.value;
         const confirmPassword = form.confirmPassword.value;
 
-        if (!username || !password) return alert('Fill in all fields.');
-        if (password !== confirmPassword) return alert('Passwords do not match.');
-
+        if (!username || !password) return showFeedback('Please fill in all fields.', 'red');
+        if (password !== confirmPassword) return showFeedback('Passwords do not match.', 'red');
 
         onSubmit({ username, password });
     });
 
     form.appendChild(btnWrapper);
+
+    // Clear any browser-autofilled values once the form is in the DOM
+    requestAnimationFrame(() => form.reset());
+
     return form;
 }
-
 export function drawUserDeletionForm(userList, onSubmit) {
     const form = document.createElement('form');
 
@@ -264,19 +270,120 @@ export function drawUserDeletionForm(userList, onSubmit) {
     btn.type = 'button';
     btn.textContent = 'Delete User';
     btn.className = 'btn btn-danger w-50';
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
         const selectedUser    = select.value;
         const confirmedUser   = confirmInput.value.trim();
 
-        if (!selectedUser) return alert('Please select a user.');
-        if (!confirmedUser) return alert('Please type the username to confirm.');
-        if (selectedUser !== confirmedUser) return alert('Username does not match.');
+        if (!selectedUser) return showFeedback('Please select a user.',"red");
+        if (!confirmedUser) return showFeedback('Please type the username to confirm.',"red");
+        if (selectedUser !== confirmedUser) return showFeedback('Username does not match.', 'red');
 
-        onSubmit({ username: selectedUser });
+        const wasDeleted = await onSubmit({ username: selectedUser });
+
+        if (wasDeleted) {
+            const optionToRemove = select.querySelector(`option[value="${selectedUser}"]`);
+            if (optionToRemove) optionToRemove.remove();
+            select.value = '';
+            confirmInput.value = '';
+        }
     });
 
     const btnWrapper = document.createElement('div');
     btnWrapper.className = 'd-flex justify-content-center mt-2 px-5';
+    btnWrapper.appendChild(btn);
+    form.appendChild(btnWrapper);
+
+    return form;
+}
+
+export function drawPasswordChangeForm(userList, onSubmit) {
+    const passRegex = /^(?=.*[A-Z])(?=.*\d).{10,}$/;
+    const form = document.createElement('form');
+
+    // User dropdown
+    const selectWrapper = document.createElement('div');
+    selectWrapper.className = 'mb-3 px-5';
+
+    const selectLabel = document.createElement('label');
+    selectLabel.textContent = 'Select User';
+    selectLabel.htmlFor = 'selectUserPwd';
+    selectLabel.className = 'form-label';
+
+    const select = document.createElement('select');
+    select.name = 'selectUserPwd';
+    select.id = 'selectUserPwd';
+    select.className = 'form-select';
+
+    const defaultOption = document.createElement('option');
+    defaultOption.textContent = '-- Select a user --';
+    defaultOption.value = '';
+    select.appendChild(defaultOption);
+
+    userList.forEach(user => {
+        const option = document.createElement('option');
+        option.value = user;
+        option.textContent = user;
+        select.appendChild(option);
+    });
+
+    selectWrapper.appendChild(selectLabel);
+    selectWrapper.appendChild(select);
+    form.appendChild(selectWrapper);
+
+    // Password fields
+    const fields = [
+        { label: 'New Password',     name: 'newPassword',     id: 'newPassword' },
+        { label: 'Confirm Password', name: 'confirmPassword', id: 'confirmPwd'  },
+    ];
+
+    fields.forEach(({ label, name, id }) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'mb-3 px-5';
+
+        const lbl = document.createElement('label');
+        lbl.textContent = label;
+        lbl.htmlFor = id;
+        lbl.className = 'form-label';
+
+        const input = document.createElement('input');
+        input.type = 'password';
+        input.name = name;
+        input.id = id;
+        input.className = 'form-control';
+
+        wrapper.appendChild(lbl);
+        wrapper.appendChild(input);
+        form.appendChild(wrapper);
+    });
+
+    // Password requirements hint
+    const hint = document.createElement('p');
+    hint.className = 'text-muted px-5 small';
+    hint.textContent = 'Password must be at least 10 characters, contain one uppercase letter and one number.';
+    form.appendChild(hint);
+
+    // Submit button
+    const btnWrapper = document.createElement('div');
+    btnWrapper.className = 'd-flex justify-content-center mt-2 px-5';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = 'Change Password';
+    btn.className = 'btn btn-warning w-50';
+
+    btn.addEventListener('click', () => {
+        const username        = select.value;
+        const password        = form.newPassword.value;
+        const confirmPassword = form.confirmPassword.value;
+
+        if (!username)         return showFeedback('Please select a user.',"red");
+        if (!password)         return showFeedback('Please enter a new password.',"red");
+        if (!passRegex.test(password)) return showFeedback('Password must be at least 10 characters, include one uppercase letter and one number.',"red");
+        if (password !== confirmPassword) return showFeedback('Passwords do not match.',"red");
+
+        onSubmit({ username, password });
+    });
+
     btnWrapper.appendChild(btn);
     form.appendChild(btnWrapper);
 

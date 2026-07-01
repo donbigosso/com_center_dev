@@ -225,7 +225,8 @@ class UserModel
         $message = "";
         $error = "";
         $user_to_delete = $input['name'] ?? '';
-       if(!$this->verify_admin_by_token($input)) {
+        $admin_check = $this->verify_admin_by_token($input);
+        if(!$admin_check['success']) {
     $error = "User is not admin.";
     return [
         "success" => $success,
@@ -248,6 +249,65 @@ return [
         
         
     }
+
+
+  public function reset_password_by_admin(array $input){
+        $success = false;
+        $message = "";
+        $error = "";
+
+        $admin_check = $this->verify_admin_by_token($input);
+        if(!$admin_check['success']) {
+            $error = "User is not admin.";
+            return [
+                "success" => $success,
+                "error" => $error,
+                "message" => $message
+            ];
+        }
+
+        $username = $input['name'] ?? '';
+        $password = $input['password'] ?? '';
+
+        if(empty($username)){
+            $error = "Username is required.";
+            return [
+                "success" => $success,
+                "error" => $error,
+                "message" => $message
+            ];
+        }
+        if(empty($password)){
+            $error = "Password is required.";
+            return [
+                "success" => $success,
+                "error" => $error,
+                "message" => $message
+            ];
+        }
+
+        $pass_regex = '/^(?=.*[A-Z])(?=.*\d).{10,}$/';
+        if(!preg_match($pass_regex, $password)){
+            $error = "Password does not meet requirements.";
+            return [
+                "success" => $success,
+                "error" => $error,
+                "message" => $message
+            ];
+        }
+
+        if($this->reset_user_password($username, $password)) {
+            $success = true;
+            $message = "Password changed for user: $username";
+        } else {
+            $error = "User $username not found.";
+        }
+        return [
+            "success" => $success,
+            "error" => $error,
+            "message" => $message
+        ];
+    }   
 
     
 

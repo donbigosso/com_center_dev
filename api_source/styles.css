@@ -99,9 +99,10 @@ button .bi svg {
 }
 
 #global-feedback {
-  transition: opacity 0.4s ease;
+  transition: opacity 1.5s ease;
+  color: green;
   pointer-events: none;
-  font-size: 0.8rem;
+  font-size: 1.1rem;
   z-index: 10;
 }
 

@@ -1,5 +1,6 @@
 import { fetchAPIdataWGetParams } from "./CoreFunctions.js ";
 import { POSTJSONRequest } from "./CoreFunctions.js";
+import {showFeedback} from "./CustomFunctions.js";
 import{getCookie} from "./CookieFunctions.js";
 export async function getFileList() {
     const apiResponse = await fetchAPIdataWGetParams({ request: 'list_files' });
@@ -21,7 +22,7 @@ export async function getFileList() {
 
 }
 
-export async function createUser(username, password) {
+export async function createUser(username, password) { //Butatren@344
     const passRegex = /^(?=.*[A-Z])(?=.*\d).{10,}$/;
     const usrNameRegex = /^[a-zA-Z0-9_]{4,16}$/;
     const isPassValid = passRegex.test(password);
@@ -33,11 +34,17 @@ export async function createUser(username, password) {
         if(serverResponse.success){
             console.log("DEB764 Server response - user creation:", serverResponse.data.user_created);
             const user_was_created = serverResponse.data.user_created;
-                                  
-            const alertTextContent = user_was_created ? 'User created successfully!' : 'Failed to create user. Check if username is already taken.';
-
+            const lowercaseUsername = username.toLowerCase();
+            if (user_was_created){
+                const alertTextContent = "User " + lowercaseUsername + " created successfully!";
+                showFeedback(alertTextContent, 'green');
+            }
+            else {
+                const alertTextContent = 'Failed to create user. Check if username is already taken.';
+                showFeedback(alertTextContent, 'red');
+            }
             
-            return alert(alertTextContent);
+            return true;
         }
         else {
             console.error("DEB765 Server response:", serverResponse);
@@ -104,5 +111,11 @@ export async function requestSendTableAdmin(tableName, conditions = [], columns 
 export async function deleteUserByAdmin(username){
     const token = window.SESSION.token;
     const serverResponse = await POSTJSONRequest({request: "delete_user", name: username, token: token});
+    return serverResponse;
+}
+
+export async function resetUserPasswordByAdmin(username, password) {
+    const token = window.SESSION.token;
+    const serverResponse = await POSTJSONRequest({ request: "reset_password_by_admin", name: username, password: password, token: token });
     return serverResponse;
 }
