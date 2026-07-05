@@ -394,7 +394,8 @@ public function handle_clear_token(array $input): void{
         $success = $upload_output["success"];
         $message = $upload_output["message"];
         $error = $upload_output["error"];
-        $this->send_JSON_Response($success, $message, "", $error, ["upload_output" => $upload_output]);
+        $uploaded_files = $upload_output["uploaded_files"];
+        $this->send_JSON_Response($success, $message, "", $error, ["uploaded_files" => $uploaded_files]);
     }
 
     public function handle_send_table_to_frontend(array $input){

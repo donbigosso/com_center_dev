@@ -1,4 +1,3 @@
-import { performAdminTests } from "./functions/TestFunctions.js";
 import { requestSendTableAdmin, createUser, deleteUserByAdmin, resetUserPasswordByAdmin } from "./functions/RequestFunctions.js";
 import {drawTable, drawUserCreationForm, drawUserDeletionForm, drawPasswordChangeForm} from "./functions/PageAppearance.js";
 import { showFeedback, showUserDeleteFeedback } from "./functions/CustomFunctions.js";

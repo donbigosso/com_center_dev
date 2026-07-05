@@ -155,15 +155,24 @@ class FileModel {
             /*$upload_test=implode(", ",$this->move_files_to_server($final_files));
             return ["success" => false, "error" => $error, "message" =>$message.$upload_test];*/
         }
-        $this->move_files_to_server($final_files);
+       $this->move_files_to_server($final_files);
 
-        
-       
+        $final_file_details = [];
+        foreach ($final_files as $name) {
+            $full_path = $this->upload_folder . '/' . $name;
+            if (file_exists($full_path)) {
+                $final_file_details[] = [
+                    $name,max(1, (int)round(filesize($full_path) / 1024)),  
+                   date("Y-m-d H:i:s", filemtime($full_path))
+                ];
+            }
+        }
 
         return [
             "success" => true,
             "error" => $error,
-            "message" => $message
+            "message" => $message,
+            "uploaded_files" => $final_file_details
         ];
     }
 
