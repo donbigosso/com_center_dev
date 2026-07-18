@@ -47,6 +47,11 @@ public function auto_log_user($dba){
     }
 }
 
+public function return_file_settings(){
+    return ['UPLOAD_MAX_FILES'=>getenv('UPLOAD_MAX_FILES') ?: 5,
+            'UPLOAD_MAX_SIZE_MB'=>getenv('UPLOAD_MAX_SIZE_MB') ?: 10,
+            'UPLOAD_ALLOWED_EXTENSIONS'=>getenv('UPLOAD_ALLOWED_EXTENSIONS') ?: 'jpg,jpeg,png,pdf,txt,docx,mp3,mp4,xlsx,zip,mov'];
+}
 
 
 }

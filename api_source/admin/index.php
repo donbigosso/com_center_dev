@@ -60,7 +60,6 @@
             </div>
         </div>
     </header>
-
     <!-- Navigation Tiles -->
     <section class="container my-4">
         <h5 class="mb-3 text-muted">Quick Actions</h5>

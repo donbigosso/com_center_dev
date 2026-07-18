@@ -157,6 +157,9 @@ class ApiMethods extends Core
                 case 'upload_files':
                     $this->handle_upload_files($input);
                     break;
+                case 'get_file_settings':
+                    $this->handle_get_file_settings();
+                    break;
                 case 'send_table_to_frontend':
                     $this->handle_send_table_to_frontend($input);
                     break;
@@ -388,6 +391,11 @@ public function handle_clear_token(array $input): void{
         $delete_output = $file_model->delete_file($input);
         $this->send_JSON_Response(true, "File deleted MOCK", "", "", ["delete_output" => $delete_output]);
     }
+    public function handle_get_file_settings(){
+        $file_settings = $this->return_file_settings();
+        $this->send_JSON_Response(true, "File settings retrieved", "", "", ['UPLOAD_MAX_FILES' => $file_settings['UPLOAD_MAX_FILES'],'UPLOAD_MAX_SIZE_MB' => $file_settings['UPLOAD_MAX_SIZE_MB'],'UPLOAD_ALLOWED_EXTENSIONS' => $file_settings['UPLOAD_ALLOWED_EXTENSIONS']]);
+    }
+
     public function handle_upload_files(array $input){
         $file_model = new FileModel($this->db_access);
         $upload_output = $file_model->insert_uploaded_files($input);
