@@ -9,6 +9,7 @@ const createUserTile = document.getElementById('tile-create-user');
 const deleteUserTile = document.getElementById('tile-delete-user');
 const resultArea = document.getElementById('result-area');
 const changePasswordTile = document.getElementById('tile-change-password');
+const mediaCollectionsTile = document.getElementById('tile-media-collections');
 logoutBtn.addEventListener('click', () => {
            
             window.location.href = './logout.php';
@@ -17,6 +18,14 @@ logoutBtn.addEventListener('click', () => {
 userTile.addEventListener('click', async () => {
     resultArea.innerHTML = '';  
     const tableRequest = await requestSendTableAdmin('users',[],['user_id','name','is_admin','register_date'],);
+    const tableData = tableRequest.data;
+    const drawnTable = drawTable(tableData, "nice-table");
+    resultArea.appendChild(drawnTable);
+});
+
+mediaCollectionsTile.addEventListener('click', async () => {
+    resultArea.innerHTML = '';
+    const tableRequest = await requestSendTableAdmin('media_collections',[],['media_collection_id','title','description','register_date','collection_cover_id']);
     const tableData = tableRequest.data;
     const drawnTable = drawTable(tableData, "nice-table");
     resultArea.appendChild(drawnTable);

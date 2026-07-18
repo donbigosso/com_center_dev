@@ -89,6 +89,12 @@
                     <i class="bi bi-key fs-2 d-block mb-2"></i>
                     Change password
                 </button>
+            </div>
+            <div class="col-6 col-md-3">
+                <button class="btn w-100 py-4 shadow-sm tile-btn" id="tile-media-collections">
+                    <i class="bi bi-collection-play fs-2 d-block mb-2"></i>
+                    Show media collections table
+                </button>
             </div>     <div id="global-feedback" class="global-feedback opacity-0"></div>
         </div>
     
