@@ -1,0 +1,6 @@
+{
+  "api_address": "http://127.0.0.1:8082/api_engine.php",
+  "upload_address": "http://127.0.0.1:8082/upload.php",
+  "api_key": "1Knd9t3zzjah87oA",
+  "test_setting": "testololo_2030"
+}
