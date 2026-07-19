@@ -1,9 +1,9 @@
-import { fetchAPIdataWGetParams, POSTJSONRequest } from "../functions/CoreFunctions.js";
-import { verifySession, getUserByToken } from "../functions/RequestFunctions.js";
-import { getSessionToken, showFeedback, getFileSettings } from "../functions/CustomFunctions.js";
-import { showGenericModal } from "../functions/NewModalMethods.js";
-import { newHideModal } from "../functions/PageAppearance.js";
-import { getCookie } from "../functions/CookieFunctions.js";
+import { fetchAPIdataWGetParams, POSTJSONRequest } from "./CoreFunctions.js";
+import { verifySession, getUserByToken } from "./RequestFunctions.js";
+import { getSessionToken, showFeedback, getFileSettings } from "./CustomFunctions.js";
+import { showGenericModal } from "./NewModalMethods.js";
+import { newHideModal } from "./PageAppearance.js";
+import { getCookie } from "./CookieFunctions.js";
 
 // Pagination state
 let currentPage = 1;
