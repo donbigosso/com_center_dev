@@ -34,7 +34,9 @@ export function showGenericModal(config) {
 
   modal.title.textContent = config.title || 'Modal';
 
-  if (config.bodyHtml) {
+  if (config.bodyElement instanceof HTMLElement) {
+    modal.body.appendChild(config.bodyElement);
+  } else if (config.bodyHtml) {
     modal.body.innerHTML = config.bodyHtml;
   } else if (config.bodyText) {
     modal.body.textContent = config.bodyText;

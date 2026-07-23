@@ -146,16 +146,23 @@ export function createBootstrapTextInput(id, required, maxLength, value){
   input.value = value || '';
   return input;
 }
+export function createBootstrapTextArea(id, rows, maxLength, value, required = false){
+  const textarea = createHTMLelement('textarea', 'form-control');
+  textarea.id = id;
+  textarea.rows = rows;
+  textarea.maxLength = maxLength;
+  textarea.value = value || '';
+  textarea.required = required;
+  return textarea;
+}
 
-/*
 
-  titleInput.type = "text";
-  titleInput.className = "form-control";
-  titleInput.id = "gallery-title";
-   titleInput.maxLength = 200;
-  titleInput.value = config.titleValue || "";
-
-*/
+export function adjustElementClassAndText(element, classNAme, textContent){
+  if (checkHTMLInstance(element)) {
+    element.className = classNAme;
+    element.textContent = textContent;
+  }
+}
 
 export async function displayLoggedUser(){
   const user =await verifySession();

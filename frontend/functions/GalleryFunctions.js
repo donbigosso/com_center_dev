@@ -2,7 +2,7 @@ import { fetchAPIdataWGetParams, POSTJSONRequest, getUrlParam } from "./CoreFunc
 import { verifySession } from "./RequestFunctions.js";
 import { getSessionToken, showFeedback } from "./CustomFunctions.js";
 import { showGenericModal } from "./NewModalMethods.js";
-import { newHideModal, createDIV, createLabel, createButton, createBootstrapTextInput } from "./PageAppearance.js";
+import { newHideModal, createDIV, createLabel, createButton, createBootstrapTextInput, adjustElementClassAndText, createBootstrapTextArea } from "./PageAppearance.js";
 import { getCookie } from "./CookieFunctions.js";
 
 // Pagination state
@@ -273,12 +273,11 @@ function createGalleryCard(gallery, loggedUser) {
   const body = createDIV("card-body d-flex flex-column");
 
   const title = document.createElement("h5");
-  title.className = "card-title text-primary";
-  title.textContent = gallery.title;
+  adjustElementClassAndText(title, "card-title text-primary", gallery.title);
+
 
   const description = document.createElement("p");
-  description.className = "card-text text-muted flex-grow-1";
-  description.textContent = gallery.description;
+  adjustElementClassAndText(description, "card-text text-muted flex-grow-1", gallery.description);
 
   const ownerLine = document.createElement("small");
   ownerLine.className = "text-secondary mb-2";
@@ -290,8 +289,7 @@ function createGalleryCard(gallery, loggedUser) {
     ownerLine.appendChild(document.createTextNode(gallery.owner));
   } else {
     const unknownOwner = document.createElement("span");
-    unknownOwner.className = "text-muted";
-    unknownOwner.textContent = "Unknown";
+    adjustElementClassAndText(unknownOwner, "text-muted", "Unknown");
     ownerLine.appendChild(unknownOwner);
   }
 
@@ -402,24 +400,17 @@ function buildGalleryForm(config) {
 
   const titleWrapper = createDIV("mb-3");
   const titleLabel = createLabel("Title", "gallery-title", "form-label");
-  const titleInput = document.createElement("input");
-  titleInput.type = "text";
-  titleInput.className = "form-control";
-  titleInput.id = "gallery-title";
-  titleInput.required = true;
-  titleInput.maxLength = 200;
-  titleInput.value = config.titleValue || "";
+
+  
+  const titleInput = createBootstrapTextInput("gallery-title", true, 200, config.titleValue || "");
   titleWrapper.appendChild(titleLabel);
   titleWrapper.appendChild(titleInput);
 
   const descWrapper = createDIV("mb-3");
   const descLabel = createLabel("Description", "gallery-description", "form-label");
-  const descInput = document.createElement("textarea");
-  descInput.className = "form-control";
-  descInput.id = "gallery-description";
-  descInput.rows = 3;
-  descInput.maxLength = 255;
-  descInput.value = config.description || "";
+  
+  
+  const descInput = createBootstrapTextArea("gallery-description", 3, 255, config.description || "", true);
   descWrapper.appendChild(descLabel);
   descWrapper.appendChild(descInput);
 
