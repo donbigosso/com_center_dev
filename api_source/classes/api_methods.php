@@ -83,6 +83,9 @@ class ApiMethods extends Core
                     $this->send_JSON_Response(true, "Files requested", "", "", ['files' => $file_model->create_uploaded_files_table()]);
                     break;
                 }
+                case 'list_galleries':
+                    $this->handle_list_galleries($input);
+                    break;
                 case 'download':
                     $this->handle_download();
                     break;
@@ -162,6 +165,9 @@ class ApiMethods extends Core
                     break;
                 case 'send_table_to_frontend':
                     $this->handle_send_table_to_frontend($input);
+                    break;
+                case 'create_gallery':
+                    $this->handle_create_gallery($input);
                     break;
 
                    
@@ -379,6 +385,50 @@ public function handle_clear_token(array $input): void{
                 exit;
             }
         }
+    }
+
+    /**
+     * GET list_galleries — paginated media_collections for the galleries UI.
+     * Query params: page (default 1), limit (default 12, max 100),
+     *               user (optional username — only that owner's galleries).
+     */
+    private function handle_list_galleries(array $input): void
+    {
+        $page = isset($input['page']) ? (int)$input['page'] : 1;
+        $limit = isset($input['limit']) ? (int)$input['limit'] : 12;
+        $owner = isset($input['user']) ? trim((string)$input['user']) : null;
+        if ($owner === '') {
+            $owner = null;
+        }
+
+        $gallery_model = new GalleryModel($this->db_access);
+        $result = $gallery_model->list_galleries($page, $limit, $owner);
+
+        $this->send_JSON_Response(
+            true,
+            'Galleries retrieved successfully.',
+            '',
+            '',
+            $result
+        );
+    }
+
+    /**
+     * POST create_gallery — insert media_collections + collection_owners (creator).
+     * Body: token, title, description (optional).
+     */
+    private function handle_create_gallery(array $input): void
+    {
+        $gallery_model = new GalleryModel($this->db_access);
+        $result = $gallery_model->create_gallery($input);
+
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            ['gallery' => $result['gallery']]
+        );
     }
     public function handle_rename_file(array $input){
      $file_model = new FileModel($this->db_access);

@@ -67,6 +67,30 @@ export function changeInnerHTML(element, htmlContent) {
     }
 }
 
+export function createHTMLelement(elementType, className){
+  const element = document.createElement(elementType);
+  element.className = className;
+  return element;
+}
+
+export function createDIV(className){
+  return createHTMLelement('div', className);
+}
+
+export function createLabel(textContent, htmlFor, className){
+  const label = createHTMLelement('label', className);
+  label.textContent = textContent;
+  label.htmlFor = htmlFor;
+  return label;
+}
+
+export function createButton(type, text, className){
+  const button = createHTMLelement('button', className);
+  button.type = type;
+  button.textContent = text;
+  return button;
+}
+
 
 
   export function drawTable(data, className="") {
@@ -108,13 +132,8 @@ export function drawUserCreationForm(onSubmit) {
     ];
 
     fields.forEach(({ label, name, type, autocomplete }) => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'mb-3 px-5';
-
-        const lbl = document.createElement('label');
-        lbl.textContent = label;
-        lbl.htmlFor = name;
-        lbl.className = 'form-label';
+        const wrapper = createDIV('mb-3 px-5');
+        const lbl = createLabel(label, name, 'form-label');
 
         const input = document.createElement('input');
         input.type = type;
@@ -128,14 +147,10 @@ export function drawUserCreationForm(onSubmit) {
         form.appendChild(wrapper);
     });
 
-    const btn = document.createElement('button');
-    const btnWrapper = document.createElement('div');
-    btnWrapper.className = 'd-flex justify-content-center';
+    const btn = createButton('button', 'Create User', 'btn btn-primary w-50');
+    const btnWrapper = createDIV('d-flex justify-content-center');
 
     btnWrapper.appendChild(btn);
-    btn.type = 'button';
-    btn.textContent = 'Create User';
-    btn.className = 'btn btn-primary w-50';
     btn.addEventListener('click', () => {
         const username        = form.username.value.trim();
         const password        = form.password.value;
@@ -161,18 +176,12 @@ export function drawUserDeletionForm(userList, onSubmit) {
     
 
     // Dropdown
-    const selectWrapper = document.createElement('div');
-    selectWrapper.className = 'mb-3 px-5';
+    const selectWrapper = createDIV('mb-3 px-5');
+    const selectLabel = createLabel('Select User', 'selectUser', 'form-label');
 
-    const selectLabel = document.createElement('label');
-    selectLabel.textContent = 'Select User';
-    selectLabel.htmlFor = 'selectUser';
-    selectLabel.className = 'form-label';
-
-    const select = document.createElement('select');
+    const select = createHTMLelement('select', 'form-select');
     select.name = 'selectUser';
     select.id = 'selectUser';
-    select.className = 'form-select';
 
     const defaultOption = document.createElement('option');
     defaultOption.textContent = '-- Select a user --';
@@ -191,13 +200,8 @@ export function drawUserDeletionForm(userList, onSubmit) {
     form.appendChild(selectWrapper);
 
     // Confirm username input
-    const confirmWrapper = document.createElement('div');
-    confirmWrapper.className = 'mb-3 px-5';
-
-    const confirmLabel = document.createElement('label');
-    confirmLabel.textContent = 'Type username to confirm';
-    confirmLabel.htmlFor = 'confirmUsername';
-    confirmLabel.className = 'form-label';
+    const confirmWrapper = createDIV('mb-3 px-5');
+    const confirmLabel = createLabel('Type username to confirm', 'confirmUsername', 'form-label');
 
     const confirmInput = document.createElement('input');
     confirmInput.type = 'text';
@@ -233,8 +237,7 @@ export function drawUserDeletionForm(userList, onSubmit) {
         }
     });
 
-    const btnWrapper = document.createElement('div');
-    btnWrapper.className = 'd-flex justify-content-center mt-2 px-5';
+    const btnWrapper = createDIV('d-flex justify-content-center mt-2 px-5');
     btnWrapper.appendChild(btn);
     form.appendChild(btnWrapper);
 
@@ -246,18 +249,12 @@ export function drawPasswordChangeForm(userList, onSubmit) {
     const form = document.createElement('form');
 
     // User dropdown
-    const selectWrapper = document.createElement('div');
-    selectWrapper.className = 'mb-3 px-5';
+    const selectWrapper = createDIV('mb-3 px-5');
+    const selectLabel = createLabel('Select User', 'selectUserPwd', 'form-label');
 
-    const selectLabel = document.createElement('label');
-    selectLabel.textContent = 'Select User';
-    selectLabel.htmlFor = 'selectUserPwd';
-    selectLabel.className = 'form-label';
-
-    const select = document.createElement('select');
+    const select = createHTMLelement('select', 'form-select');
     select.name = 'selectUserPwd';
     select.id = 'selectUserPwd';
-    select.className = 'form-select';
 
     const defaultOption = document.createElement('option');
     defaultOption.textContent = '-- Select a user --';
@@ -282,13 +279,8 @@ export function drawPasswordChangeForm(userList, onSubmit) {
     ];
 
     fields.forEach(({ label, name, id }) => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'mb-3 px-5';
-
-        const lbl = document.createElement('label');
-        lbl.textContent = label;
-        lbl.htmlFor = id;
-        lbl.className = 'form-label';
+        const wrapper = createDIV('mb-3 px-5');
+        const lbl = createLabel(label, id, 'form-label');
 
         const input = document.createElement('input');
         input.type = 'password';
@@ -308,13 +300,9 @@ export function drawPasswordChangeForm(userList, onSubmit) {
     form.appendChild(hint);
 
     // Submit button
-    const btnWrapper = document.createElement('div');
-    btnWrapper.className = 'd-flex justify-content-center mt-2 px-5';
+    const btnWrapper = createDIV('d-flex justify-content-center mt-2 px-5');
 
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = 'Change Password';
-    btn.className = 'btn btn-warning w-50';
+    const btn = createButton('button', 'Change Password', 'btn btn-warning w-50');
 
     btn.addEventListener('click', () => {
         const username        = select.value;

@@ -1,101 +1,64 @@
-import { fetchAPIdataWGetParams, POSTJSONRequest } from "./CoreFunctions.js";
-import { verifySession, getUserByToken } from "./RequestFunctions.js";
-import { getSessionToken, showFeedback, getFileSettings } from "./CustomFunctions.js";
+import { fetchAPIdataWGetParams, POSTJSONRequest, getUrlParam } from "./CoreFunctions.js";
+import { verifySession } from "./RequestFunctions.js";
+import { getSessionToken, showFeedback } from "./CustomFunctions.js";
 import { showGenericModal } from "./NewModalMethods.js";
-import { newHideModal } from "./PageAppearance.js";
+import { newHideModal, createDIV, createLabel, createButton, createBootstrapTextInput } from "./PageAppearance.js";
 import { getCookie } from "./CookieFunctions.js";
 
 // Pagination state
 let currentPage = 1;
-let pageSize = 12;
+const pageSize = 12;
 let allGalleries = [];
 let currentLoggedUser = null;
 let isLoading = false;
 let hasMorePages = true;
+let infiniteScrollReady = false;
+let ownerFilter = undefined;
 
-// Temporary demo data — remove once backend API is ready
-const demoDemoGalleries = [
-  {
-    id: 1,
-    title: "Summer Vibes 2024",
-    description: "A collection of sunny moments and golden hour memories",
-    owner: "photographer_anna",
-    image_count: 24,
-    cover_color: "#FF6B6B"
-  },
-  {
-    id: 2,
-    title: "Urban Exploration",
-    description: "Streets, architecture, and city life through my lens",
-    owner: "explorer_mike",
-    image_count: 18,
-    cover_color: "#4ECDC4"
-  },
-  {
-    id: 3,
-    title: "Nature's Palette",
-    description: "Landscapes, wildlife, and the beauty of the natural world",
-    owner: "nature_lover",
-    image_count: 32,
-    cover_color: "#95E1D3"
-  },
-  {
-    id: 4,
-    title: "Night Photography",
-    description: "Stars, long exposures, and the magic of darkness",
-    owner: "night_owl",
-    image_count: 15,
-    cover_color: "#2C3E50"
-  },
-  {
-    id: 5,
-    title: "Portrait Sessions",
-    description: "Capturing souls and emotions through portraiture",
-    owner: "photographer_anna",
-    image_count: 28,
-    cover_color: "#FFB6C1"
-  },
-  {
-    id: 6,
-    title: "Travel Diaries",
-    description: "Around the world in photographs",
-    owner: "explorer_mike",
-    image_count: 42,
-    cover_color: "#87CEEB"
-  },
-  {
-    id: 7,
-    title: "Macro World",
-    description: "Tiny details, big perspectives",
-    owner: "detail_seeker",
-    image_count: 21,
-    cover_color: "#98D8C8"
-  },
-  {
-    id: 8,
-    title: "Street Food",
-    description: "Culinary adventures around the globe",
-    owner: "food_lover",
-    image_count: 19,
-    cover_color: "#F7DC6F"
-  },
-  {
-    id: 9,
-    title: "Abstract Visions",
-    description: "Beyond reality - artistic interpretations",
-    owner: "artist_leo",
-    image_count: 25,
-    cover_color: "#DA7297"
-  },
-  {
-    id: 10,
-    title: "Minimal Aesthetics",
-    description: "Less is more - simplicity in focus",
-    owner: "minimalist_jane",
-    image_count: 16,
-    cover_color: "#F0F0F0"
+export function getOwnerFilterFromUrl() {
+  const raw = getUrlParam("user");
+  if (raw === null || raw === undefined) return null;
+  const username = String(raw).trim();
+  return username === "" ? null : username;
+}
+
+function ensureOwnerFilterLoaded() {
+  if (ownerFilter === undefined) {
+    ownerFilter = getOwnerFilterFromUrl();
+    updatePageHeadingsForFilter(ownerFilter);
   }
+  return ownerFilter;
+}
+
+/**
+ * Update page headings when viewing a specific user's galleries.
+ */
+function updatePageHeadingsForFilter(username) {
+  const loggedHeading = document.querySelector(".logged-only h1");
+  const unloggedHeading = document.querySelector(".unlogged-only h1");
+  const unloggedHint = document.querySelector(".unlogged-only p");
+
+  if (username) {
+    const label = `Galleries by ${username}`;
+    if (loggedHeading) loggedHeading.textContent = label;
+    if (unloggedHeading) unloggedHeading.textContent = label;
+    if (unloggedHint) {
+      unloggedHint.textContent = `Showing galleries owned by ${username}.`;
+    }
+  } 
+}
+
+// Soft palette for cover tiles (no cover color column in DB yet)
+const COVER_COLORS = [
+  "#FF6B6B", "#4ECDC4", "#95E1D3", "#2C3E50", "#FFB6C1",
+  "#87CEEB", "#98D8C8", "#F7DC6F", "#DA7297", "#6C757D",
+  "#A8E6CF", "#FFD3B6", "#5C6BC0", "#26A69A", "#EF5350"
 ];
+
+function coverColorForId(id) {
+  const n = Number(id) || 0;
+  return COVER_COLORS[Math.abs(n) % COVER_COLORS.length];
+}
 
 // Get logged-in user (set during init)
 async function getLoggedUser() {
@@ -106,7 +69,7 @@ async function getLoggedUser() {
 
   try {
     const response = await POSTJSONRequest({ request: "get_user_by_token", token });
-    if (response.success && response.data.user_found) {
+    if (response?.success && response.data?.user_found) {
       currentLoggedUser = response.data.user_found;
       return currentLoggedUser;
     }
@@ -116,111 +79,292 @@ async function getLoggedUser() {
   return null;
 }
 
-// Fetch galleries from API (or use demo data initially)
+/**
+ * Normalize one gallery row from the API for the card UI.
+ */
+function mapGalleryFromApi(raw) {
+  const id = Number(raw.id);
+  return {
+    id,
+    title: raw.title || "Untitled gallery",
+    description: raw.description || "",
+    owner: raw.owner || null,
+    image_count: Number(raw.image_count) || 0,
+    register_date: raw.register_date || null,
+    collection_cover_id: raw.collection_cover_id ?? null,
+    cover_color: coverColorForId(id),
+  };
+}
+
+/**
+ * Fetch one page of galleries from media_collections via the API.
+ * @param {number} page 1-based page index
+ * @returns {Promise<{galleries: Array, has_more: boolean, total: number}>}
+ */
 async function fetchGalleriesFromAPI(page = 1) {
   try {
-    // TODO: Replace with actual API call once backend endpoint exists
-    // const response = await fetchAPIdataWGetParams({ request: 'list_galleries', page, limit: pageSize });
-    // if (response.success) return response.data.galleries;
+    const params = {
+      request: "list_galleries",
+      page,
+      limit: pageSize,
+    };
+    if (ownerFilter) {
+      params.user = ownerFilter;
+    }
 
-    // TEMPORARY: Use demo data — comment out when API is ready
-    return demoDemoGalleries;
+    const response = await fetchAPIdataWGetParams(params);
+
+    if (!response) {
+      console.error("No response from list_galleries");
+      return { galleries: [], has_more: false, total: 0 };
+    }
+
+    if (!response.success) {
+      console.error("list_galleries error:", response.error || response.message);
+      return { galleries: [], has_more: false, total: 0 };
+    }
+
+    const data = response.data || {};
+    const galleries = Array.isArray(data.galleries)
+      ? data.galleries.map(mapGalleryFromApi)
+      : [];
+
+    return {
+      galleries,
+      has_more: Boolean(data.has_more),
+      total: Number(data.total) || 0,
+      page: Number(data.page) || page,
+    };
   } catch (err) {
     console.error("Error fetching galleries:", err);
-    return [];
+    return { galleries: [], has_more: false, total: 0 };
   }
 }
 
-// Load galleries with pagination
+/**
+ * Load next page of galleries (or first page on init).
+ * First 12 results, then more on scroll.
+ * Honors ?user=username from the URL for owner filtering.
+ */
 export async function loadGalleries() {
   if (isLoading || !hasMorePages) return;
+
+  ensureOwnerFilterLoaded();
 
   isLoading = true;
   const spinner = document.getElementById("loading-spinner");
   if (spinner) spinner.classList.remove("d-none");
 
-  await new Promise(resolve => setTimeout(resolve, 300)); // simulate network delay
+  const isFirstPage = currentPage === 1;
+  const result = await fetchGalleriesFromAPI(currentPage);
+  const galleries = result.galleries;
 
-  const galleries = await fetchGalleriesFromAPI(currentPage);
-  allGalleries = [...allGalleries, ...galleries];
+  if (isFirstPage) {
+    allGalleries = galleries;
+  } else {
+    allGalleries = [...allGalleries, ...galleries];
+  }
 
-  if (galleries.length < pageSize) {
+  hasMorePages = result.has_more && galleries.length > 0;
+  if (galleries.length > 0) {
+    currentPage += 1;
+  } else {
     hasMorePages = false;
   }
 
-  currentPage++;
   isLoading = false;
-
   if (spinner) spinner.classList.add("d-none");
 
-  await renderGalleries();
-  setupInfiniteScroll();
+  if (isFirstPage) {
+    await renderGalleries(allGalleries, { replace: true });
+  } else {
+    await renderGalleries(galleries, { replace: false });
+  }
+
+  if (!infiniteScrollReady) {
+    setupInfiniteScroll();
+    infiniteScrollReady = true;
+  }
+
+  if (isFirstPage && allGalleries.length === 0) {
+    showEmptyState();
+  }
 }
 
-// Render gallery tiles
-async function renderGalleries() {
+function showEmptyState() {
+  const grid = document.getElementById("galleries-grid");
+  if (!grid || grid.children.length > 0) return;
+
+  const message = ownerFilter
+    ? `No galleries found for user "${ownerFilter}".`
+    : "No galleries found yet.";
+
+  const col = createDIV("col-12");
+  const alert = createDIV("alert alert-light border text-center text-muted py-5");
+
+  const icon = document.createElement("i");
+  icon.className = "bi bi-images display-6 d-block mb-3";
+
+  alert.appendChild(icon);
+  alert.appendChild(document.createTextNode(message));
+  col.appendChild(alert);
+
+  grid.appendChild(col);
+}
+
+/**
+ * Render gallery tiles.
+ * @param {Array} galleries Rows to render
+ * @param {{replace?: boolean}} options replace=true clears the grid first
+ */
+async function renderGalleries(galleries, options = { replace: true }) {
   const grid = document.getElementById("galleries-grid");
   if (!grid) return;
 
   const loggedUser = await getLoggedUser();
 
-  grid.innerHTML = allGalleries.map(gallery => {
-    const isOwner = loggedUser && loggedUser === gallery.owner;
-    const bgColor = gallery.cover_color || "#6C757D";
+  if (options.replace) {
+    grid.innerHTML = "";
+  }
 
-    return `
-      <div class="col-12 col-sm-6 col-lg-4">
-        <div class="card gallery-tile h-100" data-gallery-id="${gallery.id}">
-          <!-- Cover -->
-          <div class="gallery-cover" style="background-color: ${bgColor}; background-image: linear-gradient(135deg, ${bgColor} 0%, rgba(0,0,0,0.2) 100%);">
-            <div class="gallery-cover-overlay">
-              <div class="display-6">
-                <i class="bi bi-images"></i>
-              </div>
-            </div>
-          </div>
+  // Remove empty-state placeholder if appending real cards
+  if (!options.replace) {
+    const empty = grid.querySelector(".alert");
+    if (empty) empty.closest(".col-12")?.remove();
+  }
 
-          <!-- Content -->
-          <div class="card-body d-flex flex-column">
-            <h5 class="card-title text-primary">${gallery.title}</h5>
-            <p class="card-text text-muted flex-grow-1">${gallery.description}</p>
-            <small class="text-secondary mb-2">
-              <i class="bi bi-person"></i> ${gallery.owner}
-            </small>
-            <small class="text-secondary">
-              <i class="bi bi-image"></i> ${gallery.image_count} images
-            </small>
-          </div>
+  const fragment = document.createDocumentFragment();
 
-          <!-- Actions (logged in user only & if owner) -->
-          ${isOwner ? `
-            <div class="card-footer bg-light border-top">
-              <button class="btn btn-sm btn-primary me-1 gallery-edit-btn" data-gallery-id="${gallery.id}">
-                <i class="bi bi-pencil"></i> Edit
-              </button>
-              <button class="btn btn-sm btn-danger gallery-delete-btn" data-gallery-id="${gallery.id}">
-                <i class="bi bi-trash"></i> Delete
-              </button>
-            </div>
-          ` : ''}
-        </div>
-      </div>
-    `;
-  }).join('');
+  galleries.forEach(gallery => {
+    fragment.appendChild(createGalleryCard(gallery, loggedUser));
+  });
 
-  // Attach event listeners to edit/delete buttons
-  document.querySelectorAll('.gallery-edit-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+  grid.appendChild(fragment);
+
+  attachGalleryActionHandlers(grid);
+}
+
+/**
+ * Build one gallery tile (the col > card structure) entirely via DOM APIs.
+ */
+function createGalleryCard(gallery, loggedUser) {
+  const isOwner = loggedUser && gallery.owner && loggedUser === gallery.owner;
+  const bgColor = gallery.cover_color || coverColorForId(gallery.id);
+
+  const col = createDIV("col-12 col-sm-6 col-lg-4");
+
+  const card = createDIV("card gallery-tile h-100");
+  card.dataset.galleryId = gallery.id;
+
+  // Cover
+  const cover = createDIV("gallery-cover");
+  cover.style.backgroundColor = bgColor;
+  cover.style.backgroundImage = `linear-gradient(135deg, ${bgColor} 0%, rgba(0,0,0,0.2) 100%)`;
+
+  const overlay = createDIV("gallery-cover-overlay");
+  const iconWrap = createDIV("display-6");
+  const coverIcon = document.createElement("i");
+  coverIcon.className = "bi bi-images";
+  iconWrap.appendChild(coverIcon);
+  overlay.appendChild(iconWrap);
+  cover.appendChild(overlay);
+
+  // Body
+  const body = createDIV("card-body d-flex flex-column");
+
+  const title = document.createElement("h5");
+  title.className = "card-title text-primary";
+  title.textContent = gallery.title;
+
+  const description = document.createElement("p");
+  description.className = "card-text text-muted flex-grow-1";
+  description.textContent = gallery.description;
+
+  const ownerLine = document.createElement("small");
+  ownerLine.className = "text-secondary mb-2";
+  const ownerIcon = document.createElement("i");
+  ownerIcon.className = "bi bi-person";
+  ownerLine.appendChild(ownerIcon);
+  ownerLine.appendChild(document.createTextNode(" "));
+  if (gallery.owner) {
+    ownerLine.appendChild(document.createTextNode(gallery.owner));
+  } else {
+    const unknownOwner = document.createElement("span");
+    unknownOwner.className = "text-muted";
+    unknownOwner.textContent = "Unknown";
+    ownerLine.appendChild(unknownOwner);
+  }
+
+  const countLine = document.createElement("small");
+  countLine.className = "text-secondary";
+  const countIcon = document.createElement("i");
+  countIcon.className = "bi bi-image";
+  countLine.appendChild(countIcon);
+  countLine.appendChild(document.createTextNode(` ${gallery.image_count} images`));
+
+  body.appendChild(title);
+  body.appendChild(description);
+  body.appendChild(ownerLine);
+  body.appendChild(countLine);
+
+  if (gallery.register_date) {
+    const dateLine = document.createElement("small");
+    dateLine.className = "text-secondary d-block mt-1";
+    const dateIcon = document.createElement("i");
+    dateIcon.className = "bi bi-calendar3";
+    dateLine.appendChild(dateIcon);
+    dateLine.appendChild(document.createTextNode(` ${String(gallery.register_date).slice(0, 10)}`));
+    body.appendChild(dateLine);
+  }
+
+  card.appendChild(cover);
+  card.appendChild(body);
+
+  if (isOwner) {
+    const footer = createDIV("card-footer bg-light border-top");
+
+    const editBtn = createButton("button", "", "btn btn-sm btn-primary me-1 gallery-edit-btn");
+    editBtn.dataset.galleryId = gallery.id;
+    const editIcon = document.createElement("i");
+    editIcon.className = "bi bi-pencil";
+    editBtn.appendChild(editIcon);
+    editBtn.appendChild(document.createTextNode(" Edit"));
+
+    const deleteBtn = createButton("button", "", "btn btn-sm btn-danger gallery-delete-btn");
+    deleteBtn.dataset.galleryId = gallery.id;
+    const deleteIcon = document.createElement("i");
+    deleteIcon.className = "bi bi-trash";
+    deleteBtn.appendChild(deleteIcon);
+    deleteBtn.appendChild(document.createTextNode(" Delete"));
+
+    footer.appendChild(editBtn);
+    footer.appendChild(deleteBtn);
+    card.appendChild(footer);
+  }
+
+  col.appendChild(card);
+  return col;
+}
+
+function attachGalleryActionHandlers(root) {
+  root.querySelectorAll(".gallery-edit-btn").forEach(btn => {
+    if (btn.dataset.bound === "1") return;
+    btn.dataset.bound = "1";
+    btn.addEventListener("click", (e) => {
       e.preventDefault();
-      const galleryId = parseInt(btn.dataset.galleryId);
+      e.stopPropagation();
+      const galleryId = parseInt(btn.dataset.galleryId, 10);
       handleEditGallery(galleryId);
     });
   });
 
-  document.querySelectorAll('.gallery-delete-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+  root.querySelectorAll(".gallery-delete-btn").forEach(btn => {
+    if (btn.dataset.bound === "1") return;
+    btn.dataset.bound = "1";
+    btn.addEventListener("click", (e) => {
       e.preventDefault();
-      const galleryId = parseInt(btn.dataset.galleryId);
+      e.stopPropagation();
+      const galleryId = parseInt(btn.dataset.galleryId, 10);
       handleDeleteGallery(galleryId);
     });
   });
@@ -231,43 +375,76 @@ function setupInfiniteScroll() {
   const sentinel = document.getElementById("scroll-sentinel");
   if (!sentinel) return;
 
-  // Remove old observer if it exists
   if (window.galleryScrollObserver) {
     window.galleryScrollObserver.disconnect();
   }
 
   window.galleryScrollObserver = new IntersectionObserver(
-    entries => {
+    (entries) => {
       if (entries[0].isIntersecting && hasMorePages && !isLoading) {
         loadGalleries();
       }
     },
-    { rootMargin: "200px" }
+    { root: null, rootMargin: "200px", threshold: 0 }
   );
 
   window.galleryScrollObserver.observe(sentinel);
 }
 
+/**
+ * Build the create/edit gallery form entirely via DOM APIs.
+ */
+
+
+function buildGalleryForm(config) {
+  const form = document.createElement("form");
+  form.id = "gallery-form";
+
+  const titleWrapper = createDIV("mb-3");
+  const titleLabel = createLabel("Title", "gallery-title", "form-label");
+  const titleInput = document.createElement("input");
+  titleInput.type = "text";
+  titleInput.className = "form-control";
+  titleInput.id = "gallery-title";
+  titleInput.required = true;
+  titleInput.maxLength = 200;
+  titleInput.value = config.titleValue || "";
+  titleWrapper.appendChild(titleLabel);
+  titleWrapper.appendChild(titleInput);
+
+  const descWrapper = createDIV("mb-3");
+  const descLabel = createLabel("Description", "gallery-description", "form-label");
+  const descInput = document.createElement("textarea");
+  descInput.className = "form-control";
+  descInput.id = "gallery-description";
+  descInput.rows = 3;
+  descInput.maxLength = 255;
+  descInput.value = config.description || "";
+  descWrapper.appendChild(descLabel);
+  descWrapper.appendChild(descInput);
+
+  const colorWrapper = createDIV("mb-3");
+  const colorLabel = createLabel("Cover Color", "gallery-color", "form-label");
+  const colorInput = document.createElement("input");
+  colorInput.type = "color";
+  colorInput.className = "form-control form-control-color";
+  colorInput.id = "gallery-color";
+  colorInput.value = config.color || "#6C757D";
+  colorWrapper.appendChild(colorLabel);
+  colorWrapper.appendChild(colorInput);
+
+  form.appendChild(titleWrapper);
+  form.appendChild(descWrapper);
+  form.appendChild(colorWrapper);
+
+  return form;
+}
+
 // Modal for creating/editing gallery
 function showGalleryModal(config) {
   showGenericModal({
-    title: config.title || "Gallery",
-    bodyHtml: `
-      <form id="gallery-form">
-        <div class="mb-3">
-          <label for="gallery-title" class="form-label">Title</label>
-          <input type="text" class="form-control" id="gallery-title" required maxlength="100" value="${config.title || ''}">
-        </div>
-        <div class="mb-3">
-          <label for="gallery-description" class="form-label">Description</label>
-          <textarea class="form-control" id="gallery-description" rows="3" maxlength="500">${config.description || ''}</textarea>
-        </div>
-        <div class="mb-3">
-          <label for="gallery-color" class="form-label">Cover Color</label>
-          <input type="color" class="form-control form-control-color" id="gallery-color" value="${config.color || '#6C757D'}">
-        </div>
-      </form>
-    `,
+    title: config.modalTitle || "Gallery",
+    bodyElement: buildGalleryForm(config),
     buttons: [
       {
         text: "Cancel",
@@ -285,7 +462,6 @@ function showGalleryModal(config) {
     ]
   });
 
-  // Focus title input
   setTimeout(() => {
     const titleInput = document.getElementById("gallery-title");
     if (titleInput) titleInput.focus();
@@ -301,7 +477,7 @@ export async function handleAddGallery() {
   }
 
   showGalleryModal({
-    title: "Create Gallery",
+    modalTitle: "Create Gallery",
     titleValue: "",
     description: "",
     color: "#6C757D",
@@ -309,7 +485,7 @@ export async function handleAddGallery() {
   });
 }
 
-// Execute create gallery
+// Execute create gallery — persists to media_collections + collection_owners
 async function executeCreateGallery() {
   const titleInput = document.getElementById("gallery-title");
   const descInput = document.getElementById("gallery-description");
@@ -318,13 +494,24 @@ async function executeCreateGallery() {
 
   const title = titleInput.value.trim();
   const description = descInput.value.trim();
-  const color = colorInput.value;
+  const color = colorInput?.value || "#6C757D";
 
   errorField.style.display = "none";
 
-  // Validation
   if (title.length < 3) {
     errorField.textContent = "Title must be at least 3 characters";
+    errorField.style.display = "block";
+    return;
+  }
+
+  if (title.length > 200) {
+    errorField.textContent = "Title must be at most 200 characters";
+    errorField.style.display = "block";
+    return;
+  }
+
+  if (description.length > 255) {
+    errorField.textContent = "Description must be at most 255 characters";
     errorField.style.display = "block";
     return;
   }
@@ -337,28 +524,36 @@ async function executeCreateGallery() {
   }
 
   try {
-    // TODO: Replace with actual API call
-    // const response = await POSTJSONRequest({
-    //   request: "create_gallery",
-    //   title,
-    //   description,
-    //   cover_color: color,
-    //   token: sessionToken
-    // });
-
-    // TEMPORARY: Add to local array
-    const newGallery = {
-      id: Math.max(...allGalleries.map(g => g.id), 0) + 1,
+    const response = await POSTJSONRequest({
+      request: "create_gallery",
+      token: sessionToken,
       title,
       description,
-      owner: currentLoggedUser,
-      image_count: 0,
-      cover_color: color
-    };
-    allGalleries.unshift(newGallery);
+    });
 
-    newHideModal("my_modal");
-    await renderGalleries();
+    if (!response?.success || !response.data?.gallery) {
+      errorField.textContent = response?.error || "Failed to create gallery";
+      errorField.style.display = "block";
+      return;
+    }
+
+    const newGallery = mapGalleryFromApi(response.data.gallery);
+    // Keep chosen UI cover color (not stored in DB yet)
+    newGallery.cover_color = color;
+
+    ensureOwnerFilterLoaded();
+    // Only show in the grid if we're browsing all or this owner's page
+    const matchesFilter =
+      !ownerFilter ||
+      (newGallery.owner && newGallery.owner === ownerFilter);
+
+    if (matchesFilter) {
+      allGalleries.unshift(newGallery);
+      newHideModal("my_modal");
+      await renderGalleries(allGalleries, { replace: true });
+    } else {
+      newHideModal("my_modal");
+    }
     showFeedback("Gallery created successfully");
   } catch (err) {
     console.error("Create gallery error:", err);
@@ -373,7 +568,7 @@ async function handleEditGallery(galleryId) {
   if (!gallery) return;
 
   showGalleryModal({
-    title: "Edit Gallery",
+    modalTitle: "Edit Gallery",
     titleValue: gallery.title,
     description: gallery.description,
     color: gallery.cover_color,
@@ -382,7 +577,7 @@ async function handleEditGallery(galleryId) {
   });
 }
 
-// Execute edit gallery
+// Execute edit gallery (local until update_gallery API exists)
 async function executeEditGallery(galleryId) {
   const titleInput = document.getElementById("gallery-title");
   const descInput = document.getElementById("gallery-description");
@@ -409,17 +604,7 @@ async function executeEditGallery(galleryId) {
   }
 
   try {
-    // TODO: Replace with actual API call
-    // const response = await POSTJSONRequest({
-    //   request: "update_gallery",
-    //   gallery_id: galleryId,
-    //   title,
-    //   description,
-    //   cover_color: color,
-    //   token: sessionToken
-    // });
-
-    // TEMPORARY: Update local array
+    // TODO: POST update_gallery when backend supports it
     const gallery = allGalleries.find(g => g.id === galleryId);
     if (gallery) {
       gallery.title = title;
@@ -428,8 +613,8 @@ async function executeEditGallery(galleryId) {
     }
 
     newHideModal("my_modal");
-    await renderGalleries();
-    showFeedback("Gallery updated successfully");
+    await renderGalleries(allGalleries, { replace: true });
+    showFeedback("Gallery updated locally (not saved to DB yet)");
   } catch (err) {
     console.error("Edit gallery error:", err);
     errorField.textContent = "Failed to update gallery";
@@ -461,7 +646,7 @@ async function handleDeleteGallery(galleryId) {
   });
 }
 
-// Execute delete gallery
+// Execute delete gallery (local until delete_gallery API exists)
 async function executeDeleteGallery(galleryId) {
   const sessionToken = getSessionToken();
   if (!sessionToken) {
@@ -470,19 +655,12 @@ async function executeDeleteGallery(galleryId) {
   }
 
   try {
-    // TODO: Replace with actual API call
-    // const response = await POSTJSONRequest({
-    //   request: "delete_gallery",
-    //   gallery_id: galleryId,
-    //   token: sessionToken
-    // });
-
-    // TEMPORARY: Remove from local array
+    // TODO: POST delete_gallery when backend supports it
     allGalleries = allGalleries.filter(g => g.id !== galleryId);
 
     newHideModal("my_modal");
-    await renderGalleries();
-    showFeedback("Gallery deleted successfully");
+    await renderGalleries(allGalleries, { replace: true });
+    showFeedback("Gallery removed locally (not deleted from DB yet)");
   } catch (err) {
     console.error("Delete gallery error:", err);
     showFeedback("Failed to delete gallery");

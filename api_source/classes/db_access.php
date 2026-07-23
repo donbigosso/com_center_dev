@@ -150,6 +150,27 @@ class DatabaseAccess
         }
 
 
+    /**
+     * Run a prepared SELECT and return all rows.
+     */
+    public function queryAll(string $sql, array $params = []): array
+    {
+        $stmt = $this->connection->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Run a prepared query and return a single scalar (first column of first row).
+     */
+    public function queryValue(string $sql, array $params = [])
+    {
+        $stmt = $this->connection->prepare($sql);
+        $stmt->execute($params);
+        $value = $stmt->fetchColumn();
+        return $value === false ? null : $value;
+    }
+
     // Add more methods as needed (delete, table exists, etc.) using the same pattern
 
     public function __destruct()
