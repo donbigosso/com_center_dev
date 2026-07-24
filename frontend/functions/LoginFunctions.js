@@ -2,6 +2,7 @@ import { displayLoggedUser, showLoggedOnly, hideUnloggedOnly, showUnloggedOnly, 
 import {verifyUserByPassword, checkIfTokenExist}from "./CoreFunctions.js";
 import {setUserToken, verifySession, clearUserToken} from "./RequestFunctions.js";
 import  {setCookie, deleteCookie} from "./CookieFunctions.js";
+import { validateUsernameAndPassword } from "./FormValidation.js";
 
 
 export async function handleLogIn(){
@@ -9,22 +10,22 @@ export async function handleLogIn(){
     const password = document.getElementById('loginPassword').value;
     const errorField = document.getElementById('modal-alert-field');
     const frontednValidation = await validateLoginAndPassFrontend();
-    const showError = function(){
+    const showError = function(message = "Invalid credentials"){
         errorField.style.display = "block";
-        errorField.innerText = "Invalid credentials";
+        errorField.innerText = message;
     }
-    if(frontednValidation){
+    if(frontednValidation.valid){
         
         const apiValidation = await validateLoginAndPassAPI(username, password);
         const validationStatus = apiValidation.data.password_verification;
         
         if(!validationStatus){
-            showError();
+            showError("Invalid credentials");
             return;
         }
     }
     else {
-       showError();
+       showError(frontednValidation.error || "Invalid credentials");
         return;
     }
     
@@ -39,23 +40,14 @@ export async function handleLogIn(){
     console.log("DEB635 after hide");
 }
 
+/**
+ * Frontend login field validation.
+ * @returns {{valid: boolean, error: string}}
+ */
 export async function validateLoginAndPassFrontend(){
     const username = document.getElementById('loginUsername').value;
     const password = document.getElementById('loginPassword').value;
-    const passRegex = /^(?=.*[A-Z])(?=.*\d).{10,}$/;
-    const usrNameRegex = /^[a-zA-Z0-9_]{4,16}$/;
-    const isPassValid = passRegex.test(password);
-    const isUsrNameValid = usrNameRegex.test(username);
-    if(isPassValid && isUsrNameValid){
-       
-         return true;
-    }
-    else {
-        
-        return false;
-    }
-    
-   
+    return validateUsernameAndPassword(username, password);
 }
 
 export async function validateLoginAndPassAPI(username, password){

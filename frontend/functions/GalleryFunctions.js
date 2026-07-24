@@ -4,6 +4,7 @@ import { getSessionToken, showFeedback } from "./CustomFunctions.js";
 import { showGenericModal } from "./NewModalMethods.js";
 import { newHideModal, createDIV, createLabel, createButton, createBootstrapTextInput, adjustElementClassAndText, createBootstrapTextArea } from "./PageAppearance.js";
 import { getCookie } from "./CookieFunctions.js";
+import { VALIDATION_CONSTRAINTS, validateGallery } from "./FormValidation.js";
 
 // Pagination state
 let currentPage = 1;
@@ -402,7 +403,12 @@ function buildGalleryForm(config) {
   const titleLabel = createLabel("Title", "gallery-title", "form-label");
 
   
-  const titleInput = createBootstrapTextInput("gallery-title", true, 200, config.titleValue || "");
+  const titleInput = createBootstrapTextInput(
+    "gallery-title",
+    true,
+    VALIDATION_CONSTRAINTS.galleryTitleMaxLength,
+    config.titleValue || ""
+  );
   titleWrapper.appendChild(titleLabel);
   titleWrapper.appendChild(titleInput);
 
@@ -410,7 +416,13 @@ function buildGalleryForm(config) {
   const descLabel = createLabel("Description", "gallery-description", "form-label");
   
   
-  const descInput = createBootstrapTextArea("gallery-description", 3, 255, config.description || "", true);
+  const descInput = createBootstrapTextArea(
+    "gallery-description",
+    3,
+    VALIDATION_CONSTRAINTS.galleryDescriptionMaxLength,
+    config.description || "",
+    true
+  );
   descWrapper.appendChild(descLabel);
   descWrapper.appendChild(descInput);
 
@@ -489,20 +501,9 @@ async function executeCreateGallery() {
 
   errorField.style.display = "none";
 
-  if (title.length < 3) {
-    errorField.textContent = "Title must be at least 3 characters";
-    errorField.style.display = "block";
-    return;
-  }
-
-  if (title.length > 200) {
-    errorField.textContent = "Title must be at most 200 characters";
-    errorField.style.display = "block";
-    return;
-  }
-
-  if (description.length > 255) {
-    errorField.textContent = "Description must be at most 255 characters";
+  const galleryValidation = validateGallery(title, description);
+  if (!galleryValidation.valid) {
+    errorField.textContent = galleryValidation.error;
     errorField.style.display = "block";
     return;
   }
@@ -581,8 +582,9 @@ async function executeEditGallery(galleryId) {
 
   errorField.style.display = "none";
 
-  if (title.length < 3) {
-    errorField.textContent = "Title must be at least 3 characters";
+  const galleryValidation = validateGallery(title, description);
+  if (!galleryValidation.valid) {
+    errorField.textContent = galleryValidation.error;
     errorField.style.display = "block";
     return;
   }

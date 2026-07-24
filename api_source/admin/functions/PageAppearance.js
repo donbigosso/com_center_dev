@@ -1,6 +1,12 @@
 import { checkHTMLInstance } from "./CoreFunctions.js";
 import { showFeedback } from "./CustomFunctions.js";
 import { verifySession} from "./RequestFunctions.js";
+import {
+  VALIDATION_CONSTRAINTS,
+  validateUserRegistration,
+  validateDeleteUserConfirmation,
+  validatePasswordChange,
+} from "./FormValidation.js";
 export function show(element, display = "inline-block") {
   if (!(element instanceof HTMLElement)) {
     console.warn("show(): invalid element");
@@ -156,8 +162,8 @@ export function drawUserCreationForm(onSubmit) {
         const password        = form.password.value;
         const confirmPassword = form.confirmPassword.value;
 
-        if (!username || !password) return showFeedback('Please fill in all fields.', 'red');
-        if (password !== confirmPassword) return showFeedback('Passwords do not match.', 'red');
+        const validation = validateUserRegistration(username, password, confirmPassword);
+        if (!validation.valid) return showFeedback(validation.error, 'red');
 
         onSubmit({ username, password });
     });
@@ -223,9 +229,8 @@ export function drawUserDeletionForm(userList, onSubmit) {
         const selectedUser    = select.value;
         const confirmedUser   = confirmInput.value.trim();
 
-        if (!selectedUser) return showFeedback('Please select a user.',"red");
-        if (!confirmedUser) return showFeedback('Please type the username to confirm.',"red");
-        if (selectedUser !== confirmedUser) return showFeedback('Username does not match.', 'red');
+        const validation = validateDeleteUserConfirmation(selectedUser, confirmedUser);
+        if (!validation.valid) return showFeedback(validation.error, "red");
 
         const wasDeleted = await onSubmit({ username: selectedUser });
 
@@ -245,7 +250,6 @@ export function drawUserDeletionForm(userList, onSubmit) {
 }
 
 export function drawPasswordChangeForm(userList, onSubmit) {
-    const passRegex = /^(?=.*[A-Z])(?=.*\d).{10,}$/;
     const form = document.createElement('form');
 
     // User dropdown
@@ -293,10 +297,10 @@ export function drawPasswordChangeForm(userList, onSubmit) {
         form.appendChild(wrapper);
     });
 
-    // Password requirements hint
+    // Password requirements hint (from central constraints)
     const hint = document.createElement('p');
     hint.className = 'text-muted px-5 small';
-    hint.textContent = 'Password must be at least 10 characters, contain one uppercase letter and one number.';
+    hint.textContent = `Password must be ${VALIDATION_CONSTRAINTS.passwordPatternHint}.`;
     form.appendChild(hint);
 
     // Submit button
@@ -309,10 +313,8 @@ export function drawPasswordChangeForm(userList, onSubmit) {
         const password        = form.newPassword.value;
         const confirmPassword = form.confirmPassword.value;
 
-        if (!username)         return showFeedback('Please select a user.',"red");
-        if (!password)         return showFeedback('Please enter a new password.',"red");
-        if (!passRegex.test(password)) return showFeedback('Password must be at least 10 characters, include one uppercase letter and one number.',"red");
-        if (password !== confirmPassword) return showFeedback('Passwords do not match.',"red");
+        const validation = validatePasswordChange(username, password, confirmPassword);
+        if (!validation.valid) return showFeedback(validation.error, "red");
 
         onSubmit({ username, password });
         return showFeedback('Password for ' + username + ' has been changed successfully!');

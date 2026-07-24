@@ -2,6 +2,7 @@ import { showRenameModal, showDeleteModal} from "./NewModalMethods.js";
 import { verifySession, requestRenameFile, requestDeleteFile } from "./RequestFunctions.js";
 import { getSessionToken, showRenameFeedback, showDeleteFeedback} from "./CustomFunctions.js";
 import { newHideModal } from "./PageAppearance.js";
+import { validateFilename } from "./FormValidation.js";
 export async function handleFileRename(filename){
    
     const sessionTest = await verifySession();
@@ -30,11 +31,10 @@ export async function executeFileRename(filename){
     const newName = newNameFormField.value;
     const errorField = document.getElementById('modal-alert-field');
     errorField.style.display = "none";
-    const filenameRegEx = /^[a-zA-Z0-9._\-\s]{5,50}$/;
-    const newfilenameValid = filenameRegEx.test(newName);
+    const filenameValidation = validateFilename(newName);
     
-    if(!newfilenameValid){
-        errorField.textContent = "filename must be between 5 and 50 characters long and contain only letters, numbers, dots, hyphens, underscores, and spaces.";
+    if(!filenameValidation.valid){
+        errorField.textContent = filenameValidation.error;
         errorField.style.display = "block";
         return;
     }

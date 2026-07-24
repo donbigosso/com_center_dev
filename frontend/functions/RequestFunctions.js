@@ -1,6 +1,7 @@
 import { fetchAPIdataWGetParams } from "./CoreFunctions.js ";
 import { POSTJSONRequest } from "./CoreFunctions.js";
 import{getCookie} from "./CookieFunctions.js";
+import { validateUsernameAndPassword } from "./FormValidation.js";
 export async function getFileList() {
     const apiResponse = await fetchAPIdataWGetParams({ request: 'list_files' });
     const success = apiResponse.success;
@@ -22,13 +23,10 @@ export async function getFileList() {
 }
 
 export async function createUser(username, password) {
-    const passRegex = /^(?=.*[A-Z])(?=.*\d).{10,}$/;
-    const usrNameRegex = /^[a-zA-Z0-9_]{4,16}$/;
-    const isPassValid = passRegex.test(password);
-    const isUsrNameValid = usrNameRegex.test(username);
-    if(isPassValid && isUsrNameValid){
+    const validation = validateUsernameAndPassword(username, password);
+    if(validation.valid){
         // TODO: Call API to create user
-        console.log("DEB763 Creating user:", username, "pass valiod: ", isPassValid);
+        console.log("DEB763 Creating user:", username, "validation ok");
         const serverResponse= await POSTJSONRequest({request: "create_user",name:username, password:password});
         if(serverResponse.success){
             console.log("DEB764 Server response - user creation:", serverResponse.data.user_created);
@@ -40,7 +38,7 @@ export async function createUser(username, password) {
         }
     }
     else {
-        console.warn("DEB762 Invalid username or password");
+        console.warn("DEB762 Invalid username or password:", validation.error);
         return false;
     }
 }
