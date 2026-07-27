@@ -28,3 +28,6 @@ Thumbs.db
 
 #my junk
 junk/
+
+#gallery tests
+frontend/galleries/test_junk/

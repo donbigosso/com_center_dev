@@ -3,6 +3,7 @@ import { showLoginModal } from "../functions/NewModalMethods.js";
 import { handleAutoLogin, handleLogout } from "../functions/LoginFunctions.js";
 import { initApiAddressCache, initFileSettingsCache } from "../functions/CustomFunctions.js";
 import { loadGalleries, handleAddGallery } from "../functions/GalleryFunctions.js";
+import {createImagepics} from "../functions/TestFunctions.js";
 
 document.addEventListener('DOMContentLoaded', () => {
   (async () => {
@@ -10,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     await initFileSettingsCache();
     await loadGalleries();
     handleAutoLogin();
+    createImagepics();
   })();
 
   const loginButton = document.querySelector("#login-btn");

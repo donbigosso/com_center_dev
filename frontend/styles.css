@@ -278,3 +278,14 @@ main h1 {
 .gallery-tile {
   animation: fadeInTile 0.3s ease-out;
 }
+
+
+/* Media tiles */
+.media-tile-card {
+  width: 250px;
+}
+
+.media-tile-img {
+  height: 250px;
+  object-fit: cover;
+}

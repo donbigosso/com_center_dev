@@ -2,7 +2,7 @@ import { fetchAPIdataWGetParams, POSTJSONRequest, getUrlParam } from "./CoreFunc
 import { verifySession } from "./RequestFunctions.js";
 import { getSessionToken, showFeedback } from "./CustomFunctions.js";
 import { showGenericModal } from "./NewModalMethods.js";
-import { newHideModal, createDIV, createLabel, createButton, createBootstrapTextInput, adjustElementClassAndText, createBootstrapTextArea } from "./PageAppearance.js";
+import { newHideModal, createHTMLelement, createDIV, createLabel, createButton, createBootstrapTextInput, adjustElementClassAndText, createBootstrapTextArea } from "./PageAppearance.js";
 import { getCookie } from "./CookieFunctions.js";
 import { VALIDATION_CONSTRAINTS, validateGallery } from "./FormValidation.js";
 
@@ -658,4 +658,36 @@ async function executeDeleteGallery(galleryId) {
     console.error("Delete gallery error:", err);
     showFeedback("Failed to delete gallery");
   }
+}
+
+//Galery items
+
+//Picture wrapper
+//  <div class="row g-4" id="picture-tile-test">
+export function createPictureWrapper() {
+  const row = createDIV("row g-4");
+  row.id = "picture-tile-test";
+  return row;
+}
+
+//Picture tile
+export function createMediaTilePic(mediaUrl, title, caption) {
+  const col = createDIV("col-auto");
+  const card = createDIV("card border border-2 media-tile-card");
+  const img = createHTMLelement("img", "w-100 media-tile-img");
+  img.src = mediaUrl;
+  const titleDIV = createDIV("bg-secondary text-white px-2 py-1");
+  const titleSpan = createHTMLelement("span", "fw-bold");
+  titleSpan.textContent = title;
+  const captionBody = createDIV("card-body p-2");
+  const captionP = createHTMLelement("p", "card-text small mb-0");
+  captionP.textContent = caption;
+
+  captionBody.appendChild(captionP);
+  titleDIV.appendChild(titleSpan);
+  card.appendChild(img);
+  card.appendChild(titleDIV);
+  card.appendChild(captionBody);
+  col.appendChild(card);
+  return col;
 }

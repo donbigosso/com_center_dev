@@ -3,6 +3,7 @@ import { onClick } from "./EventFunctions.js";
 import {getSessionToken} from "./CustomFunctions.js";
 import {requestDeleteFile} from "./RequestFunctions.js";
 import {POSTJSONRequest} from "./CoreFunctions.js";
+import {createMediaTilePic, createPictureWrapper} from "./GalleryFunctions.js";
 
 
 
@@ -37,6 +38,17 @@ const test_response= await requestDeleteFile("	sddefault.jpg", "supertoken1234")
        
     }); 
 
-
     
+}
+
+
+export function createImagepics(){
+  const wrapper = createPictureWrapper();
+  
+  for (let i = 0; i < 16; i++) {
+    const picFilename = "Image_0000"+i+".jpeg";
+    const tile = createMediaTilePic("../galleries/test_junk/regular/"+picFilename, "Title", "Caption");
+      wrapper.appendChild(tile);
+    }
+  document.getElementById("pics").appendChild(wrapper);
 }
