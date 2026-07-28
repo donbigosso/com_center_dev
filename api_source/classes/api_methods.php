@@ -86,6 +86,12 @@ class ApiMethods extends Core
                 case 'list_galleries':
                     $this->handle_list_galleries($input);
                     break;
+                case 'get_gallery_cover_filename':
+                    $this->handle_get_gallery_cover_filename($input);
+                    break;
+                case 'get_gallery_cover_miniature_filename':
+                    $this->handle_get_gallery_cover_miniature_filename($input);
+                    break;
                 case 'download':
                     $this->handle_download();
                     break;
@@ -410,6 +416,55 @@ public function handle_clear_token(array $input): void{
             '',
             '',
             $result
+        );
+    }
+
+    /**
+     * GET get_gallery_cover_filename — regular cover image filename for a gallery.
+     * Query params: id (media_collection_id, required).
+     */
+    private function handle_get_gallery_cover_filename(array $input): void
+    {
+        $galleryId = isset($input['id']) ? (int)$input['id'] : 0;
+        if ($galleryId <= 0) {
+            $this->send_JSON_Response(false, '', '', 'Gallery id is required.', ['filename' => null]);
+            return;
+        }
+
+        $gallery_model = new GalleryModel($this->db_access);
+        $result = $gallery_model->get_gallery_cover_filename($galleryId);
+
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            ['filename' => $result['filename']]
+        );
+    }
+
+    /**
+     * GET get_gallery_cover_miniature_filename — miniature cover filename for a gallery.
+     * Query params: id (media_collection_id, required).
+     * Miniature is derived as basename + "_sm" + extension (e.g. Image_00001_sm.jpeg).
+     */
+    private function handle_get_gallery_cover_miniature_filename(array $input): void
+    {
+        $galleryId = isset($input['id']) ? (int)$input['id'] : 0;
+        if ($galleryId <= 0) {
+            $this->send_JSON_Response(false, '', '', 'Gallery id is required.', ['filename' => null]);
+            return;
+        }
+
+        $gallery_model = new GalleryModel($this->db_access);
+        $result = $gallery_model->get_gallery_cover_miniature_filename($galleryId);
+
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            ['filename' => $result['filename']]
         );
     }
 

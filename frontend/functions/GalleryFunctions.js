@@ -35,25 +35,22 @@ function ensureOwnerFilterLoaded() {
  * Update page headings when viewing a specific user's galleries.
  */
 function updatePageHeadingsForFilter(username) {
-  const loggedHeading = document.querySelector(".logged-only h1");
-  const unloggedHeading = document.querySelector(".unlogged-only h1");
-  const unloggedHint = document.querySelector(".unlogged-only p");
+  const heading = document.getElementById("galleries-heading");
+  const subtitle = document.getElementById("galleries-subtitle");
 
   if (username) {
-    const label = `Galleries by ${username}`;
-    if (loggedHeading) loggedHeading.textContent = label;
-    if (unloggedHeading) unloggedHeading.textContent = label;
-    if (unloggedHint) {
-      unloggedHint.textContent = `Showing galleries owned by ${username}.`;
+    if (heading) heading.textContent = `Galleries by ${username}`;
+    if (subtitle) {
+      subtitle.textContent = `Showing collections owned by ${username}.`;
     }
-  } 
+  }
 }
 
-// Soft palette for cover tiles (no cover color column in DB yet)
+// Dark metallic palette for cover tiles (SpaceX-inspired; no cover color column in DB yet)
 const COVER_COLORS = [
-  "#FF6B6B", "#4ECDC4", "#95E1D3", "#2C3E50", "#FFB6C1",
-  "#87CEEB", "#98D8C8", "#F7DC6F", "#DA7297", "#6C757D",
-  "#A8E6CF", "#FFD3B6", "#5C6BC0", "#26A69A", "#EF5350"
+  "#1a1a1a", "#2a2a2a", "#0f172a", "#1e293b", "#292524",
+  "#18181b", "#1c1917", "#0c1222", "#3f3f46", "#27272a",
+  "#1f1f1f", "#111827", "#1e1b4b", "#164e63", "#3b1f1f"
 ];
 
 function coverColorForId(id) {
@@ -198,17 +195,26 @@ function showEmptyState() {
 
   const message = ownerFilter
     ? `No galleries found for user "${ownerFilter}".`
-    : "No galleries found yet.";
+    : "No galleries found yet. Create the first collection.";
 
   const col = createDIV("col-12");
-  const alert = createDIV("alert alert-light border text-center text-muted py-5");
+  const empty = createDIV("gallery-empty");
 
   const icon = document.createElement("i");
-  icon.className = "bi bi-images display-6 d-block mb-3";
+  icon.className = "bi bi-images";
 
-  alert.appendChild(icon);
-  alert.appendChild(document.createTextNode(message));
-  col.appendChild(alert);
+  const title = document.createElement("span");
+  title.className = "gallery-empty-title";
+  title.textContent = "Empty archive";
+
+  const text = document.createElement("p");
+  text.className = "gallery-empty-text";
+  text.textContent = message;
+
+  empty.appendChild(icon);
+  empty.appendChild(title);
+  empty.appendChild(text);
+  col.appendChild(empty);
 
   grid.appendChild(col);
 }
@@ -230,7 +236,7 @@ async function renderGalleries(galleries, options = { replace: true }) {
 
   // Remove empty-state placeholder if appending real cards
   if (!options.replace) {
-    const empty = grid.querySelector(".alert");
+    const empty = grid.querySelector(".gallery-empty, .alert");
     if (empty) empty.closest(".col-12")?.remove();
   }
 
@@ -246,6 +252,27 @@ async function renderGalleries(galleries, options = { replace: true }) {
 }
 
 /**
+ * Build a meta chip (icon + label) for gallery cards.
+ */
+function createGalleryMetaItem(iconClass, label, valueText) {
+  const item = createDIV("gallery-meta-item");
+  const icon = document.createElement("i");
+  icon.className = iconClass;
+  item.appendChild(icon);
+
+  if (label) {
+    item.appendChild(document.createTextNode(` ${label} `));
+  } else {
+    item.appendChild(document.createTextNode(" "));
+  }
+
+  const value = document.createElement("strong");
+  value.textContent = valueText;
+  item.appendChild(value);
+  return item;
+}
+
+/**
  * Build one gallery tile (the col > card structure) entirely via DOM APIs.
  */
 function createGalleryCard(gallery, loggedUser) {
@@ -257,79 +284,73 @@ function createGalleryCard(gallery, loggedUser) {
   const card = createDIV("card gallery-tile h-100");
   card.dataset.galleryId = gallery.id;
 
-  // Cover
+  // Cover — dark metallic gradient
   const cover = createDIV("gallery-cover");
   cover.style.backgroundColor = bgColor;
-  cover.style.backgroundImage = `linear-gradient(135deg, ${bgColor} 0%, rgba(0,0,0,0.2) 100%)`;
+  cover.style.backgroundImage =
+    `radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.12) 0%, transparent 50%),` +
+    `linear-gradient(160deg, ${bgColor} 0%, #000000 100%)`;
 
   const overlay = createDIV("gallery-cover-overlay");
-  const iconWrap = createDIV("display-6");
   const coverIcon = document.createElement("i");
   coverIcon.className = "bi bi-images";
-  iconWrap.appendChild(coverIcon);
-  overlay.appendChild(iconWrap);
+  overlay.appendChild(coverIcon);
   cover.appendChild(overlay);
 
   // Body
   const body = createDIV("card-body d-flex flex-column");
 
   const title = document.createElement("h5");
-  adjustElementClassAndText(title, "card-title text-primary", gallery.title);
-
+  adjustElementClassAndText(title, "card-title", gallery.title);
 
   const description = document.createElement("p");
-  adjustElementClassAndText(description, "card-text text-muted flex-grow-1", gallery.description);
+  const descText = gallery.description || "No description";
+  adjustElementClassAndText(description, "card-text flex-grow-1", descText);
 
-  const ownerLine = document.createElement("small");
-  ownerLine.className = "text-secondary mb-2";
-  const ownerIcon = document.createElement("i");
-  ownerIcon.className = "bi bi-person";
-  ownerLine.appendChild(ownerIcon);
-  ownerLine.appendChild(document.createTextNode(" "));
-  if (gallery.owner) {
-    ownerLine.appendChild(document.createTextNode(gallery.owner));
-  } else {
-    const unknownOwner = document.createElement("span");
-    adjustElementClassAndText(unknownOwner, "text-muted", "Unknown");
-    ownerLine.appendChild(unknownOwner);
+  const meta = createDIV("gallery-meta");
+  meta.appendChild(
+    createGalleryMetaItem(
+      "bi bi-person",
+      "",
+      gallery.owner || "Unknown"
+    )
+  );
+  meta.appendChild(
+    createGalleryMetaItem(
+      "bi bi-image",
+      "",
+      `${gallery.image_count} images`
+    )
+  );
+
+  if (gallery.register_date) {
+    meta.appendChild(
+      createGalleryMetaItem(
+        "bi bi-calendar3",
+        "",
+        String(gallery.register_date).slice(0, 10)
+      )
+    );
   }
-
-  const countLine = document.createElement("small");
-  countLine.className = "text-secondary";
-  const countIcon = document.createElement("i");
-  countIcon.className = "bi bi-image";
-  countLine.appendChild(countIcon);
-  countLine.appendChild(document.createTextNode(` ${gallery.image_count} images`));
 
   body.appendChild(title);
   body.appendChild(description);
-  body.appendChild(ownerLine);
-  body.appendChild(countLine);
-
-  if (gallery.register_date) {
-    const dateLine = document.createElement("small");
-    dateLine.className = "text-secondary d-block mt-1";
-    const dateIcon = document.createElement("i");
-    dateIcon.className = "bi bi-calendar3";
-    dateLine.appendChild(dateIcon);
-    dateLine.appendChild(document.createTextNode(` ${String(gallery.register_date).slice(0, 10)}`));
-    body.appendChild(dateLine);
-  }
+  body.appendChild(meta);
 
   card.appendChild(cover);
   card.appendChild(body);
 
   if (isOwner) {
-    const footer = createDIV("card-footer bg-light border-top");
+    const footer = createDIV("card-footer");
 
-    const editBtn = createButton("button", "", "btn btn-sm btn-primary me-1 gallery-edit-btn");
+    const editBtn = createButton("button", "", "btn btn-sm gallery-edit-btn");
     editBtn.dataset.galleryId = gallery.id;
     const editIcon = document.createElement("i");
     editIcon.className = "bi bi-pencil";
     editBtn.appendChild(editIcon);
     editBtn.appendChild(document.createTextNode(" Edit"));
 
-    const deleteBtn = createButton("button", "", "btn btn-sm btn-danger gallery-delete-btn");
+    const deleteBtn = createButton("button", "", "btn btn-sm gallery-delete-btn");
     deleteBtn.dataset.galleryId = gallery.id;
     const deleteIcon = document.createElement("i");
     deleteIcon.className = "bi bi-trash";
@@ -432,7 +453,7 @@ function buildGalleryForm(config) {
   colorInput.type = "color";
   colorInput.className = "form-control form-control-color";
   colorInput.id = "gallery-color";
-  colorInput.value = config.color || "#6C757D";
+  colorInput.value = config.color || "#1a1a1a";
   colorWrapper.appendChild(colorLabel);
   colorWrapper.appendChild(colorInput);
 
@@ -483,7 +504,7 @@ export async function handleAddGallery() {
     modalTitle: "Create Gallery",
     titleValue: "",
     description: "",
-    color: "#6C757D",
+    color: "#1a1a1a",
     isEdit: false
   });
 }
@@ -497,7 +518,7 @@ async function executeCreateGallery() {
 
   const title = titleInput.value.trim();
   const description = descInput.value.trim();
-  const color = colorInput?.value || "#6C757D";
+  const color = colorInput?.value || "#1a1a1a";
 
   errorField.style.display = "none";
 

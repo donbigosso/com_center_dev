@@ -20,39 +20,54 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="../styles.css">
 </head>
-<body>
-    <header class="navbar navbar-expand navbar-dark bg-primary shadow-sm">
-        <div class="container-fluid">
-            <a class="navbar-brand fw-bold fs-4" href="../">
-                <img src="../images/logo.png" alt="Logo" width="60" height="60">
-                Donbigosso Galleries
+<body class="galleries-page d-flex flex-column min-vh-100">
+    <header class="navbar navbar-expand galleries-nav sticky-top">
+        <div class="container-fluid galleries-nav-inner">
+            <a class="navbar-brand galleries-brand" href="../">
+                <img src="../images/logo.png" alt="Logo" class="galleries-logo" width="40" height="40">
+                <span class="galleries-brand-text">Donbigosso</span>
+                <span class="galleries-brand-divider" aria-hidden="true"></span>
+                <span class="galleries-brand-sub">Galleries</span>
             </a>
 
-            <div class="d-flex align-items-center gap-3">
-                <span class="text-light me-3 logged-only">
-                    <i class="bi bi-person-circle"></i>&nbsp;<strong id="user-field">john.doe</strong>
+            <div class="d-flex align-items-center gap-2 gap-md-3">
+                <span class="galleries-user logged-only">
+                    <i class="bi bi-person-circle"></i>
+                    <strong id="user-field">john.doe</strong>
                 </span>
-                <button class="btn btn-outline-light me-2 unlogged-only" id="login-btn">Login</button>
-                <button class="btn btn-outline-danger logged-only" id="logout-btn">Logout</button>
+                <button class="btn galleries-btn-ghost unlogged-only" id="login-btn">Login</button>
+                <button class="btn galleries-btn-outline logged-only" id="logout-btn">Logout</button>
             </div>
         </div>
     </header>
 
-    <main class="container mt-5">
-        <!-- Picture Tile test-->
-        <h2>Picture Tile Test</h2>
-        <div id="pics">
-  
+    <section class="galleries-hero">
+        <div class="galleries-hero-glow" aria-hidden="true"></div>
+        <div class="container galleries-hero-content">
+            <p class="galleries-eyebrow">Visual archive</p>
+            <div class="d-flex flex-column flex-md-row align-items-md-end justify-content-between gap-4">
+                <div>
+                    <h1 class="galleries-title" id="galleries-heading">All Galleries</h1>
+                    <p class="galleries-subtitle" id="galleries-subtitle">
+                        Curated collections. Precision. Presence.
+                    </p>
+                </div>
+                <button class="btn galleries-btn-primary logged-only" id="add-gallery-btn">
+                    <i class="bi bi-plus-lg"></i>
+                    <span>New Gallery</span>
+                </button>
+            </div>
         </div>
-        <!-- Add Gallery Button -->
-        <div class="mb-5 d-flex justify-content-between align-items-center logged-only">
-             <h1 class="text-primary">All Galleries</h1> 
-            <button class="btn btn-success logged-only" id="add-gallery-btn">
-                <i class="bi bi-plus-circle"></i> Add Gallery
-            </button>
-        </div>
+    </section>
 
-    
+    <main class="container galleries-main flex-grow-1">
+        <!-- Picture tile test (dev) -->
+        <section class="galleries-media-preview " id="media-preview-section" aria-label="Media preview">
+            <div class="galleries-section-head">
+                <h2 class="galleries-section-title">Media Preview</h2>
+            </div>
+            <div id="pics"></div>
+        </section>
 
         <!-- Galleries Grid -->
         <div class="row g-4" id="galleries-grid">
@@ -60,28 +75,28 @@
         </div>
 
         <!-- Loading Indicator -->
-        <div class="text-center mt-5">
-            <div class="spinner-border text-primary d-none" id="loading-spinner" role="status">
+        <div class="text-center galleries-loading">
+            <div class="spinner-border galleries-spinner d-none" id="loading-spinner" role="status">
                 <span class="visually-hidden">Loading...</span>
             </div>
         </div>
 
         <!-- End of content marker (for infinite scroll) -->
-        <div id="scroll-sentinel" class="mt-5" style="height: 1px;"></div>
+        <div id="scroll-sentinel" class="galleries-sentinel" aria-hidden="true"></div>
 
         <!-- Feedback -->
-        <div id="global-feedback" class="position-fixed top-50 start-50 translate-middle bg-secondary text-white px-3 py-2 rounded shadow opacity-0" style="z-index: 1050; pointer-events: none;">
+        <div id="global-feedback" class="position-fixed top-50 start-50 translate-middle galleries-feedback opacity-0">
             Global feedback
         </div>
     </main>
 
     <!-- Generic Modal -->
-    <div class="modal" id="my_modal" tabindex="-1" aria-labelledby="my-modal-label" aria-hidden="false" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog">
+    <div class="modal galleries-modal" id="my_modal" tabindex="-1" aria-labelledby="my-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="my-modal-label">Modal Label</h5>
-                    <button type="button" id="modal-close-btn" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" id="modal-close-btn" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     Modal text
@@ -98,9 +113,11 @@
         </div>
     </div>
 
-    <footer class="mt-auto py-3 bg-dark text-light text-center">
+    <footer class="galleries-footer mt-auto">
         <div class="container">
-            <span>Donbigosso 2026</span>
+            <span class="galleries-footer-mark">Donbigosso</span>
+            <span class="galleries-footer-dot" aria-hidden="true"></span>
+            <span>2026</span>
         </div>
     </footer>
 

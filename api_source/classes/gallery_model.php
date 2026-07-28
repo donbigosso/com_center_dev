@@ -278,4 +278,108 @@ class GalleryModel
             'image_count' => (int)($row['image_count'] ?? 0),
         ];
     }
+
+    /**
+     * Return the media item id used as the gallery cover (collection_cover_id),
+     * or null if the gallery does not exist or has no cover set.
+     */
+    public function get_gallery_cover_id(int $galleryId): ?int
+    {
+        if ($galleryId <= 0) {
+            return null;
+        }
+
+        $value = $this->db->queryValue(
+            'SELECT collection_cover_id
+             FROM media_collections
+             WHERE media_collection_id = :id
+             LIMIT 1',
+            [':id' => $galleryId]
+        );
+
+        if ($value === null) {
+            return null;
+        }
+
+        return (int)$value;
+    }
+
+    /**
+     * Return the cover image filename for a gallery (via collection_cover_id → media_items → files).
+     *
+     * @return array{success:bool,message:string,error:string,filename:?string}
+     */
+    public function get_gallery_cover_filename(int $galleryId): array
+    {
+        $coverId = $this->get_gallery_cover_id($galleryId);
+        if ($coverId === null) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Gallery cover is not set or gallery does not exist.',
+                'filename' => null,
+            ];
+        }
+
+        $filename = $this->db->queryValue(
+            'SELECT f.filename
+             FROM media_items mi
+             INNER JOIN files f ON f.file_id = mi.file_id
+             WHERE mi.media_item_id = :cover_id
+             LIMIT 1',
+            [':cover_id' => $coverId]
+        );
+
+        if ($filename === null || trim((string)$filename) === '') {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Cover file not found.',
+                'filename' => null,
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Cover filename retrieved successfully.',
+            'error' => '',
+            'filename' => (string)$filename,
+        ];
+    }
+
+    /**
+     * Return the miniature filename for a gallery cover.
+     * Derived from the regular filename by inserting "_sm" before the extension
+     * (e.g. Image_00001.jpeg → Image_00001_sm.jpeg).
+     *
+     * @return array{success:bool,message:string,error:string,filename:?string}
+     */
+    public function get_gallery_cover_miniature_filename(int $galleryId): array
+    {
+        $result = $this->get_gallery_cover_filename($galleryId);
+        if (!$result['success'] || empty($result['filename'])) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => $result['error'] !== ''
+                    ? $result['error']
+                    : 'Could not resolve cover filename for miniature.',
+                'filename' => null,
+            ];
+        }
+
+        $filename = (string)$result['filename'];
+        $base = pathinfo($filename, PATHINFO_FILENAME);
+        $ext = pathinfo($filename, PATHINFO_EXTENSION);
+        $miniature = $ext !== ''
+            ? "{$base}_sm.{$ext}"
+            : "{$base}_sm";
+
+        return [
+            'success' => true,
+            'message' => 'Cover miniature filename retrieved successfully.',
+            'error' => '',
+            'filename' => $miniature,
+        ];
+    }
 }
