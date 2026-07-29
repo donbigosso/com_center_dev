@@ -31,3 +31,8 @@ junk/
 
 #gallery tests
 frontend/galleries/test_junk/
+
+#media items
+api_source/media_items/*
+!api_source/media_items/.gitkeep
+
