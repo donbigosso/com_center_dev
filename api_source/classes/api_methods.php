@@ -86,6 +86,12 @@ class ApiMethods extends Core
                 case 'list_galleries':
                     $this->handle_list_galleries($input);
                     break;
+                case 'get_gallery':
+                    $this->handle_get_gallery($input);
+                    break;
+                case 'list_gallery_media':
+                    $this->handle_list_gallery_media($input);
+                    break;
                 case 'get_gallery_cover_filename':
                     $this->handle_get_gallery_cover_filename($input);
                     break;
@@ -416,6 +422,65 @@ public function handle_clear_token(array $input): void{
             '',
             '',
             $result
+        );
+    }
+
+    /**
+     * GET get_gallery — single media_collection by id (same shape as list_galleries rows).
+     * Query params: id (media_collection_id, required).
+     */
+    private function handle_get_gallery(array $input): void
+    {
+        $galleryId = isset($input['id']) ? (int)$input['id'] : 0;
+        if ($galleryId <= 0) {
+            $this->send_JSON_Response(false, '', '', 'Gallery id is required.', ['gallery' => null]);
+            return;
+        }
+
+        $gallery_model = new GalleryModel($this->db_access);
+        $gallery = $gallery_model->get_gallery_by_id($galleryId);
+
+        if ($gallery === null) {
+            $this->send_JSON_Response(false, '', '', 'Gallery not found.', ['gallery' => null]);
+            return;
+        }
+
+        $this->send_JSON_Response(
+            true,
+            'Gallery retrieved successfully.',
+            '',
+            '',
+            ['gallery' => $gallery]
+        );
+    }
+
+    /**
+     * GET list_gallery_media — paginated media items in a gallery.
+     * Query params: id (media_collection_id, required),
+     *               page (default 1), limit (default 20, max 100).
+     */
+    private function handle_list_gallery_media(array $input): void
+    {
+        $galleryId = isset($input['id']) ? (int)$input['id'] : 0;
+        $page = isset($input['page']) ? (int)$input['page'] : 1;
+        $limit = isset($input['limit']) ? (int)$input['limit'] : 20;
+
+        $gallery_model = new GalleryModel($this->db_access);
+        $result = $gallery_model->list_gallery_media($galleryId, $page, $limit);
+
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            [
+                'media' => $result['media'],
+                'page' => $result['page'],
+                'limit' => $result['limit'],
+                'total' => $result['total'],
+                'has_more' => $result['has_more'],
+                'gallery_id' => $result['gallery_id'],
+            ]
         );
     }
 

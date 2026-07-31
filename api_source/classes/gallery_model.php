@@ -280,6 +280,127 @@ class GalleryModel
     }
 
     /**
+     * List media items in a gallery (paginated).
+     * Page is 1-based. Ordered by date_added ASC, then media_item_id ASC.
+     *
+     * @return array{
+     *   success:bool,
+     *   message:string,
+     *   error:string,
+     *   media:array<int,array>,
+     *   page:int,
+     *   limit:int,
+     *   total:int,
+     *   has_more:bool,
+     *   gallery_id:int
+     * }
+     */
+    public function list_gallery_media(int $galleryId, int $page = 1, int $limit = 20): array
+    {
+        $galleryId = (int)$galleryId;
+        $page = max(1, $page);
+        $limit = max(1, min(100, $limit));
+        $offset = ($page - 1) * $limit;
+
+        if ($galleryId <= 0) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Gallery id is required.',
+                'media' => [],
+                'page' => $page,
+                'limit' => $limit,
+                'total' => 0,
+                'has_more' => false,
+                'gallery_id' => $galleryId,
+            ];
+        }
+
+        $exists = $this->db->queryValue(
+            'SELECT media_collection_id
+             FROM media_collections
+             WHERE media_collection_id = :id
+             LIMIT 1',
+            [':id' => $galleryId]
+        );
+
+        if ($exists === null) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Gallery not found.',
+                'media' => [],
+                'page' => $page,
+                'limit' => $limit,
+                'total' => 0,
+                'has_more' => false,
+                'gallery_id' => $galleryId,
+            ];
+        }
+
+        $total = (int)($this->db->queryValue(
+            'SELECT COUNT(*)
+             FROM media_in_collection
+             WHERE media_collection_id = :id',
+            [':id' => $galleryId]
+        ) ?? 0);
+
+        $sql = "
+            SELECT
+                mi.media_item_id AS id,
+                mi.media_type,
+                mi.title,
+                mi.descr AS description,
+                mi.tags,
+                f.filename,
+                mic.date_added
+            FROM media_in_collection mic
+            INNER JOIN media_items mi ON mi.media_item_id = mic.media_item_id
+            INNER JOIN files f ON f.file_id = mi.file_id
+            WHERE mic.media_collection_id = :id
+            ORDER BY mic.date_added ASC, mi.media_item_id ASC
+            LIMIT {$limit} OFFSET {$offset}
+        ";
+
+        $rows = $this->db->queryAll($sql, [':id' => $galleryId]);
+
+        $media = array_map(static function (array $row): array {
+            $filename = (string)($row['filename'] ?? '');
+            $base = pathinfo($filename, PATHINFO_FILENAME);
+            $ext = pathinfo($filename, PATHINFO_EXTENSION);
+            $miniature = $filename !== ''
+                ? ($ext !== '' ? "{$base}_sm.{$ext}" : "{$base}_sm")
+                : null;
+
+            return [
+                'id' => (int)$row['id'],
+                'media_type' => $row['media_type'] ?? null,
+                'title' => $row['title'] ?? '',
+                'description' => $row['description'] ?? '',
+                'tags' => $row['tags'] ?? null,
+                'filename' => $filename !== '' ? $filename : null,
+                'miniature_filename' => $miniature,
+                'date_added' => $row['date_added'] ?? null,
+            ];
+        }, $rows);
+
+        $returned = count($media);
+        $hasMore = ($offset + $returned) < $total;
+
+        return [
+            'success' => true,
+            'message' => 'Gallery media retrieved successfully.',
+            'error' => '',
+            'media' => $media,
+            'page' => $page,
+            'limit' => $limit,
+            'total' => $total,
+            'has_more' => $hasMore,
+            'gallery_id' => $galleryId,
+        ];
+    }
+
+    /**
      * Return the media item id used as the gallery cover (collection_cover_id),
      * or null if the gallery does not exist or has no cover set.
      */

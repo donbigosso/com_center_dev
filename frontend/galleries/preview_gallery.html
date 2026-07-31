@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Gallery Preview — Donbigosso</title>
+    <meta property="og:title" content="Gallery Preview — Donbigosso">
+    <meta property="og:description" content="Beautiful galleries by Donbigosso">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://donbigosso.polafri.pl/galleries/preview_gallery.html">
+    <meta property="og:image" content="https://donbigosso.polafri.pl/images/logo.png">
+    <meta property="og:image:width" content="400">
+    <meta property="og:image:height" content="400">
+    <link rel="icon" type="image/x-icon" href="../favicon.ico">
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body class="galleries-page gallery-preview-page d-flex flex-column min-vh-100">
+    <header class="navbar navbar-expand galleries-nav sticky-top">
+        <div class="container-fluid galleries-nav-inner">
+            <a class="navbar-brand galleries-brand" href="index.html">
+                <img src="../images/logo.png" alt="Logo" class="galleries-logo" width="40" height="40">
+                <span class="galleries-brand-text">Donbigosso</span>
+                <span class="galleries-brand-divider" aria-hidden="true"></span>
+                <span class="galleries-brand-sub">Galleries</span>
+            </a>
+
+            <div class="d-flex align-items-center gap-2 gap-md-3">
+                <span class="galleries-user logged-only">
+                    <i class="bi bi-person-circle"></i>
+                    <strong id="user-field">john.doe</strong>
+                </span>
+                <button class="btn galleries-btn-ghost unlogged-only" id="login-btn">Login</button>
+                <button class="btn galleries-btn-outline logged-only" id="logout-btn">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Gallery banner with full-resolution cover -->
+    <section class="gallery-preview-banner" id="gallery-banner" aria-labelledby="gallery-title">
+        <div class="gallery-preview-banner-media" id="gallery-banner-media" aria-hidden="true"></div>
+        <div class="gallery-preview-banner-shade" aria-hidden="true"></div>
+        <div class="container gallery-preview-banner-content">
+            <a href="index.html" class="gallery-preview-back">
+                <i class="bi bi-arrow-left"></i>
+                <span>All galleries</span>
+            </a>
+
+            <div class="d-flex flex-column flex-lg-row align-items-lg-end justify-content-between gap-4">
+                <div class="gallery-preview-banner-text">
+                    <p class="galleries-eyebrow">Gallery</p>
+                    <h1 class="galleries-title" id="gallery-title">Loading…</h1>
+                    <p class="galleries-subtitle" id="gallery-description"></p>
+                    <div class="gallery-preview-meta" id="gallery-meta" aria-label="Gallery details"></div>
+                </div>
+
+                <!-- Owner tools (UI only for now) -->
+                <div class="gallery-preview-owner-tools d-none" id="gallery-owner-tools">
+                    <div class="dropdown">
+                        <button
+                            class="btn galleries-btn-primary dropdown-toggle"
+                            type="button"
+                            id="gallery-edit-menu-btn"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false"
+                            title="Edit gallery"
+                        >
+                            <i class="bi bi-pencil"></i>
+                            <span>Edit</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end gallery-preview-edit-menu" aria-labelledby="gallery-edit-menu-btn">
+                            <li>
+                                <button type="button" class="dropdown-item" id="gallery-edit-details-btn">
+                                    <i class="bi bi-card-text"></i> Edit title &amp; description
+                                </button>
+                            </li>
+                            <li>
+                                <button type="button" class="dropdown-item" id="gallery-edit-date-btn">
+                                    <i class="bi bi-calendar3"></i> Edit creation date
+                                </button>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <button type="button" class="dropdown-item" id="gallery-add-pics-btn">
+                                    <i class="bi bi-plus-square"></i> Add pictures
+                                </button>
+                            </li>
+                            <li>
+                                <button type="button" class="dropdown-item" id="gallery-remove-pics-btn">
+                                    <i class="bi bi-dash-square"></i> Remove pictures
+                                </button>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <button type="button" class="dropdown-item text-danger" id="gallery-delete-btn">
+                                    <i class="bi bi-trash"></i> Delete gallery
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <main class="container galleries-main flex-grow-1">
+        <div class="galleries-section-head">
+            <h2 class="galleries-section-title">Pictures</h2>
+        </div>
+
+        <!-- Pictures grid (filled by createInfiniteScroller) -->
+        <div id="gallery-pictures" class="gallery-preview-pictures"></div>
+
+        <!-- Loading Indicator -->
+        <div class="text-center galleries-loading">
+            <div class="spinner-border galleries-spinner d-none" id="loading-spinner" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+
+        <!-- Empty state -->
+        <div class="gallery-empty d-none" id="gallery-empty-state">
+            <i class="bi bi-images"></i>
+            <span class="gallery-empty-title">No pictures yet</span>
+            <p class="gallery-empty-text">This gallery does not contain any media items.</p>
+        </div>
+
+        <!-- Feedback -->
+        <div id="global-feedback" class="position-fixed top-50 start-50 translate-middle galleries-feedback opacity-0">
+            Global feedback
+        </div>
+    </main>
+
+    <!-- Generic Modal -->
+    <div class="modal galleries-modal" id="my_modal" tabindex="-1" aria-labelledby="my-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="my-modal-label">Modal Label</h5>
+                    <button type="button" id="modal-close-btn" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Modal text
+                </div>
+                <div id="modal-alert-field" class="alert alert-danger m-3 mt-0" role="alert">
+                    This is an error
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="modal-btn-1">Button 1</button>
+                    <button type="button" class="btn btn-danger" id="modal-btn-2">Button 2</button>
+                    <button type="button" class="btn btn-primary" id="modal-btn-3">Button 3</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="galleries-footer mt-auto">
+        <div class="container">
+            <span class="galleries-footer-mark">Donbigosso</span>
+            <span class="galleries-footer-dot" aria-hidden="true"></span>
+            <span>2026</span>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="./preview_gallery.js"></script>
+</body>
+</html>

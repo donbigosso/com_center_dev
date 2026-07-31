@@ -1,20 +1,41 @@
-import { fetchAPIdataWGetParams, POSTJSONRequest, getUrlParam } from "./CoreFunctions.js";
+import {
+  fetchAPIdataWGetParams,
+  POSTJSONRequest,
+  getUrlParam,
+  getSetting,
+  createInfiniteScroller,
+} from "./CoreFunctions.js";
 import { verifySession } from "./RequestFunctions.js";
 import { getSessionToken, showFeedback } from "./CustomFunctions.js";
 import { showGenericModal } from "./NewModalMethods.js";
-import { newHideModal, createHTMLelement, createDIV, createLabel, createButton, createBootstrapTextInput, adjustElementClassAndText, createBootstrapTextArea } from "./PageAppearance.js";
+import {
+  newHideModal,
+  createHTMLelement,
+  createDIV,
+  createLabel,
+  createButton,
+  createBootstrapTextInput,
+  adjustElementClassAndText,
+  createBootstrapTextArea,
+} from "./PageAppearance.js";
 import { getCookie } from "./CookieFunctions.js";
 import { VALIDATION_CONSTRAINTS, validateGallery } from "./FormValidation.js";
 
 // Pagination state
 let currentPage = 1;
 const pageSize = 12;
+const picturePreviewPageSize = 20;
 let allGalleries = [];
 let currentLoggedUser = null;
 let isLoading = false;
 let hasMorePages = true;
 let infiniteScrollReady = false;
 let ownerFilter = undefined;
+let cachedGalleryFolder = null;
+
+// Preview page state
+let currentPreviewGallery = null;
+let galleryPicturesScroller = null;
 
 export function getOwnerFilterFromUrl() {
   const raw = getUrlParam("user");
@@ -91,7 +112,217 @@ function mapGalleryFromApi(raw) {
     register_date: raw.register_date || null,
     collection_cover_id: raw.collection_cover_id ?? null,
     cover_color: coverColorForId(id),
+    // undefined = not loaded yet; null = loaded but no cover; string = cover image URL
+    cover_url: undefined,
   };
+}
+
+/**
+ * Base URL for media files (trailing slash), from settings.json gallery_folder.
+ */
+async function getGalleryFolder() {
+  if (cachedGalleryFolder) return cachedGalleryFolder;
+
+  const folder = await getSetting("gallery_folder");
+  if (!folder) {
+    console.error("gallery_folder is not defined in settings.");
+    return null;
+  }
+
+  cachedGalleryFolder = String(folder).endsWith("/")
+    ? String(folder)
+    : `${folder}/`;
+  return cachedGalleryFolder;
+}
+
+/**
+ * Resolve cover miniature URL for a gallery via get_gallery_cover_miniature_filename.
+ * Caches the result on the gallery object (cover_url).
+ * @param {object} gallery
+ * @returns {Promise<string|null>}
+ */
+async function ensureGalleryCoverUrl(gallery) {
+  if (!gallery) return null;
+  if (gallery.cover_url !== undefined) return gallery.cover_url;
+
+  // No cover media assigned — skip API call
+  if (!gallery.collection_cover_id) {
+    gallery.cover_url = null;
+    return null;
+  }
+
+  try {
+    const response = await fetchAPIdataWGetParams({
+      request: "get_gallery_cover_miniature_filename",
+      id: gallery.id,
+    });
+
+    const filename = response?.success ? response?.data?.filename : null;
+    if (!filename) {
+      gallery.cover_url = null;
+      return null;
+    }
+
+    const folder = await getGalleryFolder();
+    if (!folder) {
+      gallery.cover_url = null;
+      return null;
+    }
+
+    gallery.cover_url = `${folder}${encodeURIComponent(filename)}`;
+    return gallery.cover_url;
+  } catch (err) {
+    console.error(`Error fetching cover for gallery ${gallery.id}:`, err);
+    gallery.cover_url = null;
+    return null;
+  }
+}
+
+/**
+ * Prefetch cover URLs for a list of galleries (parallel).
+ */
+async function prefetchGalleryCovers(galleries) {
+  if (!Array.isArray(galleries) || galleries.length === 0) return;
+  await Promise.all(galleries.map((gallery) => ensureGalleryCoverUrl(gallery)));
+}
+
+/**
+ * Build absolute media URL from a filename using gallery_folder.
+ * @param {string|null|undefined} filename
+ * @returns {Promise<string|null>}
+ */
+async function buildMediaUrl(filename) {
+  if (!filename) return null;
+  const folder = await getGalleryFolder();
+  if (!folder) return null;
+  return `${folder}${encodeURIComponent(filename)}`;
+}
+
+/**
+ * Derive miniature filename (Image_00001.jpeg → Image_00001_sm.jpeg).
+ * @param {string} filename
+ * @returns {string|null}
+ */
+function toMiniatureFilename(filename) {
+  if (!filename) return null;
+  const str = String(filename);
+  const lastDot = str.lastIndexOf(".");
+  if (lastDot <= 0) return `${str}_sm`;
+  return `${str.slice(0, lastDot)}_sm${str.slice(lastDot)}`;
+}
+
+/**
+ * Parse gallery id from ?id= query param.
+ * @returns {number|null}
+ */
+export function getGalleryIdFromUrl() {
+  const raw = getUrlParam("id");
+  if (raw === null || raw === undefined || String(raw).trim() === "") {
+    return null;
+  }
+  const id = Number.parseInt(String(raw).trim(), 10);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  return id;
+}
+
+/**
+ * Redirect to the main galleries listing page.
+ */
+function redirectToGalleriesIndex() {
+  window.location.replace("index.html");
+}
+
+/**
+ * Fetch a single gallery by id via get_gallery.
+ * @param {number} galleryId
+ * @returns {Promise<object|null>}
+ */
+async function fetchGalleryById(galleryId) {
+  try {
+    const response = await fetchAPIdataWGetParams({
+      request: "get_gallery",
+      id: galleryId,
+    });
+
+    if (!response?.success || !response?.data?.gallery) {
+      console.error("get_gallery error:", response?.error || response?.message);
+      return null;
+    }
+
+    return mapGalleryFromApi(response.data.gallery);
+  } catch (err) {
+    console.error("Error fetching gallery:", err);
+    return null;
+  }
+}
+
+/**
+ * Full-resolution cover URL via get_gallery_cover_filename.
+ * @param {number} galleryId
+ * @returns {Promise<string|null>}
+ */
+async function fetchGalleryCoverFullUrl(galleryId) {
+  try {
+    const response = await fetchAPIdataWGetParams({
+      request: "get_gallery_cover_filename",
+      id: galleryId,
+    });
+    const filename = response?.success ? response?.data?.filename : null;
+    return buildMediaUrl(filename);
+  } catch (err) {
+    console.error(`Error fetching full cover for gallery ${galleryId}:`, err);
+    return null;
+  }
+}
+
+/**
+ * Fetch one page of gallery media for the infinite scroller.
+ * @param {number} galleryId
+ * @param {number} page
+ * @param {number} pageSizeArg
+ * @returns {Promise<{items: Array, hasMore: boolean}>}
+ */
+async function fetchGalleryMediaPage(galleryId, page, pageSizeArg = picturePreviewPageSize) {
+  try {
+    const response = await fetchAPIdataWGetParams({
+      request: "list_gallery_media",
+      id: galleryId,
+      page,
+      limit: pageSizeArg,
+    });
+
+    if (!response?.success) {
+      console.error("list_gallery_media error:", response?.error || response?.message);
+      return { items: [], hasMore: false };
+    }
+
+    const data = response.data || {};
+    const folder = await getGalleryFolder();
+    const media = Array.isArray(data.media) ? data.media : [];
+
+    const items = media.map((raw) => {
+      const filename = raw.miniature_filename || toMiniatureFilename(raw.filename) || raw.filename;
+      const url = folder && filename
+        ? `${folder}${encodeURIComponent(filename)}`
+        : null;
+      return {
+        id: Number(raw.id) || 0,
+        title: raw.title || "Untitled",
+        caption: raw.description || "",
+        url,
+        filename: raw.filename || null,
+        media_type: raw.media_type || null,
+      };
+    }).filter((item) => item.url);
+
+    return {
+      items,
+      hasMore: Boolean(data.has_more),
+    };
+  } catch (err) {
+    console.error("Error fetching gallery media:", err);
+    return { items: [], hasMore: false };
+  }
 }
 
 /**
@@ -229,6 +460,7 @@ async function renderGalleries(galleries, options = { replace: true }) {
   if (!grid) return;
 
   const loggedUser = await getLoggedUser();
+  await prefetchGalleryCovers(galleries);
 
   if (options.replace) {
     grid.innerHTML = "";
@@ -278,24 +510,51 @@ function createGalleryMetaItem(iconClass, label, valueText) {
 function createGalleryCard(gallery, loggedUser) {
   const isOwner = loggedUser && gallery.owner && loggedUser === gallery.owner;
   const bgColor = gallery.cover_color || coverColorForId(gallery.id);
+  const coverUrl = gallery.cover_url || null;
 
   const col = createDIV("col-12 col-sm-6 col-lg-4");
 
   const card = createDIV("card gallery-tile h-100");
   card.dataset.galleryId = gallery.id;
 
-  // Cover — dark metallic gradient
+  // Cover — real miniature when available, otherwise dark metallic placeholder
   const cover = createDIV("gallery-cover");
   cover.style.backgroundColor = bgColor;
-  cover.style.backgroundImage =
-    `radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.12) 0%, transparent 50%),` +
-    `linear-gradient(160deg, ${bgColor} 0%, #000000 100%)`;
 
-  const overlay = createDIV("gallery-cover-overlay");
-  const coverIcon = document.createElement("i");
-  coverIcon.className = "bi bi-images";
-  overlay.appendChild(coverIcon);
-  cover.appendChild(overlay);
+  if (coverUrl) {
+    cover.classList.add("gallery-cover--has-image");
+
+    const coverImg = document.createElement("img");
+    coverImg.className = "gallery-cover-img";
+    coverImg.src = coverUrl;
+    coverImg.alt = `${gallery.title || "Gallery"} cover`;
+    coverImg.loading = "lazy";
+    coverImg.decoding = "async";
+    coverImg.addEventListener("error", () => {
+      // Fall back to icon placeholder if the image fails to load
+      cover.classList.remove("gallery-cover--has-image");
+      coverImg.remove();
+      cover.style.backgroundImage =
+        `radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.12) 0%, transparent 50%),` +
+        `linear-gradient(160deg, ${bgColor} 0%, #000000 100%)`;
+      const fallbackOverlay = createDIV("gallery-cover-overlay");
+      const fallbackIcon = document.createElement("i");
+      fallbackIcon.className = "bi bi-images";
+      fallbackOverlay.appendChild(fallbackIcon);
+      cover.appendChild(fallbackOverlay);
+    });
+    cover.appendChild(coverImg);
+  } else {
+    cover.style.backgroundImage =
+      `radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.12) 0%, transparent 50%),` +
+      `linear-gradient(160deg, ${bgColor} 0%, #000000 100%)`;
+
+    const overlay = createDIV("gallery-cover-overlay");
+    const coverIcon = document.createElement("i");
+    coverIcon.className = "bi bi-images";
+    overlay.appendChild(coverIcon);
+    cover.appendChild(overlay);
+  }
 
   // Body
   const body = createDIV("card-body d-flex flex-column");
@@ -362,8 +621,23 @@ function createGalleryCard(gallery, loggedUser) {
     card.appendChild(footer);
   }
 
+  // Open gallery preview when clicking the card (edit/delete stop propagation)
+  card.addEventListener("click", () => {
+    openGalleryPreview(gallery.id);
+  });
+
   col.appendChild(card);
   return col;
+}
+
+/**
+ * Navigate to the gallery preview page.
+ * @param {number|string} galleryId
+ */
+export function openGalleryPreview(galleryId) {
+  const id = Number(galleryId);
+  if (!Number.isFinite(id) || id <= 0) return;
+  window.location.href = `preview_gallery.html?id=${encodeURIComponent(id)}`;
 }
 
 function attachGalleryActionHandlers(root) {
@@ -681,28 +955,30 @@ async function executeDeleteGallery(galleryId) {
   }
 }
 
-//Galery items
+// Gallery items / preview page
 
-//Picture wrapper
-//  <div class="row g-4" id="picture-tile-test">
+// Picture wrapper used by createInfiniteScroller
 export function createPictureWrapper() {
-  const row = createDIV("row g-4");
-  row.id = "picture-tile-test";
+  const row = createDIV("row g-4 gallery-pictures-row");
   return row;
 }
 
-//Picture tile
+// Picture tile used by createInfiniteScroller / test helpers
 export function createMediaTilePic(mediaUrl, title, caption) {
   const col = createDIV("col-auto");
   const card = createDIV("card border border-2 media-tile-card");
   const img = createHTMLelement("img", "w-100 media-tile-img");
-  img.src = mediaUrl;
+  img.src = mediaUrl || "";
+  img.alt = title || "Gallery picture";
+  img.loading = "lazy";
+  img.decoding = "async";
+
   const titleDIV = createDIV("bg-secondary text-white px-2 py-1");
   const titleSpan = createHTMLelement("span", "fw-bold");
-  titleSpan.textContent = title;
+  titleSpan.textContent = title || "Untitled";
   const captionBody = createDIV("card-body p-2");
   const captionP = createHTMLelement("p", "card-text small mb-0");
-  captionP.textContent = caption;
+  captionP.textContent = caption || "";
 
   captionBody.appendChild(captionP);
   titleDIV.appendChild(titleSpan);
@@ -711,4 +987,189 @@ export function createMediaTilePic(mediaUrl, title, caption) {
   card.appendChild(captionBody);
   col.appendChild(card);
   return col;
+}
+
+/**
+ * Populate the preview banner (title, description, meta, full-res cover).
+ * @param {object} gallery
+ * @param {string|null} coverUrl
+ * @param {boolean} isOwner
+ */
+function renderGalleryPreviewBanner(gallery, coverUrl, isOwner) {
+  const titleEl = document.getElementById("gallery-title");
+  const descEl = document.getElementById("gallery-description");
+  const metaEl = document.getElementById("gallery-meta");
+  const mediaEl = document.getElementById("gallery-banner-media");
+  const ownerTools = document.getElementById("gallery-owner-tools");
+
+  if (titleEl) titleEl.textContent = gallery.title || "Untitled gallery";
+  if (descEl) {
+    descEl.textContent = gallery.description || "No description";
+  }
+
+  if (metaEl) {
+    metaEl.innerHTML = "";
+    metaEl.appendChild(
+      createGalleryMetaItem("bi bi-person", "", gallery.owner || "Unknown")
+    );
+    metaEl.appendChild(
+      createGalleryMetaItem(
+        "bi bi-image",
+        "",
+        `${gallery.image_count || 0} images`
+      )
+    );
+    if (gallery.register_date) {
+      metaEl.appendChild(
+        createGalleryMetaItem(
+          "bi bi-calendar3",
+          "",
+          String(gallery.register_date).slice(0, 10)
+        )
+      );
+    }
+  }
+
+  if (mediaEl) {
+    mediaEl.innerHTML = "";
+    mediaEl.style.backgroundImage = "";
+    if (coverUrl) {
+      const img = document.createElement("img");
+      img.className = "gallery-preview-banner-img";
+      img.src = coverUrl;
+      img.alt = `${gallery.title || "Gallery"} cover`;
+      img.decoding = "async";
+      img.addEventListener("error", () => {
+        img.remove();
+        mediaEl.classList.add("gallery-preview-banner-media--fallback");
+      });
+      mediaEl.appendChild(img);
+      mediaEl.classList.remove("gallery-preview-banner-media--fallback");
+    } else {
+      mediaEl.classList.add("gallery-preview-banner-media--fallback");
+    }
+  }
+
+  if (ownerTools) {
+    if (isOwner) {
+      ownerTools.classList.remove("d-none");
+    } else {
+      ownerTools.classList.add("d-none");
+    }
+  }
+
+  // Document title
+  document.title = `${gallery.title || "Gallery"} — Donbigosso`;
+}
+
+/**
+ * Start infinite-scroll picture preview for the current gallery.
+ * @param {number} galleryId
+ */
+async function startGalleryPicturesScroller(galleryId) {
+  const target = document.getElementById("gallery-pictures");
+  const spinner = document.getElementById("loading-spinner");
+  const emptyState = document.getElementById("gallery-empty-state");
+
+  if (!target) return;
+
+  if (galleryPicturesScroller) {
+    galleryPicturesScroller.destroy();
+    galleryPicturesScroller = null;
+  }
+
+  target.innerHTML = "";
+  if (emptyState) emptyState.classList.add("d-none");
+  if (spinner) spinner.classList.remove("d-none");
+
+  let firstPageLoaded = false;
+  let firstPageEmpty = false;
+
+  galleryPicturesScroller = createInfiniteScroller({
+    pageSize: picturePreviewPageSize,
+    fetchPage: async (page, size) => {
+      const result = await fetchGalleryMediaPage(galleryId, page, size);
+      if (!firstPageLoaded) {
+        firstPageLoaded = true;
+        firstPageEmpty = !result.items || result.items.length === 0;
+      }
+      return result;
+    },
+    createWrapper: createPictureWrapper,
+    createItem: (item) =>
+      createMediaTilePic(item.url, item.title, item.caption),
+    target,
+    sentinelId: "gallery-pictures-sentinel",
+    rootMargin: "240px",
+  });
+
+  await galleryPicturesScroller.start();
+
+  if (spinner) spinner.classList.add("d-none");
+  if (firstPageEmpty && emptyState) {
+    emptyState.classList.remove("d-none");
+  }
+}
+
+/**
+ * Entry point for preview_gallery.html.
+ * Requires ?id=<galleryId>; invalid/missing id redirects to index.html.
+ */
+export async function initGalleryPreview() {
+  const galleryId = getGalleryIdFromUrl();
+  if (!galleryId) {
+    redirectToGalleriesIndex();
+    return;
+  }
+
+  const spinner = document.getElementById("loading-spinner");
+  if (spinner) spinner.classList.remove("d-none");
+
+  const gallery = await fetchGalleryById(galleryId);
+  if (!gallery) {
+    redirectToGalleriesIndex();
+    return;
+  }
+
+  currentPreviewGallery = gallery;
+
+  const loggedUser = await getLoggedUser();
+  const isOwner = Boolean(
+    loggedUser && gallery.owner && loggedUser === gallery.owner
+  );
+
+  const coverUrl = await fetchGalleryCoverFullUrl(galleryId);
+  renderGalleryPreviewBanner(gallery, coverUrl, isOwner);
+
+  await startGalleryPicturesScroller(galleryId);
+
+  if (spinner) spinner.classList.add("d-none");
+}
+
+/**
+ * Wire owner-tool buttons on the preview page.
+ * Logic is intentionally stubbed for now.
+ */
+export function attachGalleryPreviewOwnerHandlers() {
+  const stub = (label) => {
+    showFeedback(`${label} — not implemented yet`);
+  };
+
+  const bindings = [
+    ["gallery-edit-details-btn", "Edit title & description"],
+    ["gallery-edit-date-btn", "Edit creation date"],
+    ["gallery-add-pics-btn", "Add pictures"],
+    ["gallery-remove-pics-btn", "Remove pictures"],
+    ["gallery-delete-btn", "Delete gallery"],
+  ];
+
+  bindings.forEach(([id, label]) => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.bound === "1") return;
+    el.dataset.bound = "1";
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      stub(label);
+    });
+  });
 }
