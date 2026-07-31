@@ -295,6 +295,11 @@ button .bi svg {
   transform: translateY(0);
 }
 
+/* Keep auth-gated UI hidden until JS shows it (beats .galleries-btn-primary display) */
+.galleries-page .logged-only {
+  display: none;
+}
+
 /* ----- Hero ----- */
 .galleries-page .galleries-hero {
   position: relative;

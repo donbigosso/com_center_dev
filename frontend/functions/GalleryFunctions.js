@@ -115,10 +115,87 @@ function mapGalleryFromApi(raw) {
     image_count: Number(raw.image_count) || 0,
     register_date: raw.register_date || null,
     collection_cover_id: raw.collection_cover_id ?? null,
-    cover_color: coverColorForId(id),
     // undefined = not loaded yet; null = loaded but no cover; string = cover image URL
     cover_url: undefined,
   };
+}
+
+/**
+ * Find a gallery by id from the list page cache or the open preview.
+ * @param {number} galleryId
+ * @returns {object|null}
+ */
+function resolveGallery(galleryId) {
+  const id = Number(galleryId);
+  const fromList = allGalleries.find((g) => g.id === id);
+  if (fromList) return fromList;
+  if (currentPreviewGallery && currentPreviewGallery.id === id) {
+    return currentPreviewGallery;
+  }
+  return null;
+}
+
+/**
+ * Apply updated gallery fields into list cache + preview state.
+ * @param {object} updated mapped gallery from API
+ */
+function applyGalleryUpdateLocally(updated) {
+  if (!updated || !updated.id) return;
+
+  const idx = allGalleries.findIndex((g) => g.id === updated.id);
+  if (idx >= 0) {
+    // Preserve already-fetched cover_url if still same cover id
+    const prev = allGalleries[idx];
+    allGalleries[idx] = {
+      ...prev,
+      ...updated,
+      cover_url:
+        prev.collection_cover_id === updated.collection_cover_id
+          ? prev.cover_url
+          : undefined,
+    };
+  }
+
+  if (currentPreviewGallery && currentPreviewGallery.id === updated.id) {
+    currentPreviewGallery = {
+      ...currentPreviewGallery,
+      ...updated,
+      cover_url:
+        currentPreviewGallery.collection_cover_id === updated.collection_cover_id
+          ? currentPreviewGallery.cover_url
+          : undefined,
+    };
+  }
+}
+
+/**
+ * Format API datetime for <input type="datetime-local"> (YYYY-MM-DDTHH:mm).
+ * @param {string|null|undefined} value
+ * @returns {string}
+ */
+function toDatetimeLocalValue(value) {
+  if (!value) return "";
+  const str = String(value).trim().replace(" ", "T");
+  // "2026-07-24T09:15:34" → "2026-07-24T09:15"
+  if (str.length >= 16) return str.slice(0, 16);
+  return str;
+}
+
+/**
+ * Normalize datetime-local / date string for API (YYYY-MM-DD HH:MM:SS).
+ * @param {string} value
+ * @returns {string}
+ */
+function fromDatetimeLocalValue(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  let out = raw.replace("T", " ");
+  if (/^\d{4}-\d{2}-\d{2}$/.test(out)) {
+    out = `${out} 00:00:00`;
+  } else if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(out)) {
+    out = `${out}:00`;
+  }
+  return out;
 }
 
 /**
@@ -519,7 +596,7 @@ function createGalleryMetaItem(iconClass, label, valueText) {
  */
 function createGalleryCard(gallery, loggedUser) {
   const isOwner = loggedUser && gallery.owner && loggedUser === gallery.owner;
-  const bgColor = gallery.cover_color || coverColorForId(gallery.id);
+  const bgColor = coverColorForId(gallery.id);
   const coverUrl = gallery.cover_url || null;
 
   const col = createDIV("col-12 col-sm-6 col-lg-4");
@@ -696,18 +773,14 @@ function setupInfiniteScroll() {
 }
 
 /**
- * Build the create/edit gallery form entirely via DOM APIs.
+ * Build the create/edit gallery form (title + description only).
  */
-
-
 function buildGalleryForm(config) {
   const form = document.createElement("form");
   form.id = "gallery-form";
 
   const titleWrapper = createDIV("mb-3");
   const titleLabel = createLabel("Title", "gallery-title", "form-label");
-
-  
   const titleInput = createBootstrapTextInput(
     "gallery-title",
     true,
@@ -719,8 +792,6 @@ function buildGalleryForm(config) {
 
   const descWrapper = createDIV("mb-3");
   const descLabel = createLabel("Description", "gallery-description", "form-label");
-  
-  
   const descInput = createBootstrapTextArea(
     "gallery-description",
     3,
@@ -731,24 +802,39 @@ function buildGalleryForm(config) {
   descWrapper.appendChild(descLabel);
   descWrapper.appendChild(descInput);
 
-  const colorWrapper = createDIV("mb-3");
-  const colorLabel = createLabel("Cover Color", "gallery-color", "form-label");
-  const colorInput = document.createElement("input");
-  colorInput.type = "color";
-  colorInput.className = "form-control form-control-color";
-  colorInput.id = "gallery-color";
-  colorInput.value = config.color || "#1a1a1a";
-  colorWrapper.appendChild(colorLabel);
-  colorWrapper.appendChild(colorInput);
-
   form.appendChild(titleWrapper);
   form.appendChild(descWrapper);
-  form.appendChild(colorWrapper);
 
   return form;
 }
 
-// Modal for creating/editing gallery
+/**
+ * Build form for editing gallery added / register date.
+ */
+function buildGalleryDateForm(config) {
+  const form = document.createElement("form");
+  form.id = "gallery-date-form";
+
+  const wrapper = createDIV("mb-3");
+  const label = createLabel("Added date", "gallery-register-date", "form-label");
+  const input = document.createElement("input");
+  input.type = "datetime-local";
+  input.className = "form-control";
+  input.id = "gallery-register-date";
+  input.required = true;
+  input.value = toDatetimeLocalValue(config.registerDate || "");
+  wrapper.appendChild(label);
+  wrapper.appendChild(input);
+
+  const hint = createDIV("form-text text-muted");
+  hint.textContent = "This is the gallery creation / added date shown in the UI.";
+  wrapper.appendChild(hint);
+
+  form.appendChild(wrapper);
+  return form;
+}
+
+// Modal for creating / editing title & description
 function showGalleryModal(config) {
   showGenericModal({
     title: config.modalTitle || "Gallery",
@@ -764,7 +850,9 @@ function showGalleryModal(config) {
         text: config.isEdit ? "Update" : "Create",
         class: "btn-primary",
         action: () => {
-          config.isEdit ? executeEditGallery(config.galleryId) : executeCreateGallery();
+          config.isEdit
+            ? executeEditGalleryDetails(config.galleryId)
+            : executeCreateGallery();
         }
       }
     ]
@@ -773,6 +861,32 @@ function showGalleryModal(config) {
   setTimeout(() => {
     const titleInput = document.getElementById("gallery-title");
     if (titleInput) titleInput.focus();
+  }, 100);
+}
+
+// Modal for editing added date
+function showGalleryDateModal(config) {
+  showGenericModal({
+    title: config.modalTitle || "Edit added date",
+    bodyElement: buildGalleryDateForm(config),
+    buttons: [
+      {
+        text: "Cancel",
+        class: "btn-secondary",
+        action: () => newHideModal("my_modal")
+      },
+      { hidden: true },
+      {
+        text: "Update date",
+        class: "btn-primary",
+        action: () => executeEditGalleryDate(config.galleryId)
+      }
+    ]
+  });
+
+  setTimeout(() => {
+    const dateInput = document.getElementById("gallery-register-date");
+    if (dateInput) dateInput.focus();
   }, 100);
 }
 
@@ -788,7 +902,6 @@ export async function handleAddGallery() {
     modalTitle: "Create Gallery",
     titleValue: "",
     description: "",
-    color: "#1a1a1a",
     isEdit: false
   });
 }
@@ -797,12 +910,10 @@ export async function handleAddGallery() {
 async function executeCreateGallery() {
   const titleInput = document.getElementById("gallery-title");
   const descInput = document.getElementById("gallery-description");
-  const colorInput = document.getElementById("gallery-color");
   const errorField = document.getElementById("modal-alert-field");
 
   const title = titleInput.value.trim();
   const description = descInput.value.trim();
-  const color = colorInput?.value || "#1a1a1a";
 
   errorField.style.display = "none";
 
@@ -835,11 +946,8 @@ async function executeCreateGallery() {
     }
 
     const newGallery = mapGalleryFromApi(response.data.gallery);
-    // Keep chosen UI cover color (not stored in DB yet)
-    newGallery.cover_color = color;
 
     ensureOwnerFilterLoaded();
-    // Only show in the grid if we're browsing all or this owner's page
     const matchesFilter =
       !ownerFilter ||
       (newGallery.owner && newGallery.owner === ownerFilter);
@@ -859,31 +967,118 @@ async function executeCreateGallery() {
   }
 }
 
-// Handle edit gallery
-async function handleEditGallery(galleryId) {
-  const gallery = allGalleries.find(g => g.id === galleryId);
-  if (!gallery) return;
+/**
+ * Open edit modal for title & description (list page or preview).
+ */
+export async function handleEditGallery(galleryId) {
+  const sessionTest = await verifySession();
+  if (!sessionTest) {
+    showFeedback("You must be logged in");
+    return;
+  }
+
+  let gallery = resolveGallery(galleryId);
+  if (!gallery) {
+    gallery = await fetchGalleryById(galleryId);
+  }
+  if (!gallery) {
+    showFeedback("Gallery not found");
+    return;
+  }
 
   showGalleryModal({
-    modalTitle: "Edit Gallery",
+    modalTitle: "Edit title & description",
     titleValue: gallery.title,
     description: gallery.description,
-    color: gallery.cover_color,
-    galleryId,
+    galleryId: gallery.id,
     isEdit: true
   });
 }
 
-// Execute edit gallery (local until update_gallery API exists)
-async function executeEditGallery(galleryId) {
+/**
+ * Open edit modal for gallery added date.
+ */
+export async function handleEditGalleryDate(galleryId) {
+  const sessionTest = await verifySession();
+  if (!sessionTest) {
+    showFeedback("You must be logged in");
+    return;
+  }
+
+  let gallery = resolveGallery(galleryId);
+  if (!gallery) {
+    gallery = await fetchGalleryById(galleryId);
+  }
+  if (!gallery) {
+    showFeedback("Gallery not found");
+    return;
+  }
+
+  showGalleryDateModal({
+    modalTitle: "Edit added date",
+    registerDate: gallery.register_date,
+    galleryId: gallery.id,
+  });
+}
+
+/**
+ * POST update_gallery and refresh local UI (list and/or preview banner).
+ */
+async function persistGalleryUpdate(payload) {
+  const sessionToken = getSessionToken();
+  if (!sessionToken) {
+    return { ok: false, error: "Session token missing" };
+  }
+
+  const response = await POSTJSONRequest({
+    request: "update_gallery",
+    token: sessionToken,
+    ...payload,
+  });
+
+  if (!response?.success || !response.data?.gallery) {
+    return {
+      ok: false,
+      error: response?.error || "Failed to update gallery",
+    };
+  }
+
+  const updated = mapGalleryFromApi(response.data.gallery);
+  applyGalleryUpdateLocally(updated);
+
+  // Refresh list page cards if present
+  const grid = document.getElementById("galleries-grid");
+  if (grid && allGalleries.length > 0) {
+    await renderGalleries(allGalleries, { replace: true });
+  }
+
+  // Refresh preview banner if on preview page
+  if (currentPreviewGallery && currentPreviewGallery.id === updated.id) {
+    const loggedUser = await getLoggedUser();
+    const isOwner = Boolean(
+      loggedUser &&
+        currentPreviewGallery.owner &&
+        loggedUser === currentPreviewGallery.owner
+    );
+    let coverUrl = currentPreviewGallery.cover_url;
+    if (coverUrl === undefined) {
+      coverUrl = await fetchGalleryCoverFullUrl(updated.id);
+      currentPreviewGallery.cover_url = coverUrl;
+    }
+    renderGalleryPreviewBanner(currentPreviewGallery, coverUrl, isOwner);
+  }
+
+  return { ok: true, gallery: updated };
+}
+
+// Execute title + description update
+async function executeEditGalleryDetails(galleryId) {
   const titleInput = document.getElementById("gallery-title");
   const descInput = document.getElementById("gallery-description");
-  const colorInput = document.getElementById("gallery-color");
   const errorField = document.getElementById("modal-alert-field");
 
   const title = titleInput.value.trim();
   const description = descInput.value.trim();
-  const color = colorInput.value;
 
   errorField.style.display = "none";
 
@@ -894,25 +1089,21 @@ async function executeEditGallery(galleryId) {
     return;
   }
 
-  const sessionToken = getSessionToken();
-  if (!sessionToken) {
-    errorField.textContent = "Session token missing";
-    errorField.style.display = "block";
-    return;
-  }
-
   try {
-    // TODO: POST update_gallery when backend supports it
-    const gallery = allGalleries.find(g => g.id === galleryId);
-    if (gallery) {
-      gallery.title = title;
-      gallery.description = description;
-      gallery.cover_color = color;
+    const result = await persistGalleryUpdate({
+      id: galleryId,
+      title,
+      description,
+    });
+
+    if (!result.ok) {
+      errorField.textContent = result.error;
+      errorField.style.display = "block";
+      return;
     }
 
     newHideModal("my_modal");
-    await renderGalleries(allGalleries, { replace: true });
-    showFeedback("Gallery updated locally (not saved to DB yet)");
+    showFeedback("Gallery updated");
   } catch (err) {
     console.error("Edit gallery error:", err);
     errorField.textContent = "Failed to update gallery";
@@ -920,10 +1111,52 @@ async function executeEditGallery(galleryId) {
   }
 }
 
+// Execute added-date update
+async function executeEditGalleryDate(galleryId) {
+  const dateInput = document.getElementById("gallery-register-date");
+  const errorField = document.getElementById("modal-alert-field");
+
+  const registerDate = fromDatetimeLocalValue(dateInput?.value || "");
+
+  errorField.style.display = "none";
+
+  if (!registerDate) {
+    errorField.textContent = "Added date is required.";
+    errorField.style.display = "block";
+    return;
+  }
+
+  try {
+    const result = await persistGalleryUpdate({
+      id: galleryId,
+      register_date: registerDate,
+    });
+
+    if (!result.ok) {
+      errorField.textContent = result.error;
+      errorField.style.display = "block";
+      return;
+    }
+
+    newHideModal("my_modal");
+    showFeedback("Added date updated");
+  } catch (err) {
+    console.error("Edit gallery date error:", err);
+    errorField.textContent = "Failed to update added date";
+    errorField.style.display = "block";
+  }
+}
+
 // Handle delete gallery
 async function handleDeleteGallery(galleryId) {
-  const gallery = allGalleries.find(g => g.id === galleryId);
-  if (!gallery) return;
+  let gallery = resolveGallery(galleryId);
+  if (!gallery) {
+    gallery = await fetchGalleryById(galleryId);
+  }
+  if (!gallery) {
+    showFeedback("Gallery not found");
+    return;
+  }
 
   showGenericModal({
     title: "Delete Gallery",
@@ -1361,28 +1594,51 @@ export async function initGalleryPreview() {
 
 /**
  * Wire owner-tool buttons on the preview page.
- * Logic is intentionally stubbed for now.
+ * Title/description and added date are live; picture add/remove still stubbed.
  */
 export function attachGalleryPreviewOwnerHandlers() {
-  const stub = (label) => {
-    showFeedback(`${label} — not implemented yet`);
-  };
-
-  const bindings = [
-    ["gallery-edit-details-btn", "Edit title & description"],
-    ["gallery-edit-date-btn", "Edit creation date"],
-    ["gallery-add-pics-btn", "Add pictures"],
-    ["gallery-remove-pics-btn", "Remove pictures"],
-    ["gallery-delete-btn", "Delete gallery"],
-  ];
-
-  bindings.forEach(([id, label]) => {
+  const bind = (id, handler) => {
     const el = document.getElementById(id);
     if (!el || el.dataset.bound === "1") return;
     el.dataset.bound = "1";
     el.addEventListener("click", (e) => {
       e.preventDefault();
-      stub(label);
+      handler();
     });
+  };
+
+  bind("gallery-edit-details-btn", () => {
+    const id = currentPreviewGallery?.id;
+    if (!id) {
+      showFeedback("Gallery not loaded");
+      return;
+    }
+    handleEditGallery(id);
+  });
+
+  bind("gallery-edit-date-btn", () => {
+    const id = currentPreviewGallery?.id;
+    if (!id) {
+      showFeedback("Gallery not loaded");
+      return;
+    }
+    handleEditGalleryDate(id);
+  });
+
+  bind("gallery-add-pics-btn", () => {
+    showFeedback("Add pictures — not implemented yet");
+  });
+
+  bind("gallery-remove-pics-btn", () => {
+    showFeedback("Remove pictures — not implemented yet");
+  });
+
+  bind("gallery-delete-btn", () => {
+    const id = currentPreviewGallery?.id;
+    if (!id) {
+      showFeedback("Gallery not loaded");
+      return;
+    }
+    handleDeleteGallery(id);
   });
 }

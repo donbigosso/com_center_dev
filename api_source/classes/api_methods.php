@@ -181,6 +181,9 @@ class ApiMethods extends Core
                 case 'create_gallery':
                     $this->handle_create_gallery($input);
                     break;
+                case 'update_gallery':
+                    $this->handle_update_gallery($input);
+                    break;
 
                    
                 default:
@@ -541,6 +544,24 @@ public function handle_clear_token(array $input): void{
     {
         $gallery_model = new GalleryModel($this->db_access);
         $result = $gallery_model->create_gallery($input);
+
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            ['gallery' => $result['gallery']]
+        );
+    }
+
+    /**
+     * POST update_gallery — owner updates title, description, and/or register_date.
+     * Body: token, id, optional title, description, register_date (or added_date).
+     */
+    private function handle_update_gallery(array $input): void
+    {
+        $gallery_model = new GalleryModel($this->db_access);
+        $result = $gallery_model->update_gallery($input);
 
         $this->send_JSON_Response(
             $result['success'],

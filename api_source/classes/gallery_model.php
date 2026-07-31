@@ -227,6 +227,234 @@ class GalleryModel
     }
 
     /**
+     * Whether the given user owns the gallery (is listed in collection_owners).
+     */
+    public function user_owns_gallery(int $userId, int $galleryId): bool
+    {
+        if ($userId <= 0 || $galleryId <= 0) {
+            return false;
+        }
+
+        $found = $this->db->queryValue(
+            'SELECT 1
+             FROM collection_owners
+             WHERE user_id = :user_id
+               AND media_collection_id = :gallery_id
+             LIMIT 1',
+            [
+                ':user_id' => $userId,
+                ':gallery_id' => $galleryId,
+            ]
+        );
+
+        return $found !== null;
+    }
+
+    /**
+     * Update gallery title, description, and/or register_date.
+     * Only owners (collection_owners) may update.
+     *
+     * Body: token, id, optional title, description, register_date.
+     *
+     * @return array{success:bool,message:string,error:string,gallery:?array}
+     */
+    public function update_gallery(array $input): array
+    {
+        $token = trim((string)($input['token'] ?? ''));
+        $galleryId = isset($input['id']) ? (int)$input['id'] : 0;
+
+        if ($token === '') {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Token is required.',
+                'gallery' => null,
+            ];
+        }
+
+        if ($galleryId <= 0) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Gallery id is required.',
+                'gallery' => null,
+            ];
+        }
+
+        $userModel = new UserModel($this->db);
+        $users = $userModel->get_by_token($token);
+        if (empty($users)) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'User is not logged in or token expired.',
+                'gallery' => null,
+            ];
+        }
+
+        $userId = (int)($users[0]['user_id'] ?? 0);
+        if ($userId <= 0) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Could not resolve user.',
+                'gallery' => null,
+            ];
+        }
+
+        $existing = $this->get_gallery_by_id($galleryId);
+        if ($existing === null) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Gallery not found.',
+                'gallery' => null,
+            ];
+        }
+
+        if (!$this->user_owns_gallery($userId, $galleryId)) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'You do not have permission to edit this gallery.',
+                'gallery' => null,
+            ];
+        }
+
+        $updates = [];
+
+        $hasTitle = array_key_exists('title', $input);
+        $hasDescription = array_key_exists('description', $input);
+        $hasDate = array_key_exists('register_date', $input)
+            || array_key_exists('added_date', $input);
+
+        if ($hasTitle) {
+            $title = trim((string)$input['title']);
+            if (mb_strlen($title) < 3) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Title must be at least 3 characters.',
+                    'gallery' => null,
+                ];
+            }
+            if (mb_strlen($title) > 200) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Title must be at most 200 characters.',
+                    'gallery' => null,
+                ];
+            }
+            $updates['title'] = $title;
+        }
+
+        if ($hasDescription) {
+            $description = trim((string)$input['description']);
+            if (mb_strlen($description) > 255) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Description must be at most 255 characters.',
+                    'gallery' => null,
+                ];
+            }
+            $updates['description'] = $description !== '' ? $description : null;
+        }
+
+        if ($hasDate) {
+            $rawDate = $input['register_date'] ?? $input['added_date'] ?? '';
+            $rawDate = trim((string)$rawDate);
+            if ($rawDate === '') {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Added date is required.',
+                    'gallery' => null,
+                ];
+            }
+
+            $normalized = $this->normalize_gallery_datetime($rawDate);
+            if ($normalized === null) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Invalid added date. Use YYYY-MM-DD or YYYY-MM-DD HH:MM:SS.',
+                    'gallery' => null,
+                ];
+            }
+            $updates['register_date'] = $normalized;
+        }
+
+        if (empty($updates)) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'No fields to update.',
+                'gallery' => null,
+            ];
+        }
+
+        try {
+            $this->db->update('media_collections', $updates, [
+                'media_collection_id' => $galleryId,
+            ]);
+
+            $gallery = $this->get_gallery_by_id($galleryId);
+            return [
+                'success' => true,
+                'message' => 'Gallery updated successfully.',
+                'error' => '',
+                'gallery' => $gallery,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Failed to update gallery.',
+                'gallery' => null,
+            ];
+        }
+    }
+
+    /**
+     * Accept date or datetime strings and return MySQL datetime, or null if invalid.
+     */
+    private function normalize_gallery_datetime(string $value): ?string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        // HTML datetime-local: 2026-07-24T09:15
+        $value = str_replace('T', ' ', $value);
+
+        $formats = [
+            'Y-m-d H:i:s',
+            'Y-m-d H:i',
+            'Y-m-d',
+        ];
+
+        foreach ($formats as $format) {
+            $dt = DateTime::createFromFormat($format, $value);
+            if ($dt instanceof DateTime) {
+                $errors = DateTime::getLastErrors();
+                if (is_array($errors) && (($errors['warning_count'] ?? 0) > 0 || ($errors['error_count'] ?? 0) > 0)) {
+                    continue;
+                }
+                // Date-only → midnight
+                if ($format === 'Y-m-d') {
+                    return $dt->format('Y-m-d') . ' 00:00:00';
+                }
+                return $dt->format('Y-m-d H:i:s');
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Fetch a single gallery in the same shape as list_galleries rows.
      */
     public function get_gallery_by_id(int $id): ?array
