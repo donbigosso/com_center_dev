@@ -36,6 +36,10 @@ let cachedGalleryFolder = null;
 // Preview page state
 let currentPreviewGallery = null;
 let galleryPicturesScroller = null;
+/** @type {Array<{id:number,title:string,caption:string,url:string|null,fullUrl:string|null}>} */
+let loadedGalleryPictures = [];
+let lightboxIndex = -1;
+let lightboxKeyHandler = null;
 
 export function getOwnerFilterFromUrl() {
   const raw = getUrlParam("user");
@@ -301,16 +305,22 @@ async function fetchGalleryMediaPage(galleryId, page, pageSizeArg = picturePrevi
     const media = Array.isArray(data.media) ? data.media : [];
 
     const items = media.map((raw) => {
-      const filename = raw.miniature_filename || toMiniatureFilename(raw.filename) || raw.filename;
-      const url = folder && filename
-        ? `${folder}${encodeURIComponent(filename)}`
+      const miniName =
+        raw.miniature_filename || toMiniatureFilename(raw.filename) || raw.filename;
+      const fullName = raw.filename || null;
+      const url = folder && miniName
+        ? `${folder}${encodeURIComponent(miniName)}`
         : null;
+      const fullUrl = folder && fullName
+        ? `${folder}${encodeURIComponent(fullName)}`
+        : url;
       return {
         id: Number(raw.id) || 0,
         title: raw.title || "Untitled",
         caption: raw.description || "",
         url,
-        filename: raw.filename || null,
+        fullUrl,
+        filename: fullName,
         media_type: raw.media_type || null,
       };
     }).filter((item) => item.url);
@@ -963,8 +973,14 @@ export function createPictureWrapper() {
   return row;
 }
 
-// Picture tile used by createInfiniteScroller / test helpers
-export function createMediaTilePic(mediaUrl, title, caption) {
+/**
+ * Picture tile used by createInfiniteScroller / test helpers.
+ * @param {string} mediaUrl Thumbnail (or display) URL
+ * @param {string} title
+ * @param {string} caption
+ * @param {{ onClick?: () => void, fullUrl?: string|null }} [options]
+ */
+export function createMediaTilePic(mediaUrl, title, caption, options = {}) {
   const col = createDIV("col-auto");
   const card = createDIV("card border border-2 media-tile-card");
   const img = createHTMLelement("img", "w-100 media-tile-img");
@@ -985,8 +1001,197 @@ export function createMediaTilePic(mediaUrl, title, caption) {
   card.appendChild(img);
   card.appendChild(titleDIV);
   card.appendChild(captionBody);
+
+  if (typeof options.onClick === "function") {
+    card.classList.add("media-tile-card--clickable");
+    card.setAttribute("role", "button");
+    card.tabIndex = 0;
+    card.title = "Open full size";
+    const open = (e) => {
+      e.preventDefault();
+      options.onClick();
+    };
+    card.addEventListener("click", open);
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") open(e);
+    });
+  }
+
   col.appendChild(card);
   return col;
+}
+
+/**
+ * Ensure the full-size picture lightbox exists in the DOM.
+ * @returns {HTMLElement}
+ */
+function ensurePictureLightbox() {
+  let root = document.getElementById("gallery-lightbox");
+  if (root) return root;
+
+  root = createDIV("gallery-lightbox");
+  root.id = "gallery-lightbox";
+  root.setAttribute("role", "dialog");
+  root.setAttribute("aria-modal", "true");
+  root.setAttribute("aria-hidden", "true");
+  root.hidden = true;
+
+  const backdrop = createDIV("gallery-lightbox-backdrop");
+  const stage = createDIV("gallery-lightbox-stage");
+
+  const closeBtn = createButton(
+    "button",
+    "",
+    "btn gallery-lightbox-close"
+  );
+  closeBtn.setAttribute("aria-label", "Close");
+  closeBtn.innerHTML = '<i class="bi bi-x-lg"></i>';
+
+  const prevBtn = createButton(
+    "button",
+    "",
+    "btn gallery-lightbox-nav gallery-lightbox-prev"
+  );
+  prevBtn.setAttribute("aria-label", "Previous picture");
+  prevBtn.innerHTML = '<i class="bi bi-chevron-left"></i>';
+
+  const nextBtn = createButton(
+    "button",
+    "",
+    "btn gallery-lightbox-nav gallery-lightbox-next"
+  );
+  nextBtn.setAttribute("aria-label", "Next picture");
+  nextBtn.innerHTML = '<i class="bi bi-chevron-right"></i>';
+
+  const img = document.createElement("img");
+  img.className = "gallery-lightbox-img";
+  img.alt = "";
+  img.id = "gallery-lightbox-img";
+
+  const meta = createDIV("gallery-lightbox-meta");
+  const titleEl = createHTMLelement("div", "gallery-lightbox-title");
+  titleEl.id = "gallery-lightbox-title";
+  const captionEl = createHTMLelement("div", "gallery-lightbox-caption");
+  captionEl.id = "gallery-lightbox-caption";
+  const counterEl = createHTMLelement("div", "gallery-lightbox-counter");
+  counterEl.id = "gallery-lightbox-counter";
+  meta.appendChild(titleEl);
+  meta.appendChild(captionEl);
+  meta.appendChild(counterEl);
+
+  stage.appendChild(img);
+  stage.appendChild(meta);
+
+  root.appendChild(backdrop);
+  root.appendChild(closeBtn);
+  root.appendChild(prevBtn);
+  root.appendChild(nextBtn);
+  root.appendChild(stage);
+  document.body.appendChild(root);
+
+  const close = () => closePictureLightbox();
+  backdrop.addEventListener("click", close);
+  closeBtn.addEventListener("click", close);
+  prevBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    showLightboxAt(lightboxIndex - 1);
+  });
+  nextBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    showLightboxAt(lightboxIndex + 1);
+  });
+
+  // Clicking the image itself should not close
+  img.addEventListener("click", (e) => e.stopPropagation());
+
+  return root;
+}
+
+/**
+ * Render the lightbox for a given index in loadedGalleryPictures.
+ * @param {number} index
+ */
+function showLightboxAt(index) {
+  if (!loadedGalleryPictures.length) return;
+
+  const max = loadedGalleryPictures.length - 1;
+  const nextIndex = Math.max(0, Math.min(max, index));
+  lightboxIndex = nextIndex;
+
+  const item = loadedGalleryPictures[nextIndex];
+  if (!item) return;
+
+  const root = ensurePictureLightbox();
+  const img = document.getElementById("gallery-lightbox-img");
+  const titleEl = document.getElementById("gallery-lightbox-title");
+  const captionEl = document.getElementById("gallery-lightbox-caption");
+  const counterEl = document.getElementById("gallery-lightbox-counter");
+  const prevBtn = root.querySelector(".gallery-lightbox-prev");
+  const nextBtn = root.querySelector(".gallery-lightbox-next");
+
+  const fullSrc = item.fullUrl || item.url;
+  if (img) {
+    img.src = fullSrc || "";
+    img.alt = item.title || "Gallery picture";
+  }
+  if (titleEl) titleEl.textContent = item.title || "";
+  if (captionEl) {
+    captionEl.textContent = item.caption || "";
+    captionEl.hidden = !item.caption;
+  }
+  if (counterEl) {
+    counterEl.textContent = `${nextIndex + 1} / ${loadedGalleryPictures.length}`;
+  }
+  if (prevBtn) prevBtn.disabled = nextIndex <= 0;
+  if (nextBtn) nextBtn.disabled = nextIndex >= max;
+
+  root.hidden = false;
+  root.setAttribute("aria-hidden", "false");
+  root.classList.add("is-open");
+  document.body.classList.add("gallery-lightbox-open");
+
+  if (!lightboxKeyHandler) {
+    lightboxKeyHandler = (e) => {
+      if (e.key === "Escape") {
+        closePictureLightbox();
+      } else if (e.key === "ArrowLeft") {
+        showLightboxAt(lightboxIndex - 1);
+      } else if (e.key === "ArrowRight") {
+        showLightboxAt(lightboxIndex + 1);
+      }
+    };
+    document.addEventListener("keydown", lightboxKeyHandler);
+  }
+}
+
+/**
+ * Open full-size picture lightbox at index.
+ * @param {number} index
+ */
+export function openPictureLightbox(index) {
+  ensurePictureLightbox();
+  showLightboxAt(index);
+}
+
+/**
+ * Close the full-size picture lightbox.
+ */
+export function closePictureLightbox() {
+  const root = document.getElementById("gallery-lightbox");
+  if (root) {
+    root.hidden = true;
+    root.setAttribute("aria-hidden", "true");
+    root.classList.remove("is-open");
+    const img = document.getElementById("gallery-lightbox-img");
+    if (img) img.removeAttribute("src");
+  }
+  document.body.classList.remove("gallery-lightbox-open");
+  lightboxIndex = -1;
+
+  if (lightboxKeyHandler) {
+    document.removeEventListener("keydown", lightboxKeyHandler);
+    lightboxKeyHandler = null;
+  }
 }
 
 /**
@@ -1078,6 +1283,8 @@ async function startGalleryPicturesScroller(galleryId) {
     galleryPicturesScroller = null;
   }
 
+  closePictureLightbox();
+  loadedGalleryPictures = [];
   target.innerHTML = "";
   if (emptyState) emptyState.classList.add("d-none");
   if (spinner) spinner.classList.remove("d-none");
@@ -1096,8 +1303,14 @@ async function startGalleryPicturesScroller(galleryId) {
       return result;
     },
     createWrapper: createPictureWrapper,
-    createItem: (item) =>
-      createMediaTilePic(item.url, item.title, item.caption),
+    createItem: (item) => {
+      const index = loadedGalleryPictures.length;
+      loadedGalleryPictures.push(item);
+      return createMediaTilePic(item.url, item.title, item.caption, {
+        fullUrl: item.fullUrl,
+        onClick: () => openPictureLightbox(index),
+      });
+    },
     target,
     sentinelId: "gallery-pictures-sentinel",
     rootMargin: "240px",
