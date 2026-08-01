@@ -172,6 +172,13 @@ class ApiMethods extends Core
                 case 'delete_file':
                     $this->handle_delete_file($input);
                     break;
+                case 'delete_media_item':
+                case 'delete_media_item_by_user':
+                    $this->handle_delete_media_item_by_user($input);
+                    break;
+                case 'delete_media_item_by_admin':
+                    $this->handle_delete_media_item_by_admin($input);
+                    break;
                 case 'upload_files':
                     $this->handle_upload_files($input);
                     break;
@@ -691,6 +698,54 @@ public function handle_clear_token(array $input): void{
         $file_model = new FileModel($this->db_access);
         $delete_output = $file_model->delete_file($input);
         $this->send_JSON_Response(true, "File deleted MOCK", "", "", ["delete_output" => $delete_output]);
+    }
+
+    /**
+     * POST delete_media_item / delete_media_item_by_user
+     * Body: token, media_item_id|media_id|id (or filename).
+     */
+    private function handle_delete_media_item_by_user(array $input): void
+    {
+        $file_model = new FileModel($this->db_access);
+        $result = $file_model->delete_media_item_by_user($input);
+
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            [
+                'deleted' => $result['deleted'],
+                'media_item_id' => $result['media_item_id'],
+                'file_id' => $result['file_id'],
+                'filename' => $result['filename'],
+                'files_removed' => $result['files_removed'],
+            ]
+        );
+    }
+
+    /**
+     * POST delete_media_item_by_admin
+     * Body: token (admin), media_item_id|media_id|id (or filename).
+     */
+    private function handle_delete_media_item_by_admin(array $input): void
+    {
+        $file_model = new FileModel($this->db_access);
+        $result = $file_model->delete_media_item_by_admin($input);
+
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            [
+                'deleted' => $result['deleted'],
+                'media_item_id' => $result['media_item_id'],
+                'file_id' => $result['file_id'],
+                'filename' => $result['filename'],
+                'files_removed' => $result['files_removed'],
+            ]
+        );
     }
     public function handle_get_file_settings(){
         $file_settings = $this->return_file_settings();

@@ -1344,7 +1344,7 @@ export function createMediaTilePic(mediaUrl, title, caption, options = {}) {
         {
           className: "media-delete-btn",
           icon: "bi bi-trash",
-          title: "Remove picture",
+          title: "Delete picture",
           onClick: () => {
             if (typeof options.onDelete === "function") options.onDelete();
           },
@@ -1884,12 +1884,12 @@ async function executeSetPictureAsCover(mediaId) {
 }
 
 /**
- * Confirm and remove a picture from the gallery.
+ * Confirm and permanently delete a picture (DB + disk files).
  * @param {number} mediaId
  */
 export async function handleDeletePicture(mediaId) {
   if (!previewIsOwner || !currentPreviewGallery) {
-    showFeedback("You must own this gallery to remove pictures");
+    showFeedback("You must own this gallery to delete pictures");
     return;
   }
 
@@ -1903,8 +1903,8 @@ export async function handleDeletePicture(mediaId) {
   const label = item?.title || "this picture";
 
   showGenericModal({
-    title: "Remove picture",
-    bodyText: `Remove "${label}" from this gallery? The file itself is not deleted.`,
+    title: "Delete picture",
+    bodyText: `Permanently delete "${label}"? This removes it from all galleries and deletes the image files. This cannot be undone.`,
     buttons: [
       {
         text: "Cancel",
@@ -1913,7 +1913,7 @@ export async function handleDeletePicture(mediaId) {
       },
       { hidden: true },
       {
-        text: "Remove",
+        text: "Delete",
         class: "btn-danger",
         action: () => executeDeletePicture(mediaId),
       },
@@ -1922,7 +1922,7 @@ export async function handleDeletePicture(mediaId) {
 }
 
 /**
- * Remove picture from gallery via API and update UI.
+ * Permanently delete a media item (DB + files) via delete_media_item_by_user.
  * @param {number} mediaId
  */
 async function executeDeletePicture(mediaId) {
@@ -1933,15 +1933,15 @@ async function executeDeletePicture(mediaId) {
   }
 
   try {
+    // Full delete: media_items + files rows, gallery links, disk full + miniature
     const response = await POSTJSONRequest({
-      request: "remove_media_from_gallery",
+      request: "delete_media_item_by_user",
       token: sessionToken,
-      gallery_id: currentPreviewGallery.id,
-      media_id: mediaId,
+      media_item_id: mediaId,
     });
 
     if (!response?.success) {
-      showFeedback(response?.error || "Failed to remove picture");
+      showFeedback(response?.error || "Failed to delete picture");
       return;
     }
 
@@ -1998,10 +1998,10 @@ async function executeDeletePicture(mediaId) {
     }
 
     newHideModal("my_modal");
-    showFeedback("Picture removed");
+    showFeedback("Picture deleted");
   } catch (err) {
     console.error("Delete picture error:", err);
-    showFeedback("Failed to remove picture");
+    showFeedback("Failed to delete picture");
   }
 }
 

@@ -2,10 +2,12 @@
 class FileModel {
     private DatabaseAccess $db;
     protected string $upload_folder;
+    protected string $media_items_folder;
 
     public function __construct(DatabaseAccess $db) {
         $this->db = $db;
         $this->upload_folder = __DIR__ . '/../uploads';
+        $this->media_items_folder = __DIR__ . '/../media_items';
     }
 
     private function getUploadConfig(): array
@@ -81,6 +83,280 @@ class FileModel {
 
         rename($old_path, $new_path);
         return ["renamed" => true, "error" => ""];
+    }
+    /**
+     * Delete one file from media_items/ folder by basename.
+     * Returns true if the file existed and was removed.
+     */
+    private function delete_media_item_file(string $filename): bool
+    {
+        $filename = basename(trim($filename));
+        if ($filename === '' || $filename === '.' || $filename === '..') {
+            return false;
+        }
+
+        $file_path = $this->media_items_folder . '/' . $filename;
+        if (file_exists($file_path) && is_file($file_path)) {
+            return unlink($file_path);
+        }
+        return false;
+    }
+
+    /**
+     * Derive miniature basename (Image_00001.jpeg → Image_00001_sm.jpeg).
+     */
+    private function to_media_miniature_filename(string $filename): string
+    {
+        $filename = basename(trim($filename));
+        $base = pathinfo($filename, PATHINFO_FILENAME);
+        $ext = pathinfo($filename, PATHINFO_EXTENSION);
+        if ($base === '') {
+            return '';
+        }
+        return $ext !== '' ? "{$base}_sm.{$ext}" : "{$base}_sm";
+    }
+
+    /**
+     * Standard response shape for media-item delete operations.
+     *
+     * @return array{
+     *   success:bool,
+     *   message:string,
+     *   error:string,
+     *   deleted:bool,
+     *   media_item_id:?int,
+     *   file_id:?int,
+     *   filename:?string,
+     *   files_removed:array<int,string>
+     * }
+     */
+    private function media_delete_response(
+        bool $success,
+        string $message = '',
+        string $error = '',
+        bool $deleted = false,
+        ?int $mediaItemId = null,
+        ?int $fileId = null,
+        ?string $filename = null,
+        array $filesRemoved = []
+    ): array {
+        return [
+            'success' => $success,
+            'message' => $message,
+            'error' => $error,
+            'deleted' => $deleted,
+            'media_item_id' => $mediaItemId,
+            'file_id' => $fileId,
+            'filename' => $filename,
+            'files_removed' => $filesRemoved,
+        ];
+    }
+
+    /**
+     * Resolve media_item_id + file row from input (media_item_id / media_id / id / filename).
+     *
+     * @return array{media_item_id:int,file_id:int,filename:string}|null
+     */
+    private function resolve_media_item_for_delete(array $input): ?array
+    {
+        $mediaItemId = 0;
+        if (isset($input['media_item_id'])) {
+            $mediaItemId = (int)$input['media_item_id'];
+        } elseif (isset($input['media_id'])) {
+            $mediaItemId = (int)$input['media_id'];
+        } elseif (isset($input['id'])) {
+            $mediaItemId = (int)$input['id'];
+        }
+
+        $filenameHint = trim((string)($input['filename'] ?? $input['file'] ?? ''));
+        $filenameHint = $filenameHint !== '' ? basename($filenameHint) : '';
+
+        if ($mediaItemId > 0) {
+            $rows = $this->db->queryAll(
+                'SELECT mi.media_item_id, mi.file_id, f.filename
+                 FROM media_items mi
+                 INNER JOIN files f ON f.file_id = mi.file_id
+                 WHERE mi.media_item_id = :media_id
+                 LIMIT 1',
+                [':media_id' => $mediaItemId]
+            );
+            if (empty($rows)) {
+                return null;
+            }
+            $row = $rows[0];
+            return [
+                'media_item_id' => (int)$row['media_item_id'],
+                'file_id' => (int)$row['file_id'],
+                'filename' => (string)($row['filename'] ?? ''),
+            ];
+        }
+
+        if ($filenameHint !== '') {
+            $rows = $this->db->queryAll(
+                'SELECT mi.media_item_id, mi.file_id, f.filename
+                 FROM media_items mi
+                 INNER JOIN files f ON f.file_id = mi.file_id
+                 WHERE f.filename = :filename
+                 LIMIT 1',
+                [':filename' => $filenameHint]
+            );
+            if (empty($rows)) {
+                return null;
+            }
+            $row = $rows[0];
+            return [
+                'media_item_id' => (int)$row['media_item_id'],
+                'file_id' => (int)$row['file_id'],
+                'filename' => (string)($row['filename'] ?? ''),
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * Core delete: disk files (full + miniature) + DB relations for one media item.
+     * Caller must already authenticate.
+     */
+    private function delete_media_item_core(array $input): array
+    {
+        $resolved = $this->resolve_media_item_for_delete($input);
+        if ($resolved === null) {
+            return $this->media_delete_response(
+                false,
+                '',
+                'Media item not found. Provide media_item_id (or media_id/id) or filename.'
+            );
+        }
+
+        $mediaItemId = $resolved['media_item_id'];
+        $fileId = $resolved['file_id'];
+        $filename = $resolved['filename'];
+
+        if ($filename === '') {
+            return $this->media_delete_response(
+                false,
+                '',
+                'Media item has no filename on record.',
+                false,
+                $mediaItemId,
+                $fileId,
+                null
+            );
+        }
+
+        try {
+            // Clear gallery covers pointing at this media item
+            $this->db->update(
+                'media_collections',
+                ['collection_cover_id' => null],
+                ['collection_cover_id' => $mediaItemId]
+            );
+
+            // Membership links
+            $this->db->delete('media_in_collection', [
+                'media_item_id' => $mediaItemId,
+            ]);
+            $this->db->delete('media_in_post', [
+                'media_item_id' => $mediaItemId,
+            ]);
+
+            // media_items → files (FK order)
+            $this->db->delete('media_items', [
+                'media_item_id' => $mediaItemId,
+            ]);
+            $this->db->delete('files', [
+                'file_id' => $fileId,
+            ]);
+
+            // Physical files via delete_media_item_file
+            $filesRemoved = [];
+            if ($this->delete_media_item_file($filename)) {
+                $filesRemoved[] = $filename;
+            }
+            $miniature = $this->to_media_miniature_filename($filename);
+            if ($miniature !== '' && $this->delete_media_item_file($miniature)) {
+                $filesRemoved[] = $miniature;
+            }
+
+            return $this->media_delete_response(
+                true,
+                'Media item deleted successfully.',
+                '',
+                true,
+                $mediaItemId,
+                $fileId,
+                $filename,
+                $filesRemoved
+            );
+        } catch (Throwable $e) {
+            return $this->media_delete_response(
+                false,
+                '',
+                'Failed to delete media item.',
+                false,
+                $mediaItemId,
+                $fileId,
+                $filename
+            );
+        }
+    }
+
+    /**
+     * Delete a media item as a logged-in user (token required).
+     * Body: token, media_item_id|media_id|id (or filename).
+     */
+    public function delete_media_item_by_user(array $input): array
+    {
+        $token = trim((string)($input['token'] ?? ''));
+        if ($token === '') {
+            return $this->media_delete_response(false, '', 'Token is required.');
+        }
+
+        $userModel = new UserModel($this->db);
+        $users = $userModel->get_by_token($token);
+        if (empty($users)) {
+            return $this->media_delete_response(
+                false,
+                '',
+                'User is not logged in or token expired.'
+            );
+        }
+
+        return $this->delete_media_item_core($input);
+    }
+
+    /**
+     * Delete a media item as admin (token + is_admin via check_if_admin).
+     * Body: token, media_item_id|media_id|id (or filename).
+     */
+    public function delete_media_item_by_admin(array $input): array
+    {
+        $token = trim((string)($input['token'] ?? ''));
+        if ($token === '') {
+            return $this->media_delete_response(false, '', 'Token is required.');
+        }
+
+        $userModel = new UserModel($this->db);
+        $users = $userModel->get_by_token($token);
+        if (empty($users)) {
+            return $this->media_delete_response(
+                false,
+                '',
+                'User is not logged in or token expired.'
+            );
+        }
+
+        $username = (string)($users[0]['name'] ?? '');
+        if ($username === '' || !$userModel->check_if_admin($username)) {
+            return $this->media_delete_response(
+                false,
+                '',
+                'Admin privileges required.'
+            );
+        }
+
+        return $this->delete_media_item_core($input);
     }
 
     public function delete_file(array $input) {
