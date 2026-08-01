@@ -40,6 +40,10 @@ let galleryPicturesScroller = null;
 let loadedGalleryPictures = [];
 let lightboxIndex = -1;
 let lightboxKeyHandler = null;
+/** Whether the logged-in user owns the gallery currently open in preview. */
+let previewIsOwner = false;
+/** Optional deep-link picture id from ?picid= */
+let pendingDeepLinkPicId = null;
 
 export function getOwnerFilterFromUrl() {
   const raw = getUrlParam("user");
@@ -307,10 +311,98 @@ export function getGalleryIdFromUrl() {
 }
 
 /**
+ * Parse picture id from ?picid= query param.
+ * @returns {number|null}
+ */
+export function getPictureIdFromUrl() {
+  const raw = getUrlParam("picid");
+  if (raw === null || raw === undefined || String(raw).trim() === "") {
+    return null;
+  }
+  const id = Number.parseInt(String(raw).trim(), 10);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  return id;
+}
+
+/**
+ * Update browser URL for gallery preview (and optional picture deep-link).
+ * @param {number} galleryId
+ * @param {number|null} [picId]
+ */
+function setPreviewUrl(galleryId, picId = null) {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set("id", String(galleryId));
+    if (picId) {
+      url.searchParams.set("picid", String(picId));
+    } else {
+      url.searchParams.delete("picid");
+    }
+    window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+  } catch (err) {
+    // Ignore history errors (e.g. file://)
+  }
+}
+
+/**
  * Redirect to the main galleries listing page.
  */
 function redirectToGalleriesIndex() {
   window.location.replace("index.html");
+}
+
+/**
+ * Create a small floating icon action bar (edit / delete).
+ * @param {Array<{className:string,icon:string,title:string,onClick:Function}>} actions
+ * @returns {HTMLElement}
+ */
+function createTileActionBar(actions) {
+  const bar = createDIV("tile-action-bar");
+  actions.forEach((action) => {
+    const btn = createButton(
+      "button",
+      "",
+      `btn tile-action-btn ${action.className || ""}`.trim()
+    );
+    btn.type = "button";
+    btn.title = action.title || "";
+    btn.setAttribute("aria-label", action.title || "Action");
+    const icon = document.createElement("i");
+    icon.className = action.icon;
+    btn.appendChild(icon);
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof action.onClick === "function") action.onClick(e);
+    });
+    bar.appendChild(btn);
+  });
+  return bar;
+}
+
+/**
+ * Map a list_gallery_media / get_gallery_media_item row to UI item shape.
+ * @param {object} raw
+ * @param {string|null} folder
+ */
+function mapMediaItemFromApi(raw, folder) {
+  const miniName =
+    raw.miniature_filename || toMiniatureFilename(raw.filename) || raw.filename;
+  const fullName = raw.filename || null;
+  const url =
+    folder && miniName ? `${folder}${encodeURIComponent(miniName)}` : null;
+  const fullUrl =
+    folder && fullName ? `${folder}${encodeURIComponent(fullName)}` : url;
+
+  return {
+    id: Number(raw.id) || 0,
+    title: raw.title || "Untitled",
+    caption: raw.description || "",
+    url,
+    fullUrl,
+    filename: fullName,
+    media_type: raw.media_type || null,
+  };
 }
 
 /**
@@ -381,26 +473,9 @@ async function fetchGalleryMediaPage(galleryId, page, pageSizeArg = picturePrevi
     const folder = await getGalleryFolder();
     const media = Array.isArray(data.media) ? data.media : [];
 
-    const items = media.map((raw) => {
-      const miniName =
-        raw.miniature_filename || toMiniatureFilename(raw.filename) || raw.filename;
-      const fullName = raw.filename || null;
-      const url = folder && miniName
-        ? `${folder}${encodeURIComponent(miniName)}`
-        : null;
-      const fullUrl = folder && fullName
-        ? `${folder}${encodeURIComponent(fullName)}`
-        : url;
-      return {
-        id: Number(raw.id) || 0,
-        title: raw.title || "Untitled",
-        caption: raw.description || "",
-        url,
-        fullUrl,
-        filename: fullName,
-        media_type: raw.media_type || null,
-      };
-    }).filter((item) => item.url);
+    const items = media
+      .map((raw) => mapMediaItemFromApi(raw, folder))
+      .filter((item) => item.url);
 
     return {
       items,
@@ -643,6 +718,26 @@ function createGalleryCard(gallery, loggedUser) {
     cover.appendChild(overlay);
   }
 
+  // Owner-only floating edit / delete icons (top-right of tile cover)
+  if (isOwner) {
+    cover.appendChild(
+      createTileActionBar([
+        {
+          className: "gallery-edit-btn",
+          icon: "bi bi-pencil",
+          title: "Edit gallery",
+          onClick: () => handleEditGallery(gallery.id),
+        },
+        {
+          className: "gallery-delete-btn",
+          icon: "bi bi-trash",
+          title: "Delete gallery",
+          onClick: () => handleDeleteGallery(gallery.id),
+        },
+      ])
+    );
+  }
+
   // Body
   const body = createDIV("card-body d-flex flex-column");
 
@@ -686,29 +781,7 @@ function createGalleryCard(gallery, loggedUser) {
   card.appendChild(cover);
   card.appendChild(body);
 
-  if (isOwner) {
-    const footer = createDIV("card-footer");
-
-    const editBtn = createButton("button", "", "btn btn-sm gallery-edit-btn");
-    editBtn.dataset.galleryId = gallery.id;
-    const editIcon = document.createElement("i");
-    editIcon.className = "bi bi-pencil";
-    editBtn.appendChild(editIcon);
-    editBtn.appendChild(document.createTextNode(" Edit"));
-
-    const deleteBtn = createButton("button", "", "btn btn-sm gallery-delete-btn");
-    deleteBtn.dataset.galleryId = gallery.id;
-    const deleteIcon = document.createElement("i");
-    deleteIcon.className = "bi bi-trash";
-    deleteBtn.appendChild(deleteIcon);
-    deleteBtn.appendChild(document.createTextNode(" Delete"));
-
-    footer.appendChild(editBtn);
-    footer.appendChild(deleteBtn);
-    card.appendChild(footer);
-  }
-
-  // Open gallery preview when clicking the card (edit/delete stop propagation)
+  // Open gallery preview when clicking the card (action icons stop propagation)
   card.addEventListener("click", () => {
     openGalleryPreview(gallery.id);
   });
@@ -728,25 +801,25 @@ export function openGalleryPreview(galleryId) {
 }
 
 function attachGalleryActionHandlers(root) {
-  root.querySelectorAll(".gallery-edit-btn").forEach(btn => {
+  // Action buttons are bound inline when the tile is created (stopPropagation).
+  // Kept for compatibility if older markup is present.
+  root.querySelectorAll(".gallery-edit-btn[data-gallery-id]").forEach((btn) => {
     if (btn.dataset.bound === "1") return;
     btn.dataset.bound = "1";
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      const galleryId = parseInt(btn.dataset.galleryId, 10);
-      handleEditGallery(galleryId);
+      handleEditGallery(parseInt(btn.dataset.galleryId, 10));
     });
   });
 
-  root.querySelectorAll(".gallery-delete-btn").forEach(btn => {
+  root.querySelectorAll(".gallery-delete-btn[data-gallery-id]").forEach((btn) => {
     if (btn.dataset.bound === "1") return;
     btn.dataset.bound = "1";
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      const galleryId = parseInt(btn.dataset.galleryId, 10);
-      handleDeleteGallery(galleryId);
+      handleDeleteGallery(parseInt(btn.dataset.galleryId, 10));
     });
   });
 }
@@ -1177,7 +1250,7 @@ async function handleDeleteGallery(galleryId) {
   });
 }
 
-// Execute delete gallery (local until delete_gallery API exists)
+// Execute delete gallery (persists via delete_gallery)
 async function executeDeleteGallery(galleryId) {
   const sessionToken = getSessionToken();
   if (!sessionToken) {
@@ -1186,12 +1259,33 @@ async function executeDeleteGallery(galleryId) {
   }
 
   try {
-    // TODO: POST delete_gallery when backend supports it
-    allGalleries = allGalleries.filter(g => g.id !== galleryId);
+    const response = await POSTJSONRequest({
+      request: "delete_gallery",
+      token: sessionToken,
+      id: galleryId,
+    });
 
+    if (!response?.success) {
+      showFeedback(response?.error || "Failed to delete gallery");
+      return;
+    }
+
+    allGalleries = allGalleries.filter((g) => g.id !== galleryId);
     newHideModal("my_modal");
-    await renderGalleries(allGalleries, { replace: true });
-    showFeedback("Gallery removed locally (not deleted from DB yet)");
+
+    // If we deleted the open preview gallery, go back to the list
+    if (currentPreviewGallery && currentPreviewGallery.id === galleryId) {
+      showFeedback("Gallery deleted");
+      redirectToGalleriesIndex();
+      return;
+    }
+
+    const grid = document.getElementById("galleries-grid");
+    if (grid) {
+      await renderGalleries(allGalleries, { replace: true });
+      if (allGalleries.length === 0) showEmptyState();
+    }
+    showFeedback("Gallery deleted");
   } catch (err) {
     console.error("Delete gallery error:", err);
     showFeedback("Failed to delete gallery");
@@ -1211,27 +1305,64 @@ export function createPictureWrapper() {
  * @param {string} mediaUrl Thumbnail (or display) URL
  * @param {string} title
  * @param {string} caption
- * @param {{ onClick?: () => void, fullUrl?: string|null }} [options]
+ * @param {{
+ *   onClick?: () => void,
+ *   fullUrl?: string|null,
+ *   mediaId?: number,
+ *   showOwnerActions?: boolean,
+ *   onEdit?: () => void,
+ *   onDelete?: () => void,
+ * }} [options]
  */
 export function createMediaTilePic(mediaUrl, title, caption, options = {}) {
   const col = createDIV("col-auto");
   const card = createDIV("card border border-2 media-tile-card");
+  if (options.mediaId) {
+    card.dataset.mediaId = String(options.mediaId);
+    col.dataset.mediaId = String(options.mediaId);
+  }
+
+  const mediaWrap = createDIV("media-tile-media");
   const img = createHTMLelement("img", "w-100 media-tile-img");
   img.src = mediaUrl || "";
   img.alt = title || "Gallery picture";
   img.loading = "lazy";
   img.decoding = "async";
+  mediaWrap.appendChild(img);
 
-  const titleDIV = createDIV("bg-secondary text-white px-2 py-1");
+  if (options.showOwnerActions) {
+    mediaWrap.appendChild(
+      createTileActionBar([
+        {
+          className: "media-edit-btn",
+          icon: "bi bi-pencil",
+          title: "Edit picture",
+          onClick: () => {
+            if (typeof options.onEdit === "function") options.onEdit();
+          },
+        },
+        {
+          className: "media-delete-btn",
+          icon: "bi bi-trash",
+          title: "Remove picture",
+          onClick: () => {
+            if (typeof options.onDelete === "function") options.onDelete();
+          },
+        },
+      ])
+    );
+  }
+
+  const titleDIV = createDIV("bg-secondary text-white px-2 py-1 media-tile-title");
   const titleSpan = createHTMLelement("span", "fw-bold");
   titleSpan.textContent = title || "Untitled";
   const captionBody = createDIV("card-body p-2");
-  const captionP = createHTMLelement("p", "card-text small mb-0");
+  const captionP = createHTMLelement("p", "card-text small mb-0 media-tile-caption");
   captionP.textContent = caption || "";
 
   captionBody.appendChild(captionP);
   titleDIV.appendChild(titleSpan);
-  card.appendChild(img);
+  card.appendChild(mediaWrap);
   card.appendChild(titleDIV);
   card.appendChild(captionBody);
 
@@ -1241,6 +1372,8 @@ export function createMediaTilePic(mediaUrl, title, caption, options = {}) {
     card.tabIndex = 0;
     card.title = "Open full size";
     const open = (e) => {
+      // Ignore clicks that originated from action buttons
+      if (e.target.closest(".tile-action-bar")) return;
       e.preventDefault();
       options.onClick();
     };
@@ -1252,6 +1385,66 @@ export function createMediaTilePic(mediaUrl, title, caption, options = {}) {
 
   col.appendChild(card);
   return col;
+}
+
+/**
+ * Build a picture tile for the open gallery preview (with owner actions when allowed).
+ * @param {object} item
+ */
+function createPreviewPictureTile(item) {
+  return createMediaTilePic(item.url, item.title, item.caption, {
+    fullUrl: item.fullUrl,
+    mediaId: item.id,
+    showOwnerActions: previewIsOwner,
+    onClick: () => openPictureLightboxById(item.id),
+    onEdit: () => handleEditPicture(item.id),
+    onDelete: () => handleDeletePicture(item.id),
+  });
+}
+
+/**
+ * Open lightbox for a picture id (resolves current index in loaded list).
+ * @param {number} mediaId
+ */
+export function openPictureLightboxById(mediaId) {
+  const idx = loadedGalleryPictures.findIndex((p) => p.id === mediaId);
+  if (idx < 0) {
+    showFeedback("Picture not found");
+    return;
+  }
+  openPictureLightbox(idx);
+}
+
+/**
+ * Refresh title/caption text on an already-rendered picture tile.
+ * @param {number} mediaId
+ * @param {{title?: string, caption?: string}} fields
+ */
+function updatePictureTileDom(mediaId, fields) {
+  const col = document.querySelector(
+    `#gallery-pictures [data-media-id="${mediaId}"]`
+  );
+  if (!col) return;
+  if (fields.title !== undefined) {
+    const titleEl = col.querySelector(".media-tile-title .fw-bold");
+    if (titleEl) titleEl.textContent = fields.title || "Untitled";
+  }
+  if (fields.caption !== undefined) {
+    const capEl = col.querySelector(".media-tile-caption");
+    if (capEl) capEl.textContent = fields.caption || "";
+  }
+}
+
+/**
+ * Remove a picture tile from the DOM and loaded list.
+ * @param {number} mediaId
+ */
+function removePictureTileDom(mediaId) {
+  const col = document.querySelector(
+    `#gallery-pictures [data-media-id="${mediaId}"]`
+  );
+  if (col) col.remove();
+  loadedGalleryPictures = loadedGalleryPictures.filter((p) => p.id !== mediaId);
 }
 
 /**
@@ -1383,6 +1576,11 @@ function showLightboxAt(index) {
   root.classList.add("is-open");
   document.body.classList.add("gallery-lightbox-open");
 
+  // Deep-link URL: keep gallery id + current picture id
+  if (currentPreviewGallery?.id && item.id) {
+    setPreviewUrl(currentPreviewGallery.id, item.id);
+  }
+
   if (!lightboxKeyHandler) {
     lightboxKeyHandler = (e) => {
       if (e.key === "Escape") {
@@ -1408,8 +1606,12 @@ export function openPictureLightbox(index) {
 
 /**
  * Close the full-size picture lightbox.
+ * @param {{ updateUrl?: boolean }} [options] updateUrl=false keeps ?picid= (e.g. during reset before deep-link open)
  */
-export function closePictureLightbox() {
+export function closePictureLightbox(options = {}) {
+  const updateUrl = options.updateUrl !== false;
+  const wasOpen = lightboxIndex >= 0;
+
   const root = document.getElementById("gallery-lightbox");
   if (root) {
     root.hidden = true;
@@ -1425,6 +1627,441 @@ export function closePictureLightbox() {
     document.removeEventListener("keydown", lightboxKeyHandler);
     lightboxKeyHandler = null;
   }
+
+  // Drop picid from URL when the user closes an open picture preview
+  if (updateUrl && wasOpen && currentPreviewGallery?.id) {
+    setPreviewUrl(currentPreviewGallery.id, null);
+  }
+}
+
+/**
+ * Build edit-picture form (title, description, set-as-cover).
+ */
+function buildPictureEditForm(config) {
+  const form = document.createElement("form");
+  form.id = "picture-edit-form";
+
+  const titleWrapper = createDIV("mb-3");
+  const titleLabel = createLabel("Title", "picture-title", "form-label");
+  const titleInput = createBootstrapTextInput(
+    "picture-title",
+    false,
+    255,
+    config.titleValue || ""
+  );
+  titleWrapper.appendChild(titleLabel);
+  titleWrapper.appendChild(titleInput);
+
+  const descWrapper = createDIV("mb-3");
+  const descLabel = createLabel("Description", "picture-description", "form-label");
+  const descInput = createBootstrapTextArea(
+    "picture-description",
+    3,
+    2000,
+    config.description || "",
+    false
+  );
+  descWrapper.appendChild(descLabel);
+  descWrapper.appendChild(descInput);
+
+  const coverWrapper = createDIV("mb-1");
+  const coverBtn = createButton(
+    "button",
+    "Make gallery cover",
+    "btn galleries-btn-ghost w-100 picture-set-cover-btn"
+  );
+  coverBtn.id = "picture-set-cover-btn";
+  coverBtn.type = "button";
+  const coverIcon = document.createElement("i");
+  coverIcon.className = "bi bi-image me-2";
+  coverBtn.prepend(coverIcon);
+  coverWrapper.appendChild(coverBtn);
+
+  form.appendChild(titleWrapper);
+  form.appendChild(descWrapper);
+  form.appendChild(coverWrapper);
+  return form;
+}
+
+/**
+ * Open edit modal for a picture in the current gallery.
+ * @param {number} mediaId
+ */
+export async function handleEditPicture(mediaId) {
+  if (!previewIsOwner || !currentPreviewGallery) {
+    showFeedback("You must own this gallery to edit pictures");
+    return;
+  }
+
+  const sessionTest = await verifySession();
+  if (!sessionTest) {
+    showFeedback("You must be logged in");
+    return;
+  }
+
+  const item = loadedGalleryPictures.find((p) => p.id === mediaId);
+  if (!item) {
+    showFeedback("Picture not found");
+    return;
+  }
+
+  const isCurrentCover =
+    currentPreviewGallery.collection_cover_id === mediaId;
+
+  showGenericModal({
+    title: "Edit picture",
+    bodyElement: buildPictureEditForm({
+      titleValue: item.title,
+      description: item.caption,
+    }),
+    buttons: [
+      {
+        text: "Cancel",
+        class: "btn-secondary",
+        action: () => newHideModal("my_modal"),
+      },
+      { hidden: true },
+      {
+        text: "Save",
+        class: "btn-primary",
+        action: () => executeEditPicture(mediaId),
+      },
+    ],
+  });
+
+  setTimeout(() => {
+    const coverBtn = document.getElementById("picture-set-cover-btn");
+    if (coverBtn) {
+      if (isCurrentCover) {
+        coverBtn.disabled = true;
+        coverBtn.textContent = "Already the gallery cover";
+      } else {
+        coverBtn.addEventListener("click", async (e) => {
+          e.preventDefault();
+          await executeSetPictureAsCover(mediaId);
+        });
+      }
+    }
+    const titleInput = document.getElementById("picture-title");
+    if (titleInput) titleInput.focus();
+  }, 100);
+}
+
+/**
+ * Save picture title/description.
+ * @param {number} mediaId
+ */
+async function executeEditPicture(mediaId) {
+  const titleInput = document.getElementById("picture-title");
+  const descInput = document.getElementById("picture-description");
+  const errorField = document.getElementById("modal-alert-field");
+
+  const title = (titleInput?.value || "").trim();
+  const description = (descInput?.value || "").trim();
+
+  errorField.style.display = "none";
+
+  if (title.length > 255) {
+    errorField.textContent = "Title must be at most 255 characters.";
+    errorField.style.display = "block";
+    return;
+  }
+
+  const sessionToken = getSessionToken();
+  if (!sessionToken || !currentPreviewGallery) {
+    errorField.textContent = "Session token missing";
+    errorField.style.display = "block";
+    return;
+  }
+
+  try {
+    const response = await POSTJSONRequest({
+      request: "update_gallery_media",
+      token: sessionToken,
+      gallery_id: currentPreviewGallery.id,
+      media_id: mediaId,
+      title,
+      description,
+    });
+
+    if (!response?.success || !response.data?.media) {
+      errorField.textContent = response?.error || "Failed to update picture";
+      errorField.style.display = "block";
+      return;
+    }
+
+    const folder = await getGalleryFolder();
+    const updated = mapMediaItemFromApi(response.data.media, folder);
+    const idx = loadedGalleryPictures.findIndex((p) => p.id === mediaId);
+    if (idx >= 0) {
+      loadedGalleryPictures[idx] = {
+        ...loadedGalleryPictures[idx],
+        ...updated,
+      };
+    }
+
+    updatePictureTileDom(mediaId, {
+      title: updated.title,
+      caption: updated.caption,
+    });
+
+    // Refresh open lightbox if this picture is shown
+    if (lightboxIndex >= 0 && loadedGalleryPictures[lightboxIndex]?.id === mediaId) {
+      showLightboxAt(lightboxIndex);
+    }
+
+    newHideModal("my_modal");
+    showFeedback("Picture updated");
+  } catch (err) {
+    console.error("Edit picture error:", err);
+    errorField.textContent = "Failed to update picture";
+    errorField.style.display = "block";
+  }
+}
+
+/**
+ * Set the selected picture as the gallery cover.
+ * @param {number} mediaId
+ */
+async function executeSetPictureAsCover(mediaId) {
+  const errorField = document.getElementById("modal-alert-field");
+  const sessionToken = getSessionToken();
+  if (!sessionToken || !currentPreviewGallery) {
+    if (errorField) {
+      errorField.textContent = "Session token missing";
+      errorField.style.display = "block";
+    }
+    return;
+  }
+
+  try {
+    const response = await POSTJSONRequest({
+      request: "set_gallery_cover",
+      token: sessionToken,
+      gallery_id: currentPreviewGallery.id,
+      media_id: mediaId,
+    });
+
+    if (!response?.success) {
+      if (errorField) {
+        errorField.textContent = response?.error || "Failed to set cover";
+        errorField.style.display = "block";
+      } else {
+        showFeedback(response?.error || "Failed to set cover");
+      }
+      return;
+    }
+
+    if (response.data?.gallery) {
+      const updated = mapGalleryFromApi(response.data.gallery);
+      applyGalleryUpdateLocally(updated);
+    } else {
+      currentPreviewGallery.collection_cover_id = mediaId;
+    }
+
+    // Force banner to reload full cover
+    const coverUrl = await fetchGalleryCoverFullUrl(currentPreviewGallery.id);
+    currentPreviewGallery.cover_url = coverUrl;
+    const loggedUser = await getLoggedUser();
+    const isOwner = Boolean(
+      loggedUser &&
+        currentPreviewGallery.owner &&
+        loggedUser === currentPreviewGallery.owner
+    );
+    renderGalleryPreviewBanner(currentPreviewGallery, coverUrl, isOwner);
+
+    newHideModal("my_modal");
+    showFeedback("Gallery cover updated");
+  } catch (err) {
+    console.error("Set cover error:", err);
+    if (errorField) {
+      errorField.textContent = "Failed to set cover";
+      errorField.style.display = "block";
+    } else {
+      showFeedback("Failed to set cover");
+    }
+  }
+}
+
+/**
+ * Confirm and remove a picture from the gallery.
+ * @param {number} mediaId
+ */
+export async function handleDeletePicture(mediaId) {
+  if (!previewIsOwner || !currentPreviewGallery) {
+    showFeedback("You must own this gallery to remove pictures");
+    return;
+  }
+
+  const sessionTest = await verifySession();
+  if (!sessionTest) {
+    showFeedback("You must be logged in");
+    return;
+  }
+
+  const item = loadedGalleryPictures.find((p) => p.id === mediaId);
+  const label = item?.title || "this picture";
+
+  showGenericModal({
+    title: "Remove picture",
+    bodyText: `Remove "${label}" from this gallery? The file itself is not deleted.`,
+    buttons: [
+      {
+        text: "Cancel",
+        class: "btn-secondary",
+        action: () => newHideModal("my_modal"),
+      },
+      { hidden: true },
+      {
+        text: "Remove",
+        class: "btn-danger",
+        action: () => executeDeletePicture(mediaId),
+      },
+    ],
+  });
+}
+
+/**
+ * Remove picture from gallery via API and update UI.
+ * @param {number} mediaId
+ */
+async function executeDeletePicture(mediaId) {
+  const sessionToken = getSessionToken();
+  if (!sessionToken || !currentPreviewGallery) {
+    showFeedback("Session token missing");
+    return;
+  }
+
+  try {
+    const response = await POSTJSONRequest({
+      request: "remove_media_from_gallery",
+      token: sessionToken,
+      gallery_id: currentPreviewGallery.id,
+      media_id: mediaId,
+    });
+
+    if (!response?.success) {
+      showFeedback(response?.error || "Failed to remove picture");
+      return;
+    }
+
+    const wasOpen =
+      lightboxIndex >= 0 &&
+      loadedGalleryPictures[lightboxIndex]?.id === mediaId;
+    const wasCover = currentPreviewGallery.collection_cover_id === mediaId;
+
+    removePictureTileDom(mediaId);
+
+    if (currentPreviewGallery.image_count > 0) {
+      currentPreviewGallery.image_count -= 1;
+    }
+
+    if (wasCover) {
+      currentPreviewGallery.collection_cover_id = null;
+      currentPreviewGallery.cover_url = null;
+      const loggedUser = await getLoggedUser();
+      const isOwner = Boolean(
+        loggedUser &&
+          currentPreviewGallery.owner &&
+          loggedUser === currentPreviewGallery.owner
+      );
+      renderGalleryPreviewBanner(currentPreviewGallery, null, isOwner);
+    } else {
+      // Refresh count in banner meta
+      const loggedUser = await getLoggedUser();
+      const isOwner = Boolean(
+        loggedUser &&
+          currentPreviewGallery.owner &&
+          loggedUser === currentPreviewGallery.owner
+      );
+      renderGalleryPreviewBanner(
+        currentPreviewGallery,
+        currentPreviewGallery.cover_url || null,
+        isOwner
+      );
+    }
+
+    if (wasOpen) {
+      closePictureLightbox();
+    } else if (lightboxIndex >= 0) {
+      // Re-sync index after list shrink
+      const openId = loadedGalleryPictures[lightboxIndex]?.id;
+      if (openId) {
+        const newIdx = loadedGalleryPictures.findIndex((p) => p.id === openId);
+        if (newIdx >= 0) showLightboxAt(newIdx);
+      }
+    }
+
+    const emptyState = document.getElementById("gallery-empty-state");
+    if (loadedGalleryPictures.length === 0 && emptyState) {
+      emptyState.classList.remove("d-none");
+    }
+
+    newHideModal("my_modal");
+    showFeedback("Picture removed");
+  } catch (err) {
+    console.error("Delete picture error:", err);
+    showFeedback("Failed to remove picture");
+  }
+}
+
+/**
+ * Load additional picture pages until picId is found (for deep links).
+ * @param {number} galleryId
+ * @param {number} picId
+ * @returns {Promise<number>} index or -1
+ */
+async function ensurePictureLoaded(galleryId, picId) {
+  let idx = loadedGalleryPictures.findIndex((p) => p.id === picId);
+  if (idx >= 0) return idx;
+
+  // Confirm the picture belongs to this gallery
+  try {
+    const response = await fetchAPIdataWGetParams({
+      request: "get_gallery_media_item",
+      gallery_id: galleryId,
+      media_id: picId,
+    });
+    if (!response?.success || !response.data?.media) {
+      return -1;
+    }
+  } catch (err) {
+    console.error("Deep-link media check failed:", err);
+    return -1;
+  }
+
+  let page = Math.floor(loadedGalleryPictures.length / picturePreviewPageSize) + 1;
+  if (page < 1) page = 1;
+
+  const wrapper = document.querySelector(
+    "#gallery-pictures .gallery-pictures-row"
+  );
+
+  // Safety: avoid infinite loops on huge galleries
+  for (let guard = 0; guard < 50; guard += 1) {
+    const result = await fetchGalleryMediaPage(
+      galleryId,
+      page,
+      picturePreviewPageSize
+    );
+    if (!result.items.length) break;
+
+    result.items.forEach((item) => {
+      // Skip duplicates if overlap
+      if (loadedGalleryPictures.some((p) => p.id === item.id)) return;
+      loadedGalleryPictures.push(item);
+      if (wrapper) {
+        wrapper.appendChild(createPreviewPictureTile(item));
+      }
+    });
+
+    idx = loadedGalleryPictures.findIndex((p) => p.id === picId);
+    if (idx >= 0) return idx;
+    if (!result.hasMore) break;
+    page += 1;
+  }
+
+  return loadedGalleryPictures.findIndex((p) => p.id === picId);
 }
 
 /**
@@ -1516,7 +2153,7 @@ async function startGalleryPicturesScroller(galleryId) {
     galleryPicturesScroller = null;
   }
 
-  closePictureLightbox();
+  closePictureLightbox({ updateUrl: false });
   loadedGalleryPictures = [];
   target.innerHTML = "";
   if (emptyState) emptyState.classList.add("d-none");
@@ -1537,12 +2174,8 @@ async function startGalleryPicturesScroller(galleryId) {
     },
     createWrapper: createPictureWrapper,
     createItem: (item) => {
-      const index = loadedGalleryPictures.length;
       loadedGalleryPictures.push(item);
-      return createMediaTilePic(item.url, item.title, item.caption, {
-        fullUrl: item.fullUrl,
-        onClick: () => openPictureLightbox(index),
-      });
+      return createPreviewPictureTile(item);
     },
     target,
     sentinelId: "gallery-pictures-sentinel",
@@ -1555,11 +2188,25 @@ async function startGalleryPicturesScroller(galleryId) {
   if (firstPageEmpty && emptyState) {
     emptyState.classList.remove("d-none");
   }
+
+  // Deep-link: open a specific picture after tiles are ready
+  if (pendingDeepLinkPicId) {
+    const picId = pendingDeepLinkPicId;
+    pendingDeepLinkPicId = null;
+    const idx = await ensurePictureLoaded(galleryId, picId);
+    if (idx >= 0) {
+      openPictureLightbox(idx);
+    } else {
+      showFeedback("Picture not found in this gallery");
+      setPreviewUrl(galleryId, null);
+    }
+  }
 }
 
 /**
  * Entry point for preview_gallery.html.
  * Requires ?id=<galleryId>; invalid/missing id redirects to index.html.
+ * Optional ?picid= opens that picture full-size.
  */
 export async function initGalleryPreview() {
   const galleryId = getGalleryIdFromUrl();
@@ -1567,6 +2214,8 @@ export async function initGalleryPreview() {
     redirectToGalleriesIndex();
     return;
   }
+
+  pendingDeepLinkPicId = getPictureIdFromUrl();
 
   const spinner = document.getElementById("loading-spinner");
   if (spinner) spinner.classList.remove("d-none");
@@ -1580,12 +2229,16 @@ export async function initGalleryPreview() {
   currentPreviewGallery = gallery;
 
   const loggedUser = await getLoggedUser();
-  const isOwner = Boolean(
+  previewIsOwner = Boolean(
     loggedUser && gallery.owner && loggedUser === gallery.owner
   );
 
   const coverUrl = await fetchGalleryCoverFullUrl(galleryId);
-  renderGalleryPreviewBanner(gallery, coverUrl, isOwner);
+  currentPreviewGallery.cover_url = coverUrl;
+  renderGalleryPreviewBanner(gallery, coverUrl, previewIsOwner);
+
+  // Canonical gallery URL (picid applied when lightbox opens)
+  setPreviewUrl(galleryId, pendingDeepLinkPicId);
 
   await startGalleryPicturesScroller(galleryId);
 

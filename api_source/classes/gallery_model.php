@@ -731,4 +731,462 @@ class GalleryModel
             'filename' => $miniature,
         ];
     }
+
+    /**
+     * Resolve logged-in user id from token, or null if invalid.
+     */
+    private function resolve_user_id_from_token(string $token): ?int
+    {
+        $token = trim($token);
+        if ($token === '') {
+            return null;
+        }
+
+        $userModel = new UserModel($this->db);
+        $users = $userModel->get_by_token($token);
+        if (empty($users)) {
+            return null;
+        }
+
+        $userId = (int)($users[0]['user_id'] ?? 0);
+        return $userId > 0 ? $userId : null;
+    }
+
+    /**
+     * Whether a media item belongs to a gallery.
+     */
+    public function media_in_gallery(int $galleryId, int $mediaId): bool
+    {
+        if ($galleryId <= 0 || $mediaId <= 0) {
+            return false;
+        }
+
+        $found = $this->db->queryValue(
+            'SELECT 1
+             FROM media_in_collection
+             WHERE media_collection_id = :gallery_id
+               AND media_item_id = :media_id
+             LIMIT 1',
+            [
+                ':gallery_id' => $galleryId,
+                ':media_id' => $mediaId,
+            ]
+        );
+
+        return $found !== null;
+    }
+
+    /**
+     * Map a media row to the public API shape (same as list_gallery_media items).
+     */
+    private function map_media_row(array $row): array
+    {
+        $filename = (string)($row['filename'] ?? '');
+        $base = pathinfo($filename, PATHINFO_FILENAME);
+        $ext = pathinfo($filename, PATHINFO_EXTENSION);
+        $miniature = $filename !== ''
+            ? ($ext !== '' ? "{$base}_sm.{$ext}" : "{$base}_sm")
+            : null;
+
+        return [
+            'id' => (int)$row['id'],
+            'media_type' => $row['media_type'] ?? null,
+            'title' => $row['title'] ?? '',
+            'description' => $row['description'] ?? '',
+            'tags' => $row['tags'] ?? null,
+            'filename' => $filename !== '' ? $filename : null,
+            'miniature_filename' => $miniature,
+            'date_added' => $row['date_added'] ?? null,
+        ];
+    }
+
+    /**
+     * Fetch one media item that belongs to a gallery.
+     *
+     * @return array{success:bool,message:string,error:string,media:?array}
+     */
+    public function get_gallery_media_item(int $galleryId, int $mediaId): array
+    {
+        if ($galleryId <= 0 || $mediaId <= 0) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Gallery id and media id are required.',
+                'media' => null,
+            ];
+        }
+
+        $sql = '
+            SELECT
+                mi.media_item_id AS id,
+                mi.media_type,
+                mi.title,
+                mi.descr AS description,
+                mi.tags,
+                f.filename,
+                mic.date_added
+            FROM media_in_collection mic
+            INNER JOIN media_items mi ON mi.media_item_id = mic.media_item_id
+            INNER JOIN files f ON f.file_id = mi.file_id
+            WHERE mic.media_collection_id = :gallery_id
+              AND mi.media_item_id = :media_id
+            LIMIT 1
+        ';
+
+        $rows = $this->db->queryAll($sql, [
+            ':gallery_id' => $galleryId,
+            ':media_id' => $mediaId,
+        ]);
+
+        if (empty($rows)) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Picture not found in this gallery.',
+                'media' => null,
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Media item retrieved successfully.',
+            'error' => '',
+            'media' => $this->map_media_row($rows[0]),
+        ];
+    }
+
+    /**
+     * Update media item title/description (owner of the gallery only).
+     * Body: token, gallery_id, media_id, optional title, description.
+     *
+     * @return array{success:bool,message:string,error:string,media:?array}
+     */
+    public function update_gallery_media(array $input): array
+    {
+        $token = trim((string)($input['token'] ?? ''));
+        $galleryId = isset($input['gallery_id']) ? (int)$input['gallery_id'] : 0;
+        $mediaId = isset($input['media_id'])
+            ? (int)$input['media_id']
+            : (isset($input['id']) ? (int)$input['id'] : 0);
+
+        $userId = $this->resolve_user_id_from_token($token);
+        if ($userId === null) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'User is not logged in or token expired.',
+                'media' => null,
+            ];
+        }
+
+        if ($galleryId <= 0 || $mediaId <= 0) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Gallery id and media id are required.',
+                'media' => null,
+            ];
+        }
+
+        if (!$this->user_owns_gallery($userId, $galleryId)) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'You do not have permission to edit pictures in this gallery.',
+                'media' => null,
+            ];
+        }
+
+        if (!$this->media_in_gallery($galleryId, $mediaId)) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Picture not found in this gallery.',
+                'media' => null,
+            ];
+        }
+
+        $updates = [];
+        $hasTitle = array_key_exists('title', $input);
+        $hasDescription = array_key_exists('description', $input)
+            || array_key_exists('descr', $input);
+
+        if ($hasTitle) {
+            $title = trim((string)$input['title']);
+            if (mb_strlen($title) > 255) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Title must be at most 255 characters.',
+                    'media' => null,
+                ];
+            }
+            $updates['title'] = $title !== '' ? $title : null;
+        }
+
+        if ($hasDescription) {
+            $description = trim((string)($input['description'] ?? $input['descr'] ?? ''));
+            $updates['descr'] = $description !== '' ? $description : null;
+        }
+
+        if (empty($updates)) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'No fields to update.',
+                'media' => null,
+            ];
+        }
+
+        try {
+            $this->db->update('media_items', $updates, [
+                'media_item_id' => $mediaId,
+            ]);
+
+            $result = $this->get_gallery_media_item($galleryId, $mediaId);
+            return [
+                'success' => true,
+                'message' => 'Picture updated successfully.',
+                'error' => '',
+                'media' => $result['media'],
+            ];
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Failed to update picture.',
+                'media' => null,
+            ];
+        }
+    }
+
+    /**
+     * Remove a media item from a gallery (does not delete the media file row).
+     * Body: token, gallery_id, media_id.
+     *
+     * @return array{success:bool,message:string,error:string}
+     */
+    public function remove_media_from_gallery(array $input): array
+    {
+        $token = trim((string)($input['token'] ?? ''));
+        $galleryId = isset($input['gallery_id']) ? (int)$input['gallery_id'] : 0;
+        $mediaId = isset($input['media_id'])
+            ? (int)$input['media_id']
+            : (isset($input['id']) ? (int)$input['id'] : 0);
+
+        $userId = $this->resolve_user_id_from_token($token);
+        if ($userId === null) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'User is not logged in or token expired.',
+            ];
+        }
+
+        if ($galleryId <= 0 || $mediaId <= 0) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Gallery id and media id are required.',
+            ];
+        }
+
+        if (!$this->user_owns_gallery($userId, $galleryId)) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'You do not have permission to remove pictures from this gallery.',
+            ];
+        }
+
+        if (!$this->media_in_gallery($galleryId, $mediaId)) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Picture not found in this gallery.',
+            ];
+        }
+
+        try {
+            // Clear cover if this picture is the cover
+            $coverId = $this->get_gallery_cover_id($galleryId);
+            if ($coverId !== null && $coverId === $mediaId) {
+                $this->db->update('media_collections', [
+                    'collection_cover_id' => null,
+                ], [
+                    'media_collection_id' => $galleryId,
+                ]);
+            }
+
+            $this->db->delete('media_in_collection', [
+                'media_collection_id' => $galleryId,
+                'media_item_id' => $mediaId,
+            ]);
+
+            return [
+                'success' => true,
+                'message' => 'Picture removed from gallery.',
+                'error' => '',
+            ];
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Failed to remove picture from gallery.',
+            ];
+        }
+    }
+
+    /**
+     * Set gallery cover to a media item that belongs to the gallery.
+     * Body: token, gallery_id, media_id.
+     *
+     * @return array{success:bool,message:string,error:string,gallery:?array}
+     */
+    public function set_gallery_cover(array $input): array
+    {
+        $token = trim((string)($input['token'] ?? ''));
+        $galleryId = isset($input['gallery_id']) ? (int)$input['gallery_id'] : 0;
+        $mediaId = isset($input['media_id'])
+            ? (int)$input['media_id']
+            : (isset($input['id']) ? (int)$input['id'] : 0);
+
+        $userId = $this->resolve_user_id_from_token($token);
+        if ($userId === null) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'User is not logged in or token expired.',
+                'gallery' => null,
+            ];
+        }
+
+        if ($galleryId <= 0 || $mediaId <= 0) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Gallery id and media id are required.',
+                'gallery' => null,
+            ];
+        }
+
+        if (!$this->user_owns_gallery($userId, $galleryId)) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'You do not have permission to change this gallery cover.',
+                'gallery' => null,
+            ];
+        }
+
+        if (!$this->media_in_gallery($galleryId, $mediaId)) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Picture not found in this gallery.',
+                'gallery' => null,
+            ];
+        }
+
+        try {
+            $this->db->update('media_collections', [
+                'collection_cover_id' => $mediaId,
+            ], [
+                'media_collection_id' => $galleryId,
+            ]);
+
+            $gallery = $this->get_gallery_by_id($galleryId);
+            return [
+                'success' => true,
+                'message' => 'Gallery cover updated successfully.',
+                'error' => '',
+                'gallery' => $gallery,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Failed to set gallery cover.',
+                'gallery' => null,
+            ];
+        }
+    }
+
+    /**
+     * Delete a gallery (owners, memberships, then collection). Does not delete media files.
+     * Body: token, id.
+     *
+     * @return array{success:bool,message:string,error:string}
+     */
+    public function delete_gallery(array $input): array
+    {
+        $token = trim((string)($input['token'] ?? ''));
+        $galleryId = isset($input['id']) ? (int)$input['id'] : 0;
+
+        $userId = $this->resolve_user_id_from_token($token);
+        if ($userId === null) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'User is not logged in or token expired.',
+            ];
+        }
+
+        if ($galleryId <= 0) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Gallery id is required.',
+            ];
+        }
+
+        if ($this->get_gallery_by_id($galleryId) === null) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Gallery not found.',
+            ];
+        }
+
+        if (!$this->user_owns_gallery($userId, $galleryId)) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'You do not have permission to delete this gallery.',
+            ];
+        }
+
+        try {
+            // Clear cover first to avoid FK issues if any
+            $this->db->update('media_collections', [
+                'collection_cover_id' => null,
+            ], [
+                'media_collection_id' => $galleryId,
+            ]);
+
+            $this->db->delete('media_in_collection', [
+                'media_collection_id' => $galleryId,
+            ]);
+
+            $this->db->delete('collection_owners', [
+                'media_collection_id' => $galleryId,
+            ]);
+
+            $this->db->delete('media_collections', [
+                'media_collection_id' => $galleryId,
+            ]);
+
+            return [
+                'success' => true,
+                'message' => 'Gallery deleted successfully.',
+                'error' => '',
+            ];
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Failed to delete gallery.',
+            ];
+        }
+    }
 }

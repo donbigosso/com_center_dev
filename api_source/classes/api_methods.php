@@ -92,6 +92,9 @@ class ApiMethods extends Core
                 case 'list_gallery_media':
                     $this->handle_list_gallery_media($input);
                     break;
+                case 'get_gallery_media_item':
+                    $this->handle_get_gallery_media_item($input);
+                    break;
                 case 'get_gallery_cover_filename':
                     $this->handle_get_gallery_cover_filename($input);
                     break;
@@ -183,6 +186,18 @@ class ApiMethods extends Core
                     break;
                 case 'update_gallery':
                     $this->handle_update_gallery($input);
+                    break;
+                case 'delete_gallery':
+                    $this->handle_delete_gallery($input);
+                    break;
+                case 'update_gallery_media':
+                    $this->handle_update_gallery_media($input);
+                    break;
+                case 'remove_media_from_gallery':
+                    $this->handle_remove_media_from_gallery($input);
+                    break;
+                case 'set_gallery_cover':
+                    $this->handle_set_gallery_cover($input);
                     break;
 
                    
@@ -562,6 +577,101 @@ public function handle_clear_token(array $input): void{
     {
         $gallery_model = new GalleryModel($this->db_access);
         $result = $gallery_model->update_gallery($input);
+
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            ['gallery' => $result['gallery']]
+        );
+    }
+
+    /**
+     * POST delete_gallery — owner deletes a gallery.
+     * Body: token, id.
+     */
+    private function handle_delete_gallery(array $input): void
+    {
+        $gallery_model = new GalleryModel($this->db_access);
+        $result = $gallery_model->delete_gallery($input);
+
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error']
+        );
+    }
+
+    /**
+     * GET get_gallery_media_item — one media item in a gallery.
+     * Query: gallery_id (or id), media_id (or picid).
+     */
+    private function handle_get_gallery_media_item(array $input): void
+    {
+        $galleryId = isset($input['gallery_id'])
+            ? (int)$input['gallery_id']
+            : (isset($input['id']) ? (int)$input['id'] : 0);
+        $mediaId = isset($input['media_id'])
+            ? (int)$input['media_id']
+            : (isset($input['picid']) ? (int)$input['picid'] : 0);
+
+        $gallery_model = new GalleryModel($this->db_access);
+        $result = $gallery_model->get_gallery_media_item($galleryId, $mediaId);
+
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            ['media' => $result['media']]
+        );
+    }
+
+    /**
+     * POST update_gallery_media — owner updates picture title/description.
+     * Body: token, gallery_id, media_id, optional title, description.
+     */
+    private function handle_update_gallery_media(array $input): void
+    {
+        $gallery_model = new GalleryModel($this->db_access);
+        $result = $gallery_model->update_gallery_media($input);
+
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            ['media' => $result['media']]
+        );
+    }
+
+    /**
+     * POST remove_media_from_gallery — owner removes a picture from a gallery.
+     * Body: token, gallery_id, media_id.
+     */
+    private function handle_remove_media_from_gallery(array $input): void
+    {
+        $gallery_model = new GalleryModel($this->db_access);
+        $result = $gallery_model->remove_media_from_gallery($input);
+
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error']
+        );
+    }
+
+    /**
+     * POST set_gallery_cover — owner sets collection cover to a gallery media item.
+     * Body: token, gallery_id, media_id.
+     */
+    private function handle_set_gallery_cover(array $input): void
+    {
+        $gallery_model = new GalleryModel($this->db_access);
+        $result = $gallery_model->set_gallery_cover($input);
 
         $this->send_JSON_Response(
             $result['success'],
