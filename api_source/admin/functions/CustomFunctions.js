@@ -48,6 +48,10 @@ export function getSessionToken(){
 
 export function showFeedback(text, color = 'green') {
   const feedbackElement = document.getElementById('global-feedback');
+  if (!feedbackElement) {
+    console.log('[feedback]', text);
+    return;
+  }
   feedbackElement.innerText = text;
   feedbackElement.classList.remove('opacity-0');
   feedbackElement.classList.add('opacity-100');
@@ -84,4 +88,8 @@ export function showDeleteFeedback(){
 
 export function showUserDeleteFeedback(username){
     showFeedback(`User ${username} has been successfully deleted`);
+}
+
+export function showGalleryDeleteFeedback(label) {
+    showFeedback(`Gallery ${label} has been successfully deleted`);
 }

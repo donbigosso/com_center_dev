@@ -1,5 +1,4 @@
-import { fetchAPIdataWGetParams } from "./CoreFunctions.js ";
-import { POSTJSONRequest } from "./CoreFunctions.js";
+import { fetchAPIdataWGetParams, POSTJSONRequest } from "./CoreFunctions.js";
 import {showFeedback} from "./CustomFunctions.js";
 import{getCookie} from "./CookieFunctions.js";
 import { validateUsernameAndPassword } from "./FormValidation.js";
@@ -116,5 +115,33 @@ export async function deleteUserByAdmin(username){
 export async function resetUserPasswordByAdmin(username, password) {
     const token = window.SESSION.token;
     const serverResponse = await POSTJSONRequest({ request: "reset_password_by_admin", name: username, password: password, token: token });
+    return serverResponse;
+}
+
+/**
+ * Paginated gallery list (same API as frontend galleries).
+ * @param {number} page
+ * @param {number} limit
+ */
+export async function listGalleriesAdmin(page = 1, limit = 50) {
+    const serverResponse = await fetchAPIdataWGetParams({
+        request: "list_galleries",
+        page,
+        limit,
+    });
+    return serverResponse;
+}
+
+/**
+ * Admin hard-delete gallery + all media belonging to it.
+ * @param {number} galleryId
+ */
+export async function deleteGalleryByAdmin(galleryId) {
+    const token = window.SESSION.token;
+    const serverResponse = await POSTJSONRequest({
+        request: "delete_gallery_by_admin",
+        token,
+        id: galleryId,
+    });
     return serverResponse;
 }

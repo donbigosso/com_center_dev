@@ -1114,7 +1114,7 @@ class GalleryModel
 
     /**
      * Delete a gallery (owners, memberships, then collection). Does not delete media files.
-     * Body: token, id.
+     * Body: token, id. Caller must own the gallery.
      *
      * @return array{success:bool,message:string,error:string}
      */
@@ -1156,8 +1156,134 @@ class GalleryModel
             ];
         }
 
+        return $this->delete_gallery_structure($galleryId, false);
+    }
+
+    /**
+     * Admin hard-delete: gallery + all media items in it (DB + disk files).
+     * Body: token (admin), id|gallery_id.
+     *
+     * @return array{success:bool,message:string,error:string,media_deleted:int}
+     */
+    public function delete_gallery_by_admin(array $input): array
+    {
+        $token = trim((string)($input['token'] ?? ''));
+        $galleryId = isset($input['id'])
+            ? (int)$input['id']
+            : (isset($input['gallery_id']) ? (int)$input['gallery_id'] : 0);
+
+        $userModel = new UserModel($this->db);
+        $adminCheck = $userModel->verify_admin_by_token($input);
+        if (!$adminCheck['success']) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => $adminCheck['error'] !== ''
+                    ? $adminCheck['error']
+                    : 'Admin privileges required.',
+                'media_deleted' => 0,
+            ];
+        }
+
+        if ($galleryId <= 0) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Gallery id is required.',
+                'media_deleted' => 0,
+            ];
+        }
+
+        $gallery = $this->get_gallery_by_id($galleryId);
+        if ($gallery === null) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Gallery not found.',
+                'media_deleted' => 0,
+            ];
+        }
+
         try {
-            // Clear cover first to avoid FK issues if any
+            // Clear cover before removing media (FK safety)
+            $this->db->update('media_collections', [
+                'collection_cover_id' => null,
+            ], [
+                'media_collection_id' => $galleryId,
+            ]);
+
+            $mediaRows = $this->db->queryAll(
+                'SELECT media_item_id
+                 FROM media_in_collection
+                 WHERE media_collection_id = :gid',
+                [':gid' => $galleryId]
+            );
+
+            $fileModel = new FileModel($this->db);
+            $mediaDeleted = 0;
+            foreach ($mediaRows as $row) {
+                $mediaId = (int)($row['media_item_id'] ?? 0);
+                if ($mediaId <= 0) {
+                    continue;
+                }
+                $del = $fileModel->delete_media_item_by_admin([
+                    'token' => $token,
+                    'media_item_id' => $mediaId,
+                ]);
+                if (!empty($del['success'])) {
+                    $mediaDeleted++;
+                }
+            }
+
+            // Remove any leftover memberships + owners + collection
+            $structure = $this->delete_gallery_structure($galleryId, true);
+            if (!$structure['success']) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => $structure['error'] !== ''
+                        ? $structure['error']
+                        : 'Media deleted but gallery structure cleanup failed.',
+                    'media_deleted' => $mediaDeleted,
+                ];
+            }
+
+            $title = (string)($gallery['title'] ?? '');
+            return [
+                'success' => true,
+                'message' => $title !== ''
+                    ? "Gallery \"{$title}\" and {$mediaDeleted} media item(s) deleted."
+                    : "Gallery #{$galleryId} and {$mediaDeleted} media item(s) deleted.",
+                'error' => '',
+                'media_deleted' => $mediaDeleted,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Failed to delete gallery.',
+                'media_deleted' => 0,
+            ];
+        }
+    }
+
+    /**
+     * Remove collection structure (memberships, owners, collection row).
+     * When $force is true, skips ownership checks (admin path).
+     *
+     * @return array{success:bool,message:string,error:string}
+     */
+    private function delete_gallery_structure(int $galleryId, bool $force = false): array
+    {
+        if ($galleryId <= 0) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Gallery id is required.',
+            ];
+        }
+
+        try {
             $this->db->update('media_collections', [
                 'collection_cover_id' => null,
             ], [

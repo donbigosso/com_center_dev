@@ -1,6 +1,5 @@
 import { checkHTMLInstance } from "./CoreFunctions.js";
 import { showFeedback } from "./CustomFunctions.js";
-import { verifySession} from "./RequestFunctions.js";
 import {
   VALIDATION_CONSTRAINTS,
   validateUserRegistration,
@@ -125,6 +124,164 @@ export function createButton(type, text, className){
     });
 
     return table;
+}
+
+/**
+ * Create an empty table with header row (for infinite-scroll row append).
+ * @param {string[]} headers
+ * @param {string} [className]
+ * @returns {HTMLTableElement}
+ */
+export function createTableWithHeaders(headers, className = "") {
+  const table = document.createElement("table");
+  table.className = className;
+
+  const thead = table.createTHead();
+  const headerRow = thead.insertRow();
+  (headers || []).forEach((h) => {
+    const th = document.createElement("th");
+    th.textContent = h;
+    headerRow.appendChild(th);
+  });
+
+  // tbody is optional; browsers place appended <tr> correctly after thead
+  table.createTBody();
+  return table;
+}
+
+/**
+ * Build one table body row from cell values.
+ * @param {Array<string|number|null|undefined>} cells
+ * @returns {HTMLTableRowElement}
+ */
+export function createTableRow(cells) {
+  const tr = document.createElement("tr");
+  (cells || []).forEach((cell) => {
+    const td = tr.insertCell();
+    td.textContent = cell == null ? "" : String(cell);
+  });
+  return tr;
+}
+
+/**
+ * Table wrapper used by createInfiniteScroller for gallery listing.
+ * Returns a table with gallery column headers; rows are appended as items.
+ * appendChild(tr) is redirected into tbody so the scroller can treat the
+ * table as its wrapper element.
+ * @returns {HTMLTableElement}
+ */
+export function createGalleriesTableWrapper() {
+  const table = createTableWithHeaders(
+    [
+      "ID",
+      "Title",
+      "Description",
+      "Owner",
+      "Images",
+      "Register date",
+      "Cover ID",
+    ],
+    "nice-table"
+  );
+  const tbody = table.tBodies[0] || table.createTBody();
+  const originalAppend = table.appendChild.bind(table);
+  table.appendChild = (node) => {
+    if (node && node.nodeName === "TR") {
+      return tbody.appendChild(node);
+    }
+    return originalAppend(node);
+  };
+  return table;
+}
+
+/**
+ * One gallery as a table row (for infinite scroller createItem).
+ * @param {object} gallery
+ * @returns {HTMLTableRowElement}
+ */
+export function createGalleryTableRow(gallery) {
+  return createTableRow([
+    gallery?.id ?? "",
+    gallery?.title ?? "",
+    gallery?.description ?? "",
+    gallery?.owner ?? "",
+    gallery?.image_count ?? 0,
+    gallery?.register_date ?? "",
+    gallery?.collection_cover_id ?? "",
+  ]);
+}
+
+/**
+ * Delete-gallery form: select gallery + Delete (simple OK confirm, no typed confirmation).
+ * @param {Array<{id:number,title:string,owner?:string|null}>} galleryList
+ * @param {(payload:{galleryId:number,title:string}) => Promise<boolean>} onSubmit
+ * @returns {HTMLFormElement}
+ */
+export function drawGalleryDeletionForm(galleryList, onSubmit) {
+  const form = document.createElement("form");
+
+  const selectWrapper = createDIV("mb-3 px-5");
+  const selectLabel = createLabel("Select Gallery", "selectGallery", "form-label");
+
+  const select = createHTMLelement("select", "form-select");
+  select.name = "selectGallery";
+  select.id = "selectGallery";
+
+  const defaultOption = document.createElement("option");
+  defaultOption.textContent = "-- Select a gallery --";
+  defaultOption.value = "";
+  select.appendChild(defaultOption);
+
+  (galleryList || []).forEach((g) => {
+    const option = document.createElement("option");
+    option.value = String(g.id);
+    const owner = g.owner ? ` · ${g.owner}` : "";
+    option.textContent = `#${g.id} — ${g.title || "Untitled"}${owner}`;
+    select.appendChild(option);
+  });
+
+  selectWrapper.appendChild(selectLabel);
+  selectWrapper.appendChild(select);
+  form.appendChild(selectWrapper);
+
+  const hint = createDIV("form-text text-muted px-5 mb-3");
+  hint.textContent =
+    "This permanently deletes the gallery and all media files that belong to it.";
+  form.appendChild(hint);
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.textContent = "Delete Gallery";
+  btn.className = "btn btn-danger w-50";
+  btn.addEventListener("click", async () => {
+    const galleryId = parseInt(select.value, 10);
+    if (!galleryId) {
+      return showFeedback("Please select a gallery.", "red");
+    }
+
+    const selectedOption = select.options[select.selectedIndex];
+    const title = selectedOption
+      ? selectedOption.textContent.replace(/^#\d+\s*—\s*/, "").split(" · ")[0]
+      : String(galleryId);
+
+    const ok = window.confirm(
+      `Delete gallery #${galleryId} ("${title}") and all of its media files?\n\nThis cannot be undone.`
+    );
+    if (!ok) return;
+
+    const wasDeleted = await onSubmit({ galleryId, title });
+    if (wasDeleted) {
+      const optionToRemove = select.querySelector(`option[value="${galleryId}"]`);
+      if (optionToRemove) optionToRemove.remove();
+      select.value = "";
+    }
+  });
+
+  const btnWrapper = createDIV("d-flex justify-content-center mt-2 px-5");
+  btnWrapper.appendChild(btn);
+  form.appendChild(btnWrapper);
+
+  return form;
 }
 
 export function drawUserCreationForm(onSubmit) {

@@ -13,15 +13,7 @@
     $dba = new DatabaseAccess('mysql', $db, $user, $pass);
     $core->redirect_to_login_screen($dba);
     $username = $core->check_user_for_token($dba);
-
-    
 ?>
-
-<script>
-    window.SESSION = {
-        token: "<?php echo htmlspecialchars($_SESSION['token'] ?? ''); ?>"
-    };
-</script>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -30,13 +22,15 @@
     <title>Admin Panel</title>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <!-- Bootstrap CSS -->
-      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="../styles.css">
-</head>
-    
-   
+    <script>
+        window.SESSION = {
+            token: "<?php echo htmlspecialchars($_SESSION['token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+        };
+    </script>
 </head>
 <body>
      <header class="navbar-expand navbar-dark shadow-sm navbar" id="admin_navbar">
@@ -95,22 +89,27 @@
                     <i class="bi bi-collection-play fs-2 d-block mb-2"></i>
                     Show media collections table
                 </button>
-            </div>     <div id="global-feedback" class="global-feedback opacity-0"></div>
+            </div>
+            <div class="col-6 col-md-3">
+                <button class="btn w-100 py-4 shadow-sm tile-btn" id="tile-list-galleries">
+                    <i class="bi bi-images fs-2 d-block mb-2"></i>
+                    List galleries
+                </button>
+            </div>
+            <div class="col-6 col-md-3">
+                <button class="btn w-100 py-4 shadow-sm tile-btn" id="tile-delete-gallery">
+                    <i class="bi bi-trash fs-2 d-block mb-2"></i>
+                    Delete gallery
+                </button>
+            </div>
         </div>
-    
-
     </section>
- 
-    
-    <div id="result-area" class="p-2" >
-            
-        </div>
-   
 
- 
+    <div id="global-feedback" class="global-feedback opacity-0 position-fixed top-50 start-50 translate-middle"></div>
 
+    <div id="result-area" class="container p-2"></div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="./app.js"></script>
 </body>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script type="module" src="./app.js"></script> 
 </html>

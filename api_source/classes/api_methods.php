@@ -200,6 +200,9 @@ class ApiMethods extends Core
                 case 'delete_gallery':
                     $this->handle_delete_gallery($input);
                     break;
+                case 'delete_gallery_by_admin':
+                    $this->handle_delete_gallery_by_admin($input);
+                    break;
                 case 'update_gallery_media':
                     $this->handle_update_gallery_media($input);
                     break;
@@ -615,6 +618,26 @@ public function handle_clear_token(array $input): void{
     }
 
     /**
+     * POST delete_gallery_by_admin — admin hard-deletes gallery + all its media files.
+     * Body: token (admin), id|gallery_id.
+     */
+    private function handle_delete_gallery_by_admin(array $input): void
+    {
+        $gallery_model = new GalleryModel($this->db_access);
+        $result = $gallery_model->delete_gallery_by_admin($input);
+
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            [
+                'media_deleted' => $result['media_deleted'] ?? 0,
+            ]
+        );
+    }
+
+    /**
      * GET get_gallery_media_item — one media item in a gallery.
      * Query: gallery_id (or id), media_id (or picid).
      */
@@ -798,12 +821,15 @@ public function handle_clear_token(array $input): void{
        
         $send_table_output = $tailored_db_methods->send_table_to_frontend($input);
 
-        $success = $send_table_output["success"];
-        $message = $send_table_output["message"];
-        $error = $send_table_output["error"];
-        $data = $send_table_output["data"];
+        $success = (bool)($send_table_output["success"] ?? false);
+        $message = (string)($send_table_output["message"] ?? "");
+        $error = (string)($send_table_output["error"] ?? "");
+        // data may be a list-of-rows table; always pass an array (PHP typed param)
+        $data = $send_table_output["data"] ?? [];
+        if (!is_array($data)) {
+            $data = [];
+        }
         $this->send_JSON_Response($success, $message, "", $error, $data);
-         return; 
     }
 
     /**
