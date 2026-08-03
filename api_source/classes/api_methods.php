@@ -182,6 +182,9 @@ class ApiMethods extends Core
                 case 'upload_files':
                     $this->handle_upload_files($input);
                     break;
+                case 'upload_gallery_media':
+                    $this->handle_upload_gallery_media($input);
+                    break;
                 case 'get_file_settings':
                     $this->handle_get_file_settings();
                     break;
@@ -760,6 +763,27 @@ public function handle_clear_token(array $input): void{
         $error = $upload_output["error"];
         $uploaded_files = $upload_output["uploaded_files"];
         $this->send_JSON_Response($success, $message, "", $error, ["uploaded_files" => $uploaded_files]);
+    }
+
+    /**
+     * POST upload_gallery_media — single gallery picture upload (multipart).
+     * Fields: token, gallery_id, title, description, file (one image).
+     */
+    private function handle_upload_gallery_media(array $input): void
+    {
+        $file_model = new FileModel($this->db_access);
+        $result = $file_model->upload_gallery_media($input);
+
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            [
+                'media' => $result['media'],
+                'gallery_id' => $result['gallery_id'],
+            ]
+        );
     }
 
     public function handle_send_table_to_frontend(array $input){

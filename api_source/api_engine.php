@@ -7,6 +7,7 @@
     include 'classes/user_model.php';
     include 'classes/file_model.php';
     include 'classes/gallery_model.php';
+    include 'classes/image_manipulator.php';
     include 'classes/tailored_db_methods_2.php';
     $core = new Core();
     $db   = getenv('MYSQL_DATABASE');

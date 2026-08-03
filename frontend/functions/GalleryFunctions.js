@@ -2246,8 +2246,247 @@ export async function initGalleryPreview() {
 }
 
 /**
+ * Build the single-picture upload form (title, description, one file).
+ */
+function buildPictureUploadForm() {
+  const form = document.createElement("form");
+  form.id = "picture-upload-form";
+  form.enctype = "multipart/form-data";
+
+  const note = createDIV("form-text text-muted mb-3");
+  note.innerHTML =
+    "One image at a time. Saved as JPEG (long side max <strong>1920px</strong>, " +
+    "miniature <strong>300px</strong>). Title and description are required.";
+
+  const titleWrapper = createDIV("mb-3");
+  const titleLabel = createLabel("Title", "picture-upload-title", "form-label");
+  const titleInput = createBootstrapTextInput(
+    "picture-upload-title",
+    true,
+    255,
+    ""
+  );
+  titleWrapper.appendChild(titleLabel);
+  titleWrapper.appendChild(titleInput);
+
+  const descWrapper = createDIV("mb-3");
+  const descLabel = createLabel(
+    "Description",
+    "picture-upload-description",
+    "form-label"
+  );
+  const descInput = createBootstrapTextArea(
+    "picture-upload-description",
+    3,
+    2000,
+    "",
+    true
+  );
+  descWrapper.appendChild(descLabel);
+  descWrapper.appendChild(descInput);
+
+  const fileWrapper = createDIV("mb-2");
+  const fileLabel = createLabel("Image file", "picture-upload-file", "form-label");
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.className = "form-control";
+  fileInput.id = "picture-upload-file";
+  fileInput.accept = "image/jpeg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp";
+  fileInput.required = true;
+  fileWrapper.appendChild(fileLabel);
+  fileWrapper.appendChild(fileInput);
+
+  form.appendChild(note);
+  form.appendChild(titleWrapper);
+  form.appendChild(descWrapper);
+  form.appendChild(fileWrapper);
+  return form;
+}
+
+/**
+ * Open modal to upload one picture into the current gallery.
+ */
+export async function handleAddPicture() {
+  if (!previewIsOwner || !currentPreviewGallery) {
+    showFeedback("You must own this gallery to add pictures");
+    return;
+  }
+
+  const sessionTest = await verifySession();
+  if (!sessionTest) {
+    showFeedback("You must be logged in");
+    return;
+  }
+
+  showGenericModal({
+    title: "Add picture",
+    bodyElement: buildPictureUploadForm(),
+    buttons: [
+      {
+        text: "Cancel",
+        class: "btn-secondary",
+        action: () => newHideModal("my_modal"),
+      },
+      { hidden: true },
+      {
+        text: "Upload",
+        class: "btn-primary",
+        action: () => executeUploadPicture(),
+      },
+    ],
+  });
+
+  setTimeout(() => {
+    const titleInput = document.getElementById("picture-upload-title");
+    if (titleInput) titleInput.focus();
+  }, 100);
+}
+
+/**
+ * POST multipart upload_gallery_media and refresh the preview grid.
+ */
+async function executeUploadPicture() {
+  const titleInput = document.getElementById("picture-upload-title");
+  const descInput = document.getElementById("picture-upload-description");
+  const fileInput = document.getElementById("picture-upload-file");
+  const errorField = document.getElementById("modal-alert-field");
+  const uploadBtn = document.getElementById("modal-btn-3");
+
+  const title = (titleInput?.value || "").trim();
+  const description = (descInput?.value || "").trim();
+  const file = fileInput?.files?.[0] || null;
+
+  errorField.style.display = "none";
+
+  if (!title) {
+    errorField.textContent = "Title is required.";
+    errorField.style.display = "block";
+    return;
+  }
+  if (title.length > 255) {
+    errorField.textContent = "Title must be at most 255 characters.";
+    errorField.style.display = "block";
+    return;
+  }
+  if (!description) {
+    errorField.textContent = "Description is required.";
+    errorField.style.display = "block";
+    return;
+  }
+  if (!file) {
+    errorField.textContent = "Please choose one image file.";
+    errorField.style.display = "block";
+    return;
+  }
+  if (fileInput.files && fileInput.files.length > 1) {
+    errorField.textContent = "Only one picture can be uploaded at a time.";
+    errorField.style.display = "block";
+    return;
+  }
+
+  const sessionToken = getSessionToken();
+  if (!sessionToken || !currentPreviewGallery) {
+    errorField.textContent = "Session token missing";
+    errorField.style.display = "block";
+    return;
+  }
+
+  const apiAddress = await getSetting("api_address");
+  if (!apiAddress) {
+    errorField.textContent = "API address is not configured.";
+    errorField.style.display = "block";
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("request", "upload_gallery_media");
+  formData.append("token", sessionToken);
+  formData.append("gallery_id", String(currentPreviewGallery.id));
+  formData.append("title", title);
+  formData.append("description", description);
+  formData.append("file", file);
+
+  if (uploadBtn) {
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = "Uploading…";
+  }
+
+  try {
+    const response = await fetch(apiAddress, {
+      method: "POST",
+      body: formData,
+      // Do not set Content-Type — browser sets multipart boundary
+    });
+
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    if (!result?.success || !result.data?.media) {
+      errorField.textContent = result?.error || "Upload failed";
+      errorField.style.display = "block";
+      return;
+    }
+
+    const folder = await getGalleryFolder();
+    const item = mapMediaItemFromApi(result.data.media, folder);
+
+    // Append to in-memory list + grid
+    loadedGalleryPictures.push(item);
+    const wrapper = document.querySelector(
+      "#gallery-pictures .gallery-pictures-row"
+    );
+    if (wrapper) {
+      wrapper.appendChild(createPreviewPictureTile(item));
+    } else if (currentPreviewGallery?.id) {
+      // Grid not ready — reload scroller
+      await startGalleryPicturesScroller(currentPreviewGallery.id);
+    }
+
+    currentPreviewGallery.image_count =
+      (Number(currentPreviewGallery.image_count) || 0) + 1;
+
+    // If this became the first cover (or cover was empty), refresh banner
+    if (
+      !currentPreviewGallery.collection_cover_id ||
+      currentPreviewGallery.collection_cover_id === item.id
+    ) {
+      currentPreviewGallery.collection_cover_id = item.id;
+      const coverUrl = await fetchGalleryCoverFullUrl(currentPreviewGallery.id);
+      currentPreviewGallery.cover_url = coverUrl;
+      renderGalleryPreviewBanner(
+        currentPreviewGallery,
+        coverUrl,
+        previewIsOwner
+      );
+    } else {
+      renderGalleryPreviewBanner(
+        currentPreviewGallery,
+        currentPreviewGallery.cover_url || null,
+        previewIsOwner
+      );
+    }
+
+    const emptyState = document.getElementById("gallery-empty-state");
+    if (emptyState) emptyState.classList.add("d-none");
+
+    newHideModal("my_modal");
+    showFeedback("Picture uploaded");
+  } catch (err) {
+    console.error("Upload picture error:", err);
+    errorField.textContent = err?.message || "Upload failed";
+    errorField.style.display = "block";
+  } finally {
+    if (uploadBtn) {
+      uploadBtn.disabled = false;
+      uploadBtn.textContent = "Upload";
+    }
+  }
+}
+
+/**
  * Wire owner-tool buttons on the preview page.
- * Title/description and added date are live; picture add/remove still stubbed.
  */
 export function attachGalleryPreviewOwnerHandlers() {
   const bind = (id, handler) => {
@@ -2279,7 +2518,7 @@ export function attachGalleryPreviewOwnerHandlers() {
   });
 
   bind("gallery-add-pics-btn", () => {
-    showFeedback("Add pictures — not implemented yet");
+    handleAddPicture();
   });
 
   bind("gallery-remove-pics-btn", () => {
