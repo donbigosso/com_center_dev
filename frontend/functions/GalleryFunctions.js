@@ -2521,10 +2521,6 @@ export function attachGalleryPreviewOwnerHandlers() {
     handleAddPicture();
   });
 
-  bind("gallery-remove-pics-btn", () => {
-    showFeedback("Remove pictures — not implemented yet");
-  });
-
   bind("gallery-delete-btn", () => {
     const id = currentPreviewGallery?.id;
     if (!id) {

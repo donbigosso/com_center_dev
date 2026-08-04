@@ -27,7 +27,8 @@ CREATE TABLE `media_items` (
   `title` varchar(255) DEFAULT null,
   `descr` text DEFAULT null,
   `tags` text DEFAULT null,
-  `coordinates` longtext DEFAULT null
+  `coordinates` longtext DEFAULT null,
+  `creation_date` datetime DEFAULT null
 );
 
 CREATE TABLE `files` (

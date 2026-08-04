@@ -21,7 +21,7 @@ class ImageManipulator
     // Easy-to-adjust defaults (env vars override these)
     // -------------------------------------------------------------------------
     public const DEFAULT_FULL_MAX_LONG_SIDE = 1920;
-    public const DEFAULT_MINI_MAX_LONG_SIDE = 300;
+    public const DEFAULT_MINI_MAX_LONG_SIDE = 400;
     public const DEFAULT_JPEG_QUALITY = 88;
     public const DEFAULT_WATERMARK_TEXT = 'Donbigosso Galleries';
 
@@ -322,6 +322,80 @@ class ImageManipulator
         $ok = imagejpeg($mini, $destinationPath, $this->jpegQuality);
         imagedestroy($mini);
         return $ok;
+    }
+
+    /**
+     * Extract creation/capture datetime from EXIF for media_items.creation_date.
+     * Prefer DateTimeOriginal, then DateTimeDigitized, then DateTime.
+     * Returns MySQL datetime "Y-m-d H:i:s", or null if EXIF has no usable date.
+     */
+    public function getCreationDateFromExif(): ?string
+    {
+        if (!is_array($this->exifData)) {
+            return null;
+        }
+
+        $candidates = [];
+
+        // Sectioned format (exif_read_data with arrays=true)
+        if (isset($this->exifData['EXIF']) && is_array($this->exifData['EXIF'])) {
+            $candidates[] = $this->exifData['EXIF']['DateTimeOriginal'] ?? null;
+            $candidates[] = $this->exifData['EXIF']['DateTimeDigitized'] ?? null;
+        }
+        if (isset($this->exifData['IFD0']) && is_array($this->exifData['IFD0'])) {
+            $candidates[] = $this->exifData['IFD0']['DateTime'] ?? null;
+        }
+
+        // Flat keys
+        $candidates[] = $this->exifData['DateTimeOriginal'] ?? null;
+        $candidates[] = $this->exifData['DateTimeDigitized'] ?? null;
+        $candidates[] = $this->exifData['DateTime'] ?? null;
+
+        foreach ($candidates as $raw) {
+            $normalized = $this->normalizeExifDatetime($raw);
+            if ($normalized !== null) {
+                return $normalized;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Convert EXIF datetime strings (e.g. "2024:03:15 14:30:00") to MySQL format.
+     * @param mixed $raw
+     */
+    private function normalizeExifDatetime($raw): ?string
+    {
+        if ($raw === null) {
+            return null;
+        }
+        $value = trim((string)$raw);
+        if ($value === '' || str_starts_with($value, '0000')) {
+            return null;
+        }
+
+        // EXIF standard: "YYYY:MM:DD HH:MM:SS"
+        if (preg_match(
+            '/^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/',
+            $value,
+            $m
+        )) {
+            $dt = sprintf('%s-%s-%s %s:%s:%s', $m[1], $m[2], $m[3], $m[4], $m[5], $m[6]);
+            $check = \DateTime::createFromFormat('Y-m-d H:i:s', $dt);
+            if ($check instanceof \DateTime) {
+                return $check->format('Y-m-d H:i:s');
+            }
+        }
+
+        // Fallback: strtotime-friendly variants
+        $valueAlt = str_replace(':', '-', substr($value, 0, 10)) . substr($value, 10);
+        $ts = strtotime($valueAlt);
+        if ($ts !== false) {
+            return date('Y-m-d H:i:s', $ts);
+        }
+
+        return null;
     }
 
     /**

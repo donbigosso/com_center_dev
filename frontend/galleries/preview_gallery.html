@@ -59,49 +59,50 @@
                     <div class="gallery-preview-meta" id="gallery-meta" aria-label="Gallery details"></div>
                 </div>
 
-                <!-- Owner tools (UI only for now) -->
+                <!-- Owner tools -->
                 <div class="gallery-preview-owner-tools d-none" id="gallery-owner-tools">
-                    <div class="dropdown">
+                    <div class="d-flex flex-wrap align-items-center gap-2">
                         <button
-                            class="btn galleries-btn-primary dropdown-toggle"
                             type="button"
-                            id="gallery-edit-menu-btn"
-                            data-bs-toggle="dropdown"
-                            aria-expanded="false"
-                            title="Edit gallery"
+                            class="btn galleries-btn-primary"
+                            id="gallery-add-pics-btn"
+                            title="Add picture"
                         >
-                            <i class="bi bi-pencil"></i>
-                            <span>Edit</span>
+                            <i class="bi bi-plus-lg"></i>
+                            <span>Add picture</span>
                         </button>
-                        <ul class="dropdown-menu dropdown-menu-end gallery-preview-edit-menu" aria-labelledby="gallery-edit-menu-btn">
-                            <li>
-                                <button type="button" class="dropdown-item" id="gallery-edit-details-btn">
-                                    <i class="bi bi-card-text"></i> Edit title &amp; description
-                                </button>
-                            </li>
-                            <li>
-                                <button type="button" class="dropdown-item" id="gallery-edit-date-btn">
-                                    <i class="bi bi-calendar3"></i> Edit added date
-                                </button>
-                            </li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li>
-                                <button type="button" class="dropdown-item" id="gallery-add-pics-btn">
-                                    <i class="bi bi-plus-square"></i> Add picture
-                                </button>
-                            </li>
-                            <li>
-                                <button type="button" class="dropdown-item" id="gallery-remove-pics-btn">
-                                    <i class="bi bi-dash-square"></i> Remove pictures
-                                </button>
-                            </li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li>
-                                <button type="button" class="dropdown-item text-danger" id="gallery-delete-btn">
-                                    <i class="bi bi-trash"></i> Delete gallery
-                                </button>
-                            </li>
-                        </ul>
+
+                        <div class="dropdown">
+                            <button
+                                class="btn galleries-btn-primary dropdown-toggle"
+                                type="button"
+                                id="gallery-edit-menu-btn"
+                                data-bs-toggle="dropdown"
+                                aria-expanded="false"
+                                title="Edit gallery"
+                            >
+                                <i class="bi bi-pencil"></i>
+                                <span>Edit</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end gallery-preview-edit-menu" aria-labelledby="gallery-edit-menu-btn">
+                                <li>
+                                    <button type="button" class="dropdown-item" id="gallery-edit-details-btn">
+                                        <i class="bi bi-card-text"></i> Edit title &amp; description
+                                    </button>
+                                </li>
+                                <li>
+                                    <button type="button" class="dropdown-item" id="gallery-edit-date-btn">
+                                        <i class="bi bi-calendar3"></i> Edit added date
+                                    </button>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <button type="button" class="dropdown-item text-danger" id="gallery-delete-btn">
+                                        <i class="bi bi-trash"></i> Delete gallery
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -473,6 +473,8 @@ class FileModel {
         }
 
         $coordinatesJson = $manipulator->getDecimalCoordinatesJson();
+        // From EXIF DateTimeOriginal / DateTimeDigitized / DateTime, or null if missing
+        $creationDate = $manipulator->getCreationDateFromExif();
 
         // Full image: resize if needed, then watermark
         $manipulator->resizeIfLongerSideExceeds($manipulator->getFullMaxLongSide());
@@ -499,6 +501,7 @@ class FileModel {
                 'descr' => $description,
                 'tags' => null,
                 'coordinates' => $coordinatesJson,
+                'creation_date' => $creationDate,
             ]);
             if ($mediaItemId <= 0) {
                 $this->db->delete('files', ['file_id' => $fileId]);
