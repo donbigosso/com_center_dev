@@ -848,14 +848,18 @@ function setupInfiniteScroll() {
 /**
  * Build the create/edit gallery form (title + description only).
  */
+// Form field ids must not clash with preview page banner (#gallery-title / #gallery-description)
+const GALLERY_FORM_TITLE_ID = "gallery-form-title";
+const GALLERY_FORM_DESC_ID = "gallery-form-description";
+
 function buildGalleryForm(config) {
   const form = document.createElement("form");
   form.id = "gallery-form";
 
   const titleWrapper = createDIV("mb-3");
-  const titleLabel = createLabel("Title", "gallery-title", "form-label");
+  const titleLabel = createLabel("Title", GALLERY_FORM_TITLE_ID, "form-label");
   const titleInput = createBootstrapTextInput(
-    "gallery-title",
+    GALLERY_FORM_TITLE_ID,
     true,
     VALIDATION_CONSTRAINTS.galleryTitleMaxLength,
     config.titleValue || ""
@@ -864,9 +868,9 @@ function buildGalleryForm(config) {
   titleWrapper.appendChild(titleInput);
 
   const descWrapper = createDIV("mb-3");
-  const descLabel = createLabel("Description", "gallery-description", "form-label");
+  const descLabel = createLabel("Description", GALLERY_FORM_DESC_ID, "form-label");
   const descInput = createBootstrapTextArea(
-    "gallery-description",
+    GALLERY_FORM_DESC_ID,
     3,
     VALIDATION_CONSTRAINTS.galleryDescriptionMaxLength,
     config.description || "",
@@ -932,7 +936,7 @@ function showGalleryModal(config) {
   });
 
   setTimeout(() => {
-    const titleInput = document.getElementById("gallery-title");
+    const titleInput = document.getElementById(GALLERY_FORM_TITLE_ID);
     if (titleInput) titleInput.focus();
   }, 100);
 }
@@ -981,12 +985,12 @@ export async function handleAddGallery() {
 
 // Execute create gallery — persists to media_collections + collection_owners
 async function executeCreateGallery() {
-  const titleInput = document.getElementById("gallery-title");
-  const descInput = document.getElementById("gallery-description");
+  const titleInput = document.getElementById(GALLERY_FORM_TITLE_ID);
+  const descInput = document.getElementById(GALLERY_FORM_DESC_ID);
   const errorField = document.getElementById("modal-alert-field");
 
-  const title = titleInput.value.trim();
-  const description = descInput.value.trim();
+  const title = (titleInput?.value || "").trim();
+  const description = (descInput?.value || "").trim();
 
   errorField.style.display = "none";
 
@@ -1146,19 +1150,27 @@ async function persistGalleryUpdate(payload) {
 
 // Execute title + description update
 async function executeEditGalleryDetails(galleryId) {
-  const titleInput = document.getElementById("gallery-title");
-  const descInput = document.getElementById("gallery-description");
+  const titleInput = document.getElementById(GALLERY_FORM_TITLE_ID);
+  const descInput = document.getElementById(GALLERY_FORM_DESC_ID);
   const errorField = document.getElementById("modal-alert-field");
 
-  const title = titleInput.value.trim();
-  const description = descInput.value.trim();
+  if (!titleInput || !descInput) {
+    console.error("Gallery form fields not found");
+    showFeedback("Could not read form fields");
+    return;
+  }
 
-  errorField.style.display = "none";
+  const title = (titleInput.value || "").trim();
+  const description = (descInput.value || "").trim();
+
+  if (errorField) errorField.style.display = "none";
 
   const galleryValidation = validateGallery(title, description);
   if (!galleryValidation.valid) {
-    errorField.textContent = galleryValidation.error;
-    errorField.style.display = "block";
+    if (errorField) {
+      errorField.textContent = galleryValidation.error;
+      errorField.style.display = "block";
+    }
     return;
   }
 
@@ -1170,8 +1182,10 @@ async function executeEditGalleryDetails(galleryId) {
     });
 
     if (!result.ok) {
-      errorField.textContent = result.error;
-      errorField.style.display = "block";
+      if (errorField) {
+        errorField.textContent = result.error;
+        errorField.style.display = "block";
+      }
       return;
     }
 
@@ -1179,8 +1193,10 @@ async function executeEditGalleryDetails(galleryId) {
     showFeedback("Gallery updated");
   } catch (err) {
     console.error("Edit gallery error:", err);
-    errorField.textContent = "Failed to update gallery";
-    errorField.style.display = "block";
+    if (errorField) {
+      errorField.textContent = "Failed to update gallery";
+      errorField.style.display = "block";
+    }
   }
 }
 
@@ -1400,6 +1416,70 @@ function createPreviewPictureTile(item) {
     onEdit: () => handleEditPicture(item.id),
     onDelete: () => handleDeletePicture(item.id),
   });
+}
+
+/**
+ * Owner-only "Add picture" tile for the end of the grid.
+ * @returns {HTMLElement}
+ */
+function createAddPictureGridTile() {
+  const col = createDIV("col-auto");
+  col.id = "gallery-add-picture-tile";
+
+  const card = createDIV(
+    "card border border-2 media-tile-card media-tile-card--add media-tile-card--clickable"
+  );
+  card.setAttribute("role", "button");
+  card.tabIndex = 0;
+  card.title = "Add picture";
+  card.setAttribute("aria-label", "Add picture");
+
+  const body = createDIV("media-tile-add-body");
+  const icon = document.createElement("i");
+  icon.className = "bi bi-plus-lg";
+  const label = createHTMLelement("span", "media-tile-add-label");
+  label.textContent = "Add picture";
+
+  body.appendChild(icon);
+  body.appendChild(label);
+  card.appendChild(body);
+  col.appendChild(card);
+
+  const open = (e) => {
+    e.preventDefault();
+    handleAddPicture();
+  };
+  card.addEventListener("click", open);
+  card.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") open(e);
+  });
+
+  return col;
+}
+
+/**
+ * Keep the owner "Add picture" tile as the last cell in the grid.
+ * Always re-appends so it stays after infinite-scroll batches.
+ */
+function ensureAddPictureTileAtEnd() {
+  if (!previewIsOwner) {
+    document.getElementById("gallery-add-picture-tile")?.remove();
+    return;
+  }
+
+  const wrapper = document.querySelector(
+    "#gallery-pictures .gallery-pictures-row"
+  );
+  if (!wrapper) return;
+
+  let tile = document.getElementById("gallery-add-picture-tile");
+  if (!tile) {
+    tile = createAddPictureGridTile();
+  } else if (tile.parentNode === wrapper) {
+    // Detach first so appendChild truly moves it after newly added tiles
+    tile.remove();
+  }
+  wrapper.appendChild(tile);
 }
 
 /**
@@ -1993,9 +2073,10 @@ async function executeDeletePicture(mediaId) {
     }
 
     const emptyState = document.getElementById("gallery-empty-state");
-    if (loadedGalleryPictures.length === 0 && emptyState) {
+    if (loadedGalleryPictures.length === 0 && emptyState && !previewIsOwner) {
       emptyState.classList.remove("d-none");
     }
+    ensureAddPictureTileAtEnd();
 
     newHideModal("my_modal");
     showFeedback("Picture deleted");
@@ -2054,6 +2135,7 @@ async function ensurePictureLoaded(galleryId, picId) {
         wrapper.appendChild(createPreviewPictureTile(item));
       }
     });
+    ensureAddPictureTileAtEnd();
 
     idx = loadedGalleryPictures.findIndex((p) => p.id === picId);
     if (idx >= 0) return idx;
@@ -2061,6 +2143,7 @@ async function ensurePictureLoaded(galleryId, picId) {
     page += 1;
   }
 
+  ensureAddPictureTileAtEnd();
   return loadedGalleryPictures.findIndex((p) => p.id === picId);
 }
 
@@ -2177,6 +2260,10 @@ async function startGalleryPicturesScroller(galleryId) {
       loadedGalleryPictures.push(item);
       return createPreviewPictureTile(item);
     },
+    // Pin AFTER each page is appended to the DOM (not during fetch)
+    onAfterPage: () => {
+      ensureAddPictureTileAtEnd();
+    },
     target,
     sentinelId: "gallery-pictures-sentinel",
     rootMargin: "240px",
@@ -2185,9 +2272,12 @@ async function startGalleryPicturesScroller(galleryId) {
   await galleryPicturesScroller.start();
 
   if (spinner) spinner.classList.add("d-none");
-  if (firstPageEmpty && emptyState) {
+  // Owners get an add-picture tile even when the gallery is empty
+  if (firstPageEmpty && emptyState && !previewIsOwner) {
     emptyState.classList.remove("d-none");
   }
+
+  ensureAddPictureTileAtEnd();
 
   // Deep-link: open a specific picture after tiles are ready
   if (pendingDeepLinkPicId) {
@@ -2200,6 +2290,7 @@ async function startGalleryPicturesScroller(galleryId) {
       showFeedback("Picture not found in this gallery");
       setPreviewUrl(galleryId, null);
     }
+    ensureAddPictureTileAtEnd();
   }
 }
 
@@ -2432,13 +2523,14 @@ async function executeUploadPicture() {
     const folder = await getGalleryFolder();
     const item = mapMediaItemFromApi(result.data.media, folder);
 
-    // Append to in-memory list + grid
+    // Append to in-memory list + grid (keep add-tile last)
     loadedGalleryPictures.push(item);
     const wrapper = document.querySelector(
       "#gallery-pictures .gallery-pictures-row"
     );
     if (wrapper) {
       wrapper.appendChild(createPreviewPictureTile(item));
+      ensureAddPictureTileAtEnd();
     } else if (currentPreviewGallery?.id) {
       // Grid not ready — reload scroller
       await startGalleryPicturesScroller(currentPreviewGallery.id);

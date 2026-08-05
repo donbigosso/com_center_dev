@@ -181,6 +181,7 @@ export async function checkIfTokenExist(token){
  * @param {HTMLElement} options.target     - Where to put the wrapper
  * @param {string}   [options.sentinelId="infinite-scroll-sentinel"]
  * @param {string}   [options.rootMargin="200px"]
+ * @param {Function} [options.onAfterPage] - optional ({ page, items, hasMore, wrapper }) after DOM append
  */
 export function createInfiniteScroller({
   pageSize = 20,
@@ -189,7 +190,8 @@ export function createInfiniteScroller({
   createItem,
   target,
   sentinelId = "infinite-scroll-sentinel",
-  rootMargin = "200px"
+  rootMargin = "200px",
+  onAfterPage,
 }) {
   let currentPage = 1;
   let isLoading = false;
@@ -216,6 +218,7 @@ export function createInfiniteScroller({
     isLoading = true;
 
     try {
+      const pageRequested = currentPage;
       const result = await fetchPage(currentPage, pageSize);
       const items = result.items || [];
 
@@ -231,6 +234,16 @@ export function createInfiniteScroller({
         currentPage += 1;
       } else {
         hasMore = false;
+      }
+
+      // After DOM is updated (e.g. pin an "add" tile after new rows)
+      if (typeof onAfterPage === "function") {
+        onAfterPage({
+          page: pageRequested,
+          items,
+          hasMore,
+          wrapper,
+        });
       }
     } catch (err) {
       console.error("Infinite scroller error:", err);

@@ -1139,6 +1139,45 @@ body.gallery-lightbox-open {
   text-transform: uppercase;
 }
 
+.galleries-page .media-tile-card--add {
+  width: 220px;
+  min-height: 100%;
+  cursor: pointer;
+  border-style: dashed !important;
+  border-color: var(--gx-border-strong) !important;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.galleries-page .media-tile-card--add:hover {
+  border-color: rgba(255, 255, 255, 0.45) !important;
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-3px);
+}
+
+.galleries-page .media-tile-add-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 280px;
+  padding: 1.25rem;
+  color: var(--gx-text-muted);
+}
+
+.galleries-page .media-tile-add-body i {
+  font-size: 2.25rem;
+  color: var(--gx-text);
+  opacity: 0.85;
+}
+
+.galleries-page .media-tile-add-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
 .galleries-page .media-tile-card .card-body {
   background: var(--gx-bg-card);
   color: var(--gx-text-muted);
