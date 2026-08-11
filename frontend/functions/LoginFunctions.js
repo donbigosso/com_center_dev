@@ -38,6 +38,11 @@ export async function handleLogIn(){
     console.log("DEB635 befor hide");
     newHideModal("my_modal");
     console.log("DEB635 after hide");
+
+    // Let pages (e.g. gallery preview) refresh owner-only UI without reload
+    window.dispatchEvent(
+      new CustomEvent("auth:login", { detail: { username } })
+    );
 }
 
 /**

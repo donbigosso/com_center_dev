@@ -88,11 +88,14 @@ function coverColorForId(id) {
 }
 
 // Get logged-in user (set during init)
-async function getLoggedUser() {
-  if (currentLoggedUser) return currentLoggedUser;
+async function getLoggedUser({ force = false } = {}) {
+  if (!force && currentLoggedUser) return currentLoggedUser;
 
   const token = getCookie("session_token");
-  if (!token) return null;
+  if (!token) {
+    currentLoggedUser = null;
+    return null;
+  }
 
   try {
     const response = await POSTJSONRequest({ request: "get_user_by_token", token });
@@ -103,7 +106,50 @@ async function getLoggedUser() {
   } catch (err) {
     console.error("Error fetching logged user:", err);
   }
+  currentLoggedUser = null;
   return null;
+}
+
+/**
+ * After login/logout on preview_gallery.html: refresh owner tools, add-picture
+ * controls, and per-tile edit/delete without a full page reload.
+ */
+export async function refreshGalleryPreviewAuthUI() {
+  if (!currentPreviewGallery?.id) return;
+
+  const loggedUser = await getLoggedUser({ force: true });
+  const wasOwner = previewIsOwner;
+  previewIsOwner = Boolean(
+    loggedUser &&
+      currentPreviewGallery.owner &&
+      loggedUser === currentPreviewGallery.owner
+  );
+
+  // Banner: show/hide owner tools (Edit + Add picture)
+  const coverUrl =
+    currentPreviewGallery.cover_url !== undefined
+      ? currentPreviewGallery.cover_url
+      : await fetchGalleryCoverFullUrl(currentPreviewGallery.id);
+  if (currentPreviewGallery.cover_url === undefined) {
+    currentPreviewGallery.cover_url = coverUrl;
+  }
+  renderGalleryPreviewBanner(
+    currentPreviewGallery,
+    coverUrl || null,
+    previewIsOwner
+  );
+
+  // Rebuild picture grid so owner action icons + end add-tile match auth state
+  if (wasOwner !== previewIsOwner) {
+    const galleryId = currentPreviewGallery.id;
+    // Preserve deep-link only if lightbox is open
+    if (lightboxIndex < 0) {
+      pendingDeepLinkPicId = null;
+    }
+    await startGalleryPicturesScroller(galleryId);
+  } else {
+    ensureAddPictureTileAtEnd();
+  }
 }
 
 /**
@@ -1595,9 +1641,8 @@ function ensurePictureLightbox() {
   root.appendChild(stage);
   document.body.appendChild(root);
 
-  const close = () => closePictureLightbox();
-  backdrop.addEventListener("click", close);
-  closeBtn.addEventListener("click", close);
+  // Close only via the X button (not backdrop click)
+  closeBtn.addEventListener("click", () => closePictureLightbox());
   prevBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     showLightboxAt(lightboxIndex - 1);
@@ -1606,9 +1651,6 @@ function ensurePictureLightbox() {
     e.stopPropagation();
     showLightboxAt(lightboxIndex + 1);
   });
-
-  // Clicking the image itself should not close
-  img.addEventListener("click", (e) => e.stopPropagation());
 
   return root;
 }
@@ -1662,10 +1704,9 @@ function showLightboxAt(index) {
   }
 
   if (!lightboxKeyHandler) {
+    // Arrow keys for navigation only — Escape does not close (X button only)
     lightboxKeyHandler = (e) => {
-      if (e.key === "Escape") {
-        closePictureLightbox();
-      } else if (e.key === "ArrowLeft") {
+      if (e.key === "ArrowLeft") {
         showLightboxAt(lightboxIndex - 1);
       } else if (e.key === "ArrowRight") {
         showLightboxAt(lightboxIndex + 1);

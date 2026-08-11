@@ -973,7 +973,7 @@ body.gallery-lightbox-open {
   background: rgba(0, 0, 0, 0.92);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  cursor: zoom-out;
+  cursor: default;
 }
 
 .gallery-lightbox-stage {
