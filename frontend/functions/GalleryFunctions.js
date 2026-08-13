@@ -1703,6 +1703,10 @@ function showLightboxAt(index) {
     setPreviewUrl(currentPreviewGallery.id, item.id);
   }
 
+  // Document title: reflect the open picture, fall back to gallery title
+  const galleryTitle = currentPreviewGallery?.title || "Gallery";
+  document.title = `${item.title || "Picture"} — ${galleryTitle} — Donbigosso`;
+
   if (!lightboxKeyHandler) {
     // Arrow keys for navigation only — Escape does not close (X button only)
     lightboxKeyHandler = (e) => {
@@ -1752,6 +1756,11 @@ export function closePictureLightbox(options = {}) {
   // Drop picid from URL when the user closes an open picture preview
   if (updateUrl && wasOpen && currentPreviewGallery?.id) {
     setPreviewUrl(currentPreviewGallery.id, null);
+  }
+
+  // Restore the gallery-level title when the picture preview closes
+  if (wasOpen) {
+    document.title = `${currentPreviewGallery?.title || "Gallery"} — Donbigosso`;
   }
 }
 
