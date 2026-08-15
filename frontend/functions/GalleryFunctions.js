@@ -40,6 +40,8 @@ let galleryPicturesScroller = null;
 let loadedGalleryPictures = [];
 let lightboxIndex = -1;
 let lightboxKeyHandler = null;
+/** Image-click fill mode: long side covers almost the whole viewport, no title/caption. */
+let lightboxFillMode = false;
 /** Whether the logged-in user owns the gallery currently open in preview. */
 let previewIsOwner = false;
 /** Optional deep-link picture id from ?picid= */
@@ -1652,7 +1654,30 @@ function ensurePictureLightbox() {
     showLightboxAt(lightboxIndex + 1);
   });
 
+  // Click the picture to enter / leave fill (almost-fullscreen) view
+  img.addEventListener("click", (e) => {
+    e.stopPropagation();
+    setLightboxFillMode(!lightboxFillMode);
+  });
+
   return root;
+}
+
+/**
+ * Toggle almost-fullscreen fill view (no title/caption; image long side ~viewport).
+ * @param {boolean} on
+ */
+function setLightboxFillMode(on) {
+  lightboxFillMode = Boolean(on);
+  const root = document.getElementById("gallery-lightbox");
+  if (!root) return;
+  root.classList.toggle("is-fill", lightboxFillMode);
+  const img = document.getElementById("gallery-lightbox-img");
+  if (img) {
+    img.title = lightboxFillMode
+      ? "Click to exit full view"
+      : "Click for full view";
+  }
 }
 
 /**
@@ -1696,7 +1721,13 @@ function showLightboxAt(index) {
   root.hidden = false;
   root.setAttribute("aria-hidden", "false");
   root.classList.add("is-open");
+  root.classList.toggle("is-fill", lightboxFillMode);
   document.body.classList.add("gallery-lightbox-open");
+  if (img) {
+    img.title = lightboxFillMode
+      ? "Click to exit full view"
+      : "Click for full view";
+  }
 
   // Deep-link URL: keep gallery id + current picture id
   if (currentPreviewGallery?.id && item.id) {
@@ -1741,12 +1772,13 @@ export function closePictureLightbox(options = {}) {
   if (root) {
     root.hidden = true;
     root.setAttribute("aria-hidden", "true");
-    root.classList.remove("is-open");
+    root.classList.remove("is-open", "is-fill");
     const img = document.getElementById("gallery-lightbox-img");
     if (img) img.removeAttribute("src");
   }
   document.body.classList.remove("gallery-lightbox-open");
   lightboxIndex = -1;
+  lightboxFillMode = false;
 
   if (lightboxKeyHandler) {
     document.removeEventListener("keydown", lightboxKeyHandler);
