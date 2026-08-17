@@ -23,12 +23,21 @@
 <body class="galleries-page gallery-preview-page d-flex flex-column min-vh-100">
     <header class="navbar navbar-expand galleries-nav sticky-top">
         <div class="container-fluid galleries-nav-inner">
-            <a class="navbar-brand galleries-brand" href="index.html">
-                <img src="../images/logo.png" alt="Logo" class="galleries-logo" width="40" height="40">
-                <span class="galleries-brand-text">Donbigosso</span>
+            <div class="galleries-brand d-flex align-items-center">
+                <a href="../" class="d-flex align-items-center text-decoration-none">
+                    <img src="../images/logo.png" alt="Logo" class="galleries-logo" width="40" height="40">
+                    <span class="galleries-brand-text">Donbigosso</span>
+                </a>
+
                 <span class="galleries-brand-divider" aria-hidden="true"></span>
-                <span class="galleries-brand-sub">Galleries</span>
-            </a>
+
+                <a href="../galleries/" class="galleries-brand-sub text-decoration-none">
+                    Galleries
+                </a>
+                <a href="../galleries" class="galleries-brand-sub-small text-decoration-none">
+                    <i class="bi bi-card-image"></i>
+                </a>
+            </div>
 
             <div class="d-flex align-items-center gap-2 gap-md-3">
                 <span class="galleries-user logged-only">

@@ -214,10 +214,18 @@ button .bi svg {
   display: none;
 }
 
+.galleries-page .galleries-brand-sub-small {
+ color: lightgray;
+}
+
 @media (min-width: 576px) {
   .galleries-page .galleries-brand-divider,
   .galleries-page .galleries-brand-sub {
     display: inline-block;
+  }
+  
+  .galleries-page .galleries-brand-sub-small {
+    display: none;
   }
 }
 
