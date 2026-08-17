@@ -1,32 +1,31 @@
 import { onClick } from "../functions/EventFunctions.js";
+import { initializeTableSorting, addFileListToTable, initializeTableButtons } from "../functions/TableFunctions.js";
 import { showLoginModal } from "../functions/NewModalMethods.js";
+import { getFileList } from "../functions/RequestFunctions.js";
+import { performTests } from "../functions/TestFunctions.js";
 import { handleAutoLogin, handleLogout } from "../functions/LoginFunctions.js";
 import { initApiAddressCache, initFileSettingsCache } from "../functions/CustomFunctions.js";
-import { loadGalleries, handleAddGallery } from "../functions/GalleryFunctions.js";
-import {createImagepics} from "../functions/TestFunctions.js";
+import "../functions/UploadFunctions.js";
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener("DOMContentLoaded", () => {
   (async () => {
+    addFileListToTable(await getFileList());
+    handleAutoLogin();
+    initializeTableSorting();
+    initializeTableButtons();
+    performTests();
     await initApiAddressCache();
     await initFileSettingsCache();
-    await loadGalleries();
-    handleAutoLogin();
   })();
 
   const loginButton = document.querySelector("#login-btn");
   const logoutButton = document.querySelector("#logout-btn");
-  const addGalleryBtn = document.querySelector("#add-gallery-btn");
 
   onClick(loginButton, () => {
     showLoginModal();
   });
 
   onClick(logoutButton, async () => {
-    handleLogout();
-    location.reload();
-  });
-
-  onClick(addGalleryBtn, () => {
-    handleAddGallery();
+    await handleLogout();
   });
 });

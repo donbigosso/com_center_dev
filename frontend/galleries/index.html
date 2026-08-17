@@ -21,25 +21,31 @@
     <link rel="stylesheet" href="../styles.css">
 </head>
 <body class="galleries-page d-flex flex-column min-vh-100">
-    <header class="navbar navbar-expand galleries-nav sticky-top">
-        <div class="container-fluid galleries-nav-inner">
-            <a class="navbar-brand galleries-brand" href="../">
+  <header class="navbar navbar-expand galleries-nav sticky-top">
+    <div class="container-fluid galleries-nav-inner">
+        <div class="galleries-brand d-flex align-items-center">
+            <a href="../" class="d-flex align-items-center text-decoration-none">
                 <img src="../images/logo.png" alt="Logo" class="galleries-logo" width="40" height="40">
                 <span class="galleries-brand-text">Donbigosso</span>
-                <span class="galleries-brand-divider" aria-hidden="true"></span>
-                <span class="galleries-brand-sub">Galleries</span>
             </a>
 
-            <div class="d-flex align-items-center gap-2 gap-md-3">
-                <span class="galleries-user logged-only">
-                    <i class="bi bi-person-circle"></i>
-                    <strong id="user-field">john.doe</strong>
-                </span>
-                <button class="btn galleries-btn-ghost unlogged-only" id="login-btn">Login</button>
-                <button class="btn galleries-btn-outline logged-only" id="logout-btn">Logout</button>
-            </div>
+            <span class="galleries-brand-divider" aria-hidden="true"></span>
+
+            <a href="../galleries/" class="galleries-brand-sub text-decoration-none">
+                Galleries
+            </a>
         </div>
-    </header>
+
+        <div class="d-flex align-items-center gap-2 gap-md-3">
+            <span class="galleries-user logged-only">
+                <i class="bi bi-person-circle"></i>
+                <strong id="user-field">john.doe</strong>
+            </span>
+            <button class="btn galleries-btn-ghost unlogged-only" id="login-btn">Login</button>
+            <button class="btn galleries-btn-outline logged-only" id="logout-btn">Logout</button>
+        </div>
+    </div>
+</header>
 
     <section class="galleries-hero">
         <div class="galleries-hero-glow" aria-hidden="true"></div>
