@@ -36,3 +36,7 @@ frontend/galleries/test_junk/
 api_source/media_items/*
 !api_source/media_items/.gitkeep
 
+#settings file (API keys)
+
+frontend/settings.json
+
