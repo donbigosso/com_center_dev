@@ -31,6 +31,18 @@ export const VALIDATION_CONSTRAINTS = {
   filenameRegex: /^[a-zA-Z0-9._\-\s]{5,50}$/,
   filenamePatternHint:
     "5–50 characters: letters, numbers, dots, hyphens, underscores, and spaces",
+
+  // Contact form
+  contactNameMinLength: 2,
+  contactNameMaxLength: 80,
+  contactNameRegex: /^[\p{L}][\p{L}\s'.-]{1,79}$/u,
+  contactNamePatternHint:
+    "2–80 characters: letters, spaces, apostrophes, hyphens, and periods",
+  contactEmailMaxLength: 254,
+  contactEmailRegex: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+  contactEmailPatternHint: "a valid email address, e.g. name@example.com",
+  contactMessageMinLength: 10,
+  contactMessageMaxLength: 2000,
 };
 
 function pass() {
@@ -233,6 +245,92 @@ export function validateFilename(filename) {
   if (!c.filenameRegex.test(value)) {
     return fail(`Filename is invalid (${c.filenamePatternHint}).`);
   }
+  return pass();
+}
+
+/**
+ * @param {string} name
+ * @returns {{valid: boolean, error: string}}
+ */
+export function validateContactName(name) {
+  const c = VALIDATION_CONSTRAINTS;
+  const value = name == null ? "" : String(name).trim();
+
+  if (!value) {
+    return fail("Name is required.");
+  }
+  if (value.length < c.contactNameMinLength) {
+    return fail(`Name must be at least ${c.contactNameMinLength} characters.`);
+  }
+  if (value.length > c.contactNameMaxLength) {
+    return fail(`Name must be at most ${c.contactNameMaxLength} characters.`);
+  }
+  if (!c.contactNameRegex.test(value)) {
+    return fail(`Name is invalid (${c.contactNamePatternHint}).`);
+  }
+  return pass();
+}
+
+/**
+ * @param {string} email
+ * @returns {{valid: boolean, error: string}}
+ */
+export function validateContactEmail(email) {
+  const c = VALIDATION_CONSTRAINTS;
+  const value = email == null ? "" : String(email).trim();
+
+  if (!value) {
+    return fail("Email is required.");
+  }
+  if (value.length > c.contactEmailMaxLength) {
+    return fail(`Email must be at most ${c.contactEmailMaxLength} characters.`);
+  }
+  if (!c.contactEmailRegex.test(value)) {
+    return fail(`Email is invalid (${c.contactEmailPatternHint}).`);
+  }
+  return pass();
+}
+
+/**
+ * @param {string} message
+ * @returns {{valid: boolean, error: string}}
+ */
+export function validateContactMessage(message) {
+  const c = VALIDATION_CONSTRAINTS;
+  const value = message == null ? "" : String(message).trim();
+
+  if (!value) {
+    return fail("Message is required.");
+  }
+  if (value.length < c.contactMessageMinLength) {
+    return fail(
+      `Message must be at least ${c.contactMessageMinLength} characters.`
+    );
+  }
+  if (value.length > c.contactMessageMaxLength) {
+    return fail(
+      `Message must be at most ${c.contactMessageMaxLength} characters.`
+    );
+  }
+  return pass();
+}
+
+/**
+ * @param {string} name
+ * @param {string} email
+ * @param {string} message
+ * @returns {{valid: boolean, error: string}}
+ */
+export function validateContactForm(name, email, message) {
+  const nameResult = validateContactName(name);
+  if (!nameResult.valid) return nameResult;
+
+  const emailResult = validateContactEmail(email);
+  if (!emailResult.valid) return emailResult;
+
+  const messageResult = validateContactMessage(message);
+  if (!messageResult.valid) return messageResult;
+
   return pass();
 }
 

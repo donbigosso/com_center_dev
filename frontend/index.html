@@ -67,6 +67,54 @@
             </div>
         </div>
 
+        <section class="cc-contact" aria-labelledby="cc-contact-heading">
+            <p class="cc-eyebrow">Contact</p>
+            <h2 class="cc-contact-title" id="cc-contact-heading">Get in touch</h2>
+            <p class="cc-contact-lead">All fields are required.</p>
+
+            <form id="cc-contact-form" class="cc-contact-form" novalidate>
+                <div class="mb-3">
+                    <label for="contact-name" class="form-label">Name</label>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="contact-name"
+                        name="name"
+                        required
+                        minlength="2"
+                        maxlength="80"
+                        autocomplete="name"
+                    >
+                </div>
+                <div class="mb-3">
+                    <label for="contact-email" class="form-label">Email</label>
+                    <input
+                        type="email"
+                        class="form-control"
+                        id="contact-email"
+                        name="email"
+                        required
+                        maxlength="254"
+                        autocomplete="email"
+                    >
+                </div>
+                <div class="mb-3">
+                    <label for="contact-message" class="form-label">Message</label>
+                    <textarea
+                        class="form-control"
+                        id="contact-message"
+                        name="message"
+                        required
+                        minlength="10"
+                        maxlength="2000"
+                        rows="5"
+                    ></textarea>
+                </div>
+                <div id="contact-alert-field" class="alert alert-danger d-none" role="alert"></div>
+                <button type="submit" class="btn cc-btn-submit" id="contact-submit-btn">Send message</button>
+            </form>
+        </section>
+
         <div id="global-feedback" class="position-fixed top-50 start-50 translate-middle cc-feedback opacity-0">
             Global feedback
         </div>

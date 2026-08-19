@@ -1578,6 +1578,77 @@ body.gallery-lightbox-open {
   box-shadow: 0 0 0 0.2rem var(--cc-accent-soft);
 }
 
+.command-center-page .cc-contact {
+  max-width: 36rem;
+  margin: 4rem auto 0;
+  padding-top: 2.5rem;
+  border-top: 1px solid var(--cc-border);
+  text-align: left;
+}
+
+.command-center-page .cc-contact .cc-eyebrow {
+  text-align: left;
+  margin-bottom: 0.55rem;
+}
+
+.command-center-page .cc-contact-title {
+  margin: 0 0 0.4rem;
+  font-size: 1.65rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.command-center-page .cc-contact-lead {
+  margin: 0 0 1.5rem;
+  color: var(--cc-text-muted);
+  font-size: 0.95rem;
+}
+
+.command-center-page .cc-contact-form .form-label {
+  color: var(--cc-text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.command-center-page .cc-contact-form .form-control {
+  background: #06140e;
+  border: 1px solid var(--cc-border-strong);
+  border-radius: var(--cc-radius);
+  color: var(--cc-text);
+  padding: 0.7rem 0.85rem;
+}
+
+.command-center-page .cc-contact-form .form-control:focus {
+  background: #06140e;
+  color: var(--cc-text);
+  border-color: var(--cc-accent);
+  box-shadow: 0 0 0 0.2rem var(--cc-accent-soft);
+}
+
+.command-center-page .cc-contact-form .form-control::placeholder {
+  color: var(--cc-text-dim);
+}
+
+.command-center-page .cc-btn-submit {
+  background: var(--cc-accent);
+  border: 1px solid var(--cc-accent);
+  color: #04120c;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.65rem 1.35rem;
+  border-radius: var(--cc-radius);
+}
+
+.command-center-page .cc-btn-submit:hover {
+  background: #4cb07a;
+  border-color: #4cb07a;
+  color: #04120c;
+}
+
 .command-center-page .cc-footer {
   border-top: 1px solid var(--cc-border);
   padding: 1.15rem 0;
