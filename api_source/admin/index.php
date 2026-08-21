@@ -59,6 +59,12 @@
         <h5 class="mb-3 text-muted">Quick Actions</h5>
         <div class="row g-3">
             <div class="col-6 col-md-3">
+                <button class="btn w-100 py-4 shadow-sm tile-btn" id="tile-messages">
+                    <i class="bi bi-envelope fs-2 d-block mb-2"></i>
+                    Messages
+                </button>
+            </div>
+            <div class="col-6 col-md-3">
                 <button class="btn w-100 py-4 shadow-sm tile-btn" id="tile-users">
                     <i class="bi bi-people fs-2 d-block mb-2"></i>
                     Show users table

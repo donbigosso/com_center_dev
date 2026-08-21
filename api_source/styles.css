@@ -162,3 +162,12 @@ button .bi svg {
 .nice-table tbody tr:last-child td {
     border-bottom: none;
 }
+
+.message-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  cursor: pointer;
+  white-space: pre-wrap;
+}

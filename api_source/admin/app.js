@@ -5,6 +5,8 @@ import {
   resetUserPasswordByAdmin,
   listGalleriesAdmin,
   deleteGalleryByAdmin,
+  listContactMessagesAdmin,
+  deleteContactMessageAdmin,
 } from "./functions/RequestFunctions.js";
 import {
   drawTable,
@@ -14,6 +16,7 @@ import {
   createGalleriesTableWrapper,
   createGalleryTableRow,
   drawGalleryDeletionForm,
+  drawMessagesList,
 } from "./functions/PageAppearance.js";
 import {
   showFeedback,
@@ -255,7 +258,7 @@ function initAdminTiles() {
       window.location.href = "./logout.php";
     });
   }
-
+  bindClick("tile-messages", loadMessages);
   bindClick("tile-users", loadUsersTable);
   bindClick("tile-create-user", showCreateUserForm);
   bindClick("tile-delete-user", showDeleteUserForm);
@@ -272,4 +275,31 @@ if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", initAdminTiles);
 } else {
   initAdminTiles();
+}
+
+async function loadMessages() {
+  const resultArea = clearResultArea();
+  if (!resultArea) return;
+
+  const response = await listContactMessagesAdmin();
+  if (!response?.success) {
+    showFeedback(response?.error || "Failed to load messages.", "red");
+    return;
+  }
+
+  const messages = Array.isArray(response.data?.messages)
+    ? response.data.messages
+    : [];
+
+  resultArea.appendChild(
+    drawMessagesList(messages, async (id) => {
+      const result = await deleteContactMessageAdmin(id);
+      if (result?.success) {
+        showFeedback(`Message #${id} deleted.`);
+        return true;
+      }
+      showFeedback(result?.error || "Delete failed.", "red");
+      return false;
+    })
+  );
 }

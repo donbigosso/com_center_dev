@@ -63,4 +63,65 @@ class PostAndMessageModel
             'id' => $id,
         ];
     }
+    public function list_contact_messages(array $input): array
+        {
+            $admin = (new UserModel($this->db))->verify_admin_by_token($input);
+            if (!$admin['success']) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Admin token required.',
+                    'messages' => [],
+                ];
+            }
+
+            $rows = $this->db->queryAll(
+                'SELECT id, name, email, message, sender_ip, created_at
+                FROM contact_messages
+                ORDER BY created_at DESC'
+            );
+
+            return [
+                'success' => true,
+                'message' => 'Messages retrieved.',
+                'error' => '',
+                'messages' => $rows,
+            ];
+        }
+
+    public function delete_contact_message(array $input): array
+    {
+        $admin = (new UserModel($this->db))->verify_admin_by_token($input);
+        if (!$admin['success']) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Admin token required.',
+            ];
+        }
+
+        $id = (int)($input['id'] ?? 0);
+        if ($id <= 0) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'id is required.',
+            ];
+        }
+
+        $deleted = $this->db->delete('contact_messages', ['id' => $id]);
+        if ($deleted < 1) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Message not found.',
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Message deleted.',
+            'error' => '',
+        ];
+    }
 }

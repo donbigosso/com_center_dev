@@ -482,3 +482,55 @@ export function drawPasswordChangeForm(userList, onSubmit) {
 
     return form;
 }
+
+export function drawMessagesList(messages, onDelete) {
+  const wrap = createDIV("");
+
+  if (!messages.length) {
+    const empty = createDIV("text-muted px-1");
+    empty.textContent = "No messages.";
+    wrap.appendChild(empty);
+    return wrap;
+  }
+
+  messages.forEach((msg) => {
+    const card = createDIV("card mb-3");
+    const body = createDIV("card-body");
+
+    const meta = createDIV("small text-muted mb-2");
+    meta.textContent = `#${msg.id} · ${msg.created_at || ""} · ${msg.sender_ip || ""}`;
+
+    const from = document.createElement("p");
+    from.className = "mb-1";
+    from.innerHTML = `<strong>${escapeHtml(msg.name || "")}</strong> &lt;${escapeHtml(msg.email || "")}&gt;`;
+
+    const text = document.createElement("p");
+    text.className = "mb-3 message-clamp";
+    text.textContent = msg.message || "";
+    text.addEventListener("click", () => {
+      text.classList.toggle("message-clamp");
+    });
+
+    const del = createButton("button", "Delete", "btn btn-sm btn-outline-danger");
+    del.addEventListener("click", async () => {
+      const ok = window.confirm(`Delete message #${msg.id}?`);
+      if (!ok) return;
+      const deleted = await onDelete(msg.id);
+      if (deleted) card.remove();
+    });
+
+    body.append(meta, from, text, del);
+    card.appendChild(body);
+    wrap.appendChild(card);
+  });
+
+  return wrap;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}

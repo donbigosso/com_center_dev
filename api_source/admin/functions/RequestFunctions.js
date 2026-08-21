@@ -145,3 +145,13 @@ export async function deleteGalleryByAdmin(galleryId) {
     });
     return serverResponse;
 }
+
+export async function listContactMessagesAdmin() {
+    const token = window.SESSION.token;
+    return POSTJSONRequest({ request: "list_contact_messages", token });
+}
+
+export async function deleteContactMessageAdmin(id) {
+    const token = window.SESSION.token;
+    return POSTJSONRequest({ request: "delete_contact_message", token, id });
+}
