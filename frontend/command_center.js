@@ -4,6 +4,7 @@ import { handleAutoLogin, handleLogout } from "./functions/LoginFunctions.js";
 import { initApiAddressCache, initFileSettingsCache, showFeedback } from "./functions/CustomFunctions.js";
 import { validateContactForm } from "./functions/FormValidation.js";
 import { getSetting } from "./functions/CoreFunctions.js";
+import { createContactMessage } from "./functions/RequestFunctions.js";
 
 const WEB3FORMS_ENDPOINT = "https://api.web3forms.com/submit";
 const CONTACT_SUBJECT = "Donbigosso Command Center - message";
@@ -76,6 +77,11 @@ function initContactForm() {
       if (!response.ok || !result?.success) {
         showAlert(result?.message || "Could not send the message. Please try again.");
         return;
+      }
+
+      const dbResult = await createContactMessage(name, email, message);
+      if (!dbResult?.success) {
+        console.error("DB save failed:", dbResult?.error || dbResult);
       }
 
       showFeedback("Message sent");

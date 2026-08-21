@@ -2,6 +2,7 @@ import { fetchAPIdataWGetParams } from "./CoreFunctions.js ";
 import { POSTJSONRequest } from "./CoreFunctions.js";
 import{getCookie} from "./CookieFunctions.js";
 import { validateUsernameAndPassword } from "./FormValidation.js";
+import { getSetting } from "./CoreFunctions.js";
 export async function getFileList() {
     const apiResponse = await fetchAPIdataWGetParams({ request: 'list_files' });
     const success = apiResponse.success;
@@ -84,6 +85,13 @@ export async function requestDeleteFile(filename, sessionToken){
     return serverResponse;
 }
 
-export  async function uploadFiles(files) {
-    
+export async function createContactMessage(name, email, message) {
+    const apiKey = await getSetting("api_key");
+    return POSTJSONRequest({
+        request: "create_contact_message",
+        api_key: apiKey,
+        name,
+        email,
+        message,
+    });
 }

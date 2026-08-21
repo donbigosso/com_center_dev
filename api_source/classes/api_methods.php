@@ -212,6 +212,9 @@ class ApiMethods extends Core
                 case 'set_gallery_cover':
                     $this->handle_set_gallery_cover($input);
                     break;
+                case 'create_contact_message':
+                    $this->handle_create_contact_message($input);
+                    break;
 
                    
                 default:
@@ -866,5 +869,17 @@ public function handle_clear_token(array $input): void{
         
         $this->send_JSON_Response($success, $message, "", $error, []);
     }
+    private function handle_create_contact_message(array $input): void
+        {
+            $model = new PostAndMessageModel($this->db_access);
+            $result = $model->create_contact_message($input);
 
+            $this->send_JSON_Response(
+                $result['success'],
+                $result['message'],
+                '',
+                $result['error'],
+                ['id' => $result['id']]
+            );
+        }
 }
