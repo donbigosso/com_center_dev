@@ -1,3 +1,8 @@
+.cc-test-area {
+  background-color: darkgray;
+    display: none;
+}
+
 body {
     background-color: #f5f8ff;  /*#f5f8ff */
     min-height: 100vh;

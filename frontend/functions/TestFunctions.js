@@ -4,6 +4,7 @@ import {getSessionToken} from "./CustomFunctions.js";
 import {requestDeleteFile} from "./RequestFunctions.js";
 import {POSTJSONRequest} from "./CoreFunctions.js";
 import {createMediaTilePic, createPictureWrapper} from "./GalleryFunctions.js";
+import {startISSPositionUpdate, getEUR_USD_w_text, getCurrentAstronouts_w_text, getAustronautsNames} from "./ExtApiFunctions.js";
 
 
 
@@ -51,4 +52,14 @@ export function createImagepics(){
       wrapper.appendChild(tile);
     }
   document.getElementById("pics").appendChild(wrapper);
+}
+
+export async function runtCCtests (){
+  const resultArea1 = document.getElementById("result_1");  
+  const resultArea2 = document.getElementById("result_2");  
+  const result1 = await getCurrentAstronouts_w_text();
+  resultArea1.textContent = result1;
+  startISSPositionUpdate();
+  console.log(await getAustronautsNames());
+  
 }

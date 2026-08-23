@@ -5,6 +5,7 @@ import { initApiAddressCache, initFileSettingsCache, showFeedback } from "./func
 import { validateContactForm } from "./functions/FormValidation.js";
 import { getSetting } from "./functions/CoreFunctions.js";
 import { createContactMessage } from "./functions/RequestFunctions.js";
+import { runtCCtests } from "./functions/TestFunctions.js";
 
 const WEB3FORMS_ENDPOINT = "https://api.web3forms.com/submit";
 const CONTACT_SUBJECT = "Donbigosso Command Center - message";
@@ -103,7 +104,9 @@ document.addEventListener("DOMContentLoaded", () => {
     await initApiAddressCache();
     await initFileSettingsCache();
     await handleAutoLogin();
+    await runtCCtests();
   })();
+  
 
   const loginButton = document.querySelector("#login-btn");
   const logoutButton = document.querySelector("#logout-btn");
