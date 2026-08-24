@@ -64,11 +64,26 @@ function getISSaustronautsLink(){
     return "http://api.open-notify.org/astros.json";
 }
 
+async function fetchWithTimeout(url, timeoutMs = 5000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    return await response.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function getISSastroData(){
     const link = getISSaustronautsLink();
-    const response = await fetch(link);
-    const data = await response.json();
-    return data;
+    try {
+      return await fetchWithTimeout(link);
+    } catch (err) {
+      console.error("ISS astronaut data fetch failed:", err);
+      throw err;
+    }
 }
 
 export async function getCurrentAstronoutNumber(){
@@ -88,32 +103,42 @@ export async function getAustronautsNames(){
 
 export async function getISSposition(){
     const link = getISSpositionURL();
-    const response = await fetch(link);
-    const data = await response.json();
-    const longitude = data.iss_position.longitude;
-    const latitude = data.iss_position.latitude;
-    return longitude +", " +latitude;
+    try {
+      const data = await fetchWithTimeout(link);
+      const longitude = data.iss_position.longitude;
+      const latitude = data.iss_position.latitude;
+      return longitude +", " +latitude;
+    } catch (err) {
+      console.error("ISS position fetch failed:", err);
+      throw err;
+    }
 }
 
 
-export async function updateISSPosition() {
-    const resultArea2 = document.getElementById("result_2");  
+export async function updateISSPosition(elementId = "result_2") {
+    const resultArea2 = document.getElementById(elementId);
+    if (!resultArea2) return;
+    const sep = resultArea2.previousElementSibling;
+    const isSep = sep && sep.classList && sep.classList.contains("cc-infobar-sep");
   try {
-    const link = getISSpositionURL();
-    const response = await fetch(link);
-    const data = await response.json();
+    const data = await fetchWithTimeout(getISSpositionURL());
     const issPosition = `ISS position: ${data.iss_position.latitude}, ${data.iss_position.longitude}`;
     resultArea2.textContent = issPosition;
+    resultArea2.classList.remove("d-none");
+    if (isSep) sep.classList.remove("d-none");
   } catch (error) {
-    resultArea2.textContent = 'Error fetching ISS position';
+    // Fail silently: hide the element (and its separator) rather than showing an error.
+    resultArea2.textContent = '';
+    resultArea2.classList.add("d-none");
+    if (isSep) sep.classList.add("d-none");
     console.error(error);
   }
 }
 
-export function startISSPositionUpdate() {
-  updateISSPosition();
+export function startISSPositionUpdate(elementId = "result_2") {
+  updateISSPosition(elementId);
   setInterval(() => {
-    updateISSPosition();
+    updateISSPosition(elementId);
   }, 5000);
 }
 

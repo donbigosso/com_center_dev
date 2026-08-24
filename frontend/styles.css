@@ -1487,6 +1487,62 @@ body.gallery-lightbox-open {
   color: var(--cc-text-muted);
 }
 
+.command-center-page .cc-infobar {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.45rem 1rem;
+  background: var(--cc-bg-elevated);
+  border-bottom: 1px solid var(--cc-border);
+}
+
+.command-center-page .cc-infobar-content {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0 0.6rem;
+  overflow: hidden;
+  max-height: 1.5em;
+  font-size: 16px;
+  line-height: 1.5em;
+  color: var(--cc-text-muted);
+}
+
+.command-center-page .cc-infobar-content.cc-infobar-expanded {
+  max-height: none;
+}
+
+.command-center-page .cc-infobar-item {
+  white-space: nowrap;
+}
+
+.command-center-page .cc-infobar-sep {
+  color: var(--cc-border-strong);
+}
+
+.command-center-page .cc-infobar-toggle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5em;
+  height: 1.5em;
+  line-height: 1.5em;
+  border: none;
+  background: transparent;
+  color: var(--cc-accent);
+  cursor: pointer;
+  padding: 0;
+}
+
+.command-center-page .cc-infobar-toggle:hover {
+  color: var(--cc-text);
+}
+
 .command-center-page .cc-main {
   max-width: 1100px;
   padding-top: 3rem;

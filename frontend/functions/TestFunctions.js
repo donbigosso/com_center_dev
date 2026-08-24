@@ -57,9 +57,9 @@ export function createImagepics(){
 export async function runtCCtests (){
   const resultArea1 = document.getElementById("result_1");  
   const resultArea2 = document.getElementById("result_2");  
-  const result1 = await getCurrentAstronouts_w_text();
-  resultArea1.textContent = result1;
-  startISSPositionUpdate();
-  console.log(await getAustronautsNames());
+ // const result1 = await getCurrentAstronouts_w_text();
+ // resultArea1.textContent = result1;
+//  startISSPositionUpdate();
+//  console.log(await getAustronautsNames());
   
 }
