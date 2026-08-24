@@ -3,6 +3,8 @@ import {
   getUSD_PLN_w_text,
   get_GBP_PLN_w_text,
   getEUR_USD_w_text,
+  getBTC_PLN_w_text,
+  getBTC_USD_w_text,
   getCurrentAstronouts_w_text,
   getISSposition,
   startISSPositionUpdate,
@@ -81,6 +83,8 @@ export async function initInfobar() {
   await addInfobarItemSafe(content, getUSD_PLN_w_text);
   await addInfobarItemSafe(content, get_GBP_PLN_w_text);
   await addInfobarItemSafe(content, getEUR_USD_w_text);
+  await addInfobarItemSafe(content, getBTC_PLN_w_text);
+  await addInfobarItemSafe(content, getBTC_USD_w_text);
 
   const issItem = await addInfobarItemSafe(content, async () => "ISS position: " + (await getISSposition()));
   if (issItem) {

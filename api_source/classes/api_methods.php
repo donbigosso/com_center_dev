@@ -104,6 +104,12 @@ class ApiMethods extends Core
                 case 'download':
                     $this->handle_download();
                     break;
+                 case 'get_iss_position':
+                    $this->handle_get_iss_position();
+                    break;
+                case 'get_astronauts':
+                    $this->handle_get_astronauts();
+                    break;
                 
                 default:
                 $this->send_JSON_Response(false, "", "", "Unknown 'request' value: " . $input['request']);
@@ -142,6 +148,7 @@ class ApiMethods extends Core
                     $this->handle_delete_user_by_admin($input);
                     break;
 
+               
                 case 'test':
                     // Add login logic here
                     $this->verify_admin_by_token($input);
@@ -842,6 +849,52 @@ public function handle_clear_token(array $input): void{
     /**
      * Send JSON response and exit
      */
+    /**
+     * Server-side proxy for open-notify.org (ISS position).
+     * open-notify only serves plain HTTP with no CORS headers, so it
+     * can't be called directly from an HTTPS page - we fetch it here
+     * server-to-server and pass the JSON through instead.
+     */
+    private function handle_get_iss_position(): void
+    {
+        $data = $this->fetch_open_notify('http://api.open-notify.org/iss-now.json');
+        if ($data === null) {
+            $this->send_JSON_Response(false, "", "", "Failed to fetch ISS position.", []);
+            return;
+        }
+        $this->send_JSON_Response(true, "", "", "", $data);
+    }
+
+    private function handle_get_astronauts(): void
+    {
+        $data = $this->fetch_open_notify('http://api.open-notify.org/astros.json');
+        if ($data === null) {
+            $this->send_JSON_Response(false, "", "", "Failed to fetch astronaut data.", []);
+            return;
+        }
+        $this->send_JSON_Response(true, "", "", "", $data);
+    }
+
+    private function fetch_open_notify(string $url): ?array
+    {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT        => 5,
+        ]);
+        $response = curl_exec($ch);
+        $failed = ($response === false || curl_errno($ch) !== 0);
+        curl_close($ch);
+
+        if ($failed) {
+            return null;
+        }
+
+        $decoded = json_decode($response, true);
+        return is_array($decoded) ? $decoded : null;
+    }
+
     protected function send_JSON_Response(
         bool $success,
         string $message = "",

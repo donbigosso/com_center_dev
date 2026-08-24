@@ -54,21 +54,70 @@ export async function getEUR_USD_w_text(){
 }
 
 
+// crypto (FreeCryptoAPI)
+
+const FREECRYPTOAPI_BASE = "https://api.freecryptoapi.com/v1";
+let cachedFreeCryptoApiKey = null;
+
+async function getFreeCryptoApiKey() {
+  if (cachedFreeCryptoApiKey) return cachedFreeCryptoApiKey;
+  const { getSetting } = await import("./CoreFunctions.js");
+  const key = await getSetting("freecryptoapi_key");
+  if (!key) throw new Error("freecryptoapi_key not set in settings.json");
+  cachedFreeCryptoApiKey = key;
+  return key;
+}
+
+async function getFreeCryptoData(symbol) {
+  const apiKey = await getFreeCryptoApiKey();
+  const url = new URL(FREECRYPTOAPI_BASE + "/getData");
+  url.searchParams.set("symbol", symbol);
+  const data = await fetchWithTimeout(url.toString(), 5000, {
+    Authorization: `Bearer ${apiKey}`,
+    Accept: "application/json",
+  });
+  const entry = Array.isArray(data) ? data[0] : (data.symbols ? data.symbols[0] : data);
+  const price = entry?.last ?? entry?.price ?? entry?.value;
+  if (price === undefined) {
+    console.error("FreeCryptoAPI raw response:", JSON.stringify(data));
+    throw new Error("Unexpected FreeCryptoAPI response shape");
+  }
+  return Number(price);
+}
+
+export async function getBTC_USDrate() {
+  const price = await getFreeCryptoData("BTC");
+  return price.toFixed(2);
+}
+
+export async function getBTC_USD_w_text() {
+  const rate = await getBTC_USDrate();
+  return "BTC/USD: " + rate;
+}
+
+export async function getBTC_PLNrate() {
+  const btcUsd = await getFreeCryptoData("BTC");
+  const usdPln = await getNBPConversion("a", "usd");
+  return (btcUsd * usdPln).toFixed(2);
+}
+
+export async function getBTC_PLN_w_text() {
+  const rate = await getBTC_PLNrate();
+  return "BTC/PLN: " + rate;
+}
+
+
 //ISS
+// open-notify.org is HTTP-only with no CORS support, so on an HTTPS
+// site the browser blocks it outright (mixed content). We proxy both
+// calls through our own backend (api_engine.php: get_iss_position /
+// get_astronauts), which fetches open-notify server-side instead.
 
-function getISSpositionURL(){
-    return "http://api.open-notify.org/iss-now.json";
-}
-
-function getISSaustronautsLink(){
-    return "http://api.open-notify.org/astros.json";
-}
-
-async function fetchWithTimeout(url, timeoutMs = 5000) {
+async function fetchWithTimeout(url, timeoutMs = 5000, headers) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, { signal: controller.signal, headers });
     if (!response.ok) throw new Error("HTTP " + response.status);
     return await response.json();
   } finally {
@@ -77,13 +126,14 @@ async function fetchWithTimeout(url, timeoutMs = 5000) {
 }
 
 async function getISSastroData(){
-    const link = getISSaustronautsLink();
-    try {
-      return await fetchWithTimeout(link);
-    } catch (err) {
-      console.error("ISS astronaut data fetch failed:", err);
+    const { fetchAPIdataWGetParams } = await import("./CoreFunctions.js");
+    const result = await fetchAPIdataWGetParams({ request: "get_astronauts" });
+    if (!result || !result.success) {
+      const err = new Error(result?.error || "ISS astronaut data fetch failed");
+      console.error(err.message);
       throw err;
     }
+    return result.data;
 }
 
 export async function getCurrentAstronoutNumber(){
@@ -101,10 +151,20 @@ export async function getAustronautsNames(){
     return data.people;
 }
 
+async function getISSpositionData(){
+    const { fetchAPIdataWGetParams } = await import("./CoreFunctions.js");
+    const result = await fetchAPIdataWGetParams({ request: "get_iss_position" });
+    if (!result || !result.success) {
+      const err = new Error(result?.error || "ISS position fetch failed");
+      console.error(err.message);
+      throw err;
+    }
+    return result.data;
+}
+
 export async function getISSposition(){
-    const link = getISSpositionURL();
     try {
-      const data = await fetchWithTimeout(link);
+      const data = await getISSpositionData();
       const longitude = data.iss_position.longitude;
       const latitude = data.iss_position.latitude;
       return longitude +", " +latitude;
@@ -121,7 +181,7 @@ export async function updateISSPosition(elementId = "result_2") {
     const sep = resultArea2.previousElementSibling;
     const isSep = sep && sep.classList && sep.classList.contains("cc-infobar-sep");
   try {
-    const data = await fetchWithTimeout(getISSpositionURL());
+    const data = await getISSpositionData();
     const issPosition = `ISS position: ${data.iss_position.latitude}, ${data.iss_position.longitude}`;
     resultArea2.textContent = issPosition;
     resultArea2.classList.remove("d-none");
