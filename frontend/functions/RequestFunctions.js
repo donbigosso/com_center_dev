@@ -68,7 +68,7 @@ export async function clearUserToken() {
 export async function verifySession() {
     const sessionCookie = getCookie("session_token");
     if (!sessionCookie) {
-        console.warn("DEB876 No session token found");
+       // console.warn("DEB876 No session token found");
         return false;
     }
     const serverResponse = await POSTJSONRequest({request: "get_user_by_token", token: sessionCookie});

@@ -52,6 +52,32 @@ export async function getEUR_USD_w_text(){
     let rate = await getEUR_USDrate();
     return "EUR/USD: " + rate;
 }
+//Frankfurt Bank
+function createECBconversionLink(currency1, currency2){
+  //https://api.frankfurter.dev/v2/rates?base=PLN&quotes=GMD
+  let beginining = "https://api.frankfurter.dev/v2/rates?base=";
+  let end = "&quotes=" + currency2;
+  let finalLink = beginining + currency1 + end;
+  return finalLink;
+
+}
+
+async function getECBConversion(currency1, currency2) {
+  const link = createECBconversionLink(currency1, currency2);
+  const response = await fetch(link);
+  const data = await response.json();
+  return data[0].rate;
+}
+
+export async function getPLN_GMD_w_text(){  
+  let rate = await getECBConversion("PLN", "GMD");
+  return "PLN/GMD: " + rate.toFixed(2);
+}
+
+export async function getEUR_GMD_w_text(){  
+  let rate = await getECBConversion("EUR", "GMD");
+  return "EUR/GMD: " + rate.toFixed(2);
+}
 
 
 // crypto (FreeCryptoAPI)
@@ -90,15 +116,36 @@ export async function getBTC_USDrate() {
   return price.toFixed(2);
 }
 
+export async function getETH_USDrate() {
+  const price = await getFreeCryptoData("ETH");
+  return price.toFixed(2);
+}
+
 export async function getBTC_USD_w_text() {
   const rate = await getBTC_USDrate();
   return "BTC/USD: " + rate;
+}
+
+export async function getETH_USDrate_w_text(){
+  const rate = await getETH_USDrate();
+  return "ETH/USD: " + rate;
 }
 
 export async function getBTC_PLNrate() {
   const btcUsd = await getFreeCryptoData("BTC");
   const usdPln = await getNBPConversion("a", "usd");
   return (btcUsd * usdPln).toFixed(2);
+}
+
+export async function getETH_PLrate(){
+  const ethUsd = await getFreeCryptoData("ETH");
+  const usdPln = await getNBPConversion("a", "usd");
+  return (ethUsd * usdPln).toFixed(2);
+}
+
+export async function getETH_PLN_w_text(){
+  const rate = await getETH_PLrate();
+  return "ETH/PLN: " + rate;
 }
 
 export async function getBTC_PLN_w_text() {
@@ -151,46 +198,78 @@ export async function getAustronautsNames(){
     return data.people;
 }
 
-async function getISSpositionData(){
-    const { fetchAPIdataWGetParams } = await import("./CoreFunctions.js");
-    const result = await fetchAPIdataWGetParams({ request: "get_iss_position" });
-    if (!result || !result.success) {
-      const err = new Error(result?.error || "ISS position fetch failed");
-      console.error(err.message);
-      throw err;
-    }
-    return result.data;
+export async function getAstronoutsHTML(){
+  let namesList = await getAustronautsNames();
+  // Group by craft
+  let grouped = namesList.reduce((acc, person) => {
+    if (!acc[person.craft]) acc[person.craft] = [];
+    acc[person.craft].push(person.name);
+    return acc;
+  }, {});
+
+  // Build HTML
+  let html = '';
+  for (let craft in grouped) {
+    html += `<b>${craft}</b>\n<ul>\n`;
+    grouped[craft].forEach(name => {
+      html += `  <li>${name}</li>\n`;
+    });
+    html += `</ul>\n`;
+  }
+
+  return html;
 }
 
-export async function getISSposition(){
-    try {
-      const data = await getISSpositionData();
-      const longitude = data.iss_position.longitude;
-      const latitude = data.iss_position.latitude;
-      return longitude +", " +latitude;
-    } catch (err) {
-      console.error("ISS position fetch failed:", err);
-      throw err;
-    }
+let lastISSPosition = null; // module-level cache
+
+async function getISSpositionData() {
+  const { fetchAPIdataWGetParams } = await import("./CoreFunctions.js");
+  const result = await fetchAPIdataWGetParams({ request: "get_iss_position" });
+  if (!result || !result.success) {
+    const err = new Error(result?.error || "ISS position fetch failed");
+    console.error(err.message);
+    throw err;
+  }
+  return result.data;
 }
 
-
-export async function updateISSPosition(elementId = "result_2") {
-    const resultArea2 = document.getElementById(elementId);
-    if (!resultArea2) return;
-    const sep = resultArea2.previousElementSibling;
-    const isSep = sep && sep.classList && sep.classList.contains("cc-infobar-sep");
+export async function getISSposition() {
   try {
     const data = await getISSpositionData();
-    const issPosition = `ISS position: ${data.iss_position.latitude}, ${data.iss_position.longitude}`;
-    resultArea2.textContent = issPosition;
-    resultArea2.classList.remove("d-none");
+    const longitude = data.iss_position.longitude;
+    const latitude = data.iss_position.latitude;
+    return longitude + ", " + latitude;
+  } catch (err) {
+    console.error("ISS position fetch failed:", err);
+    throw err;
+  }
+}
+
+export async function updateISSPosition(elementId = "result_2") {
+  const resultArea = document.getElementById(elementId);
+  if (!resultArea) return;
+
+  const sep = resultArea.previousElementSibling;
+  const isSep = sep && sep.classList && sep.classList.contains("cc-infobar-sep");
+
+  try {
+    const data = await getISSpositionData();
+    lastISSPosition =
+      `ISS position: ${data.iss_position.latitude}, ${data.iss_position.longitude}`;
+    resultArea.textContent = lastISSPosition;
+    resultArea.classList.remove("d-none");
     if (isSep) sep.classList.remove("d-none");
   } catch (error) {
-    // Fail silently: hide the element (and its separator) rather than showing an error.
-    resultArea2.textContent = '';
-    resultArea2.classList.add("d-none");
-    if (isSep) sep.classList.add("d-none");
+    // Keep previous value if we have one; otherwise show loading (first paint).
+    if (lastISSPosition !== null) {
+      resultArea.textContent = lastISSPosition;
+      resultArea.classList.remove("d-none");
+      if (isSep) sep.classList.remove("d-none");
+    } else {
+      resultArea.textContent = "Loading ISS position data";
+      resultArea.classList.remove("d-none");
+      if (isSep) sep.classList.remove("d-none");
+    }
     console.error(error);
   }
 }
@@ -201,7 +280,6 @@ export function startISSPositionUpdate(elementId = "result_2") {
     updateISSPosition(elementId);
   }, 5000);
 }
-
 
 
 

@@ -5,9 +5,13 @@ import {
   getEUR_USD_w_text,
   getBTC_PLN_w_text,
   getBTC_USD_w_text,
+  getETH_USDrate_w_text,
+  getPLN_GMD_w_text,
+  getEUR_GMD_w_text,
   getCurrentAstronouts_w_text,
   getISSposition,
   startISSPositionUpdate,
+  getETH_PLN_w_text,
 } from "./ExtApiFunctions.js";
 
 const ISS_ITEM_ID = "cc-infobar-iss";
@@ -81,10 +85,14 @@ export async function initInfobar() {
 
   await addInfobarItemSafe(content, getEUR_PLN_w_text);
   await addInfobarItemSafe(content, getUSD_PLN_w_text);
+  await addInfobarItemSafe(content, getPLN_GMD_w_text);
+  await addInfobarItemSafe(content, getEUR_GMD_w_text);
   await addInfobarItemSafe(content, get_GBP_PLN_w_text);
   await addInfobarItemSafe(content, getEUR_USD_w_text);
-  await addInfobarItemSafe(content, getBTC_PLN_w_text);
   await addInfobarItemSafe(content, getBTC_USD_w_text);
+  await addInfobarItemSafe(content, getETH_USDrate_w_text);
+  await addInfobarItemSafe(content, getBTC_PLN_w_text);
+  await addInfobarItemSafe(content, getETH_PLN_w_text);
 
   const issItem = await addInfobarItemSafe(content, async () => "ISS position: " + (await getISSposition()));
   if (issItem) {
