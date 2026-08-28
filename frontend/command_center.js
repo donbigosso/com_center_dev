@@ -6,7 +6,7 @@ import { validateContactForm } from "./functions/FormValidation.js";
 import { getSetting } from "./functions/CoreFunctions.js";
 import { createContactMessage } from "./functions/RequestFunctions.js";
 import { runtCCtests } from "./functions/TestFunctions.js";
-import { initInfobar } from "./functions/InfoBarFunctions.js";
+import { initInfobar, showInfobarAfter } from "./functions/InfoBarFunctions.js";
 
 const WEB3FORMS_ENDPOINT = "https://api.web3forms.com/submit";
 const CONTACT_SUBJECT = "Donbigosso Command Center - message";
@@ -106,6 +106,7 @@ document.addEventListener("DOMContentLoaded", () => {
     await initFileSettingsCache();
     await handleAutoLogin();
     initInfobar();
+    showInfobarAfter(3000);
     await runtCCtests();
   })();
   

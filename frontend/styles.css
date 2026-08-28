@@ -1488,54 +1488,62 @@ body.gallery-lightbox-open {
   align-items: flex-start;
   gap: 0.6rem;
   width: 100%;
-  padding: 0.45rem 1rem;
+  padding: 0.3375rem 1rem;
   background: var(--cc-bg-elevated);
   border-bottom: 1px solid var(--cc-border);
+  overflow: hidden;
+}
+
+.command-center-page .cc-infobar-viewport {
+  flex: 1 1 auto;
+  overflow: hidden;
+  max-height: 1.125em;
 }
 
 .command-center-page .cc-infobar-content {
-  flex: 1 1 auto;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
   gap: 0 0.6rem;
-  overflow: hidden;
-  max-height: 1.5em;
-  font-size: 16px;
-  line-height: 1.5em;
+  width: max-content;
+  font-size: 12px;
+  line-height: 1.125em;
   color: var(--cc-text-muted);
+  white-space: nowrap;
+  animation: cc-infobar-scroll linear infinite;
+  animation-duration: var(--cc-infobar-duration, 30s);
 }
 
-.command-center-page .cc-infobar-content.cc-infobar-expanded {
-  max-height: none;
+.command-center-page .cc-infobar-content.cc-infobar-paused {
+  animation-play-state: paused;
+}
+
+@keyframes cc-infobar-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 .command-center-page .cc-infobar-item {
   white-space: nowrap;
 }
 
+.command-center-page .cc-infobar-item-clickable {
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
 .command-center-page .cc-infobar-sep {
   color: var(--cc-border-strong);
 }
 
-.command-center-page .cc-infobar-toggle {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5em;
-  height: 1.5em;
-  line-height: 1.5em;
-  border: none;
-  background: transparent;
-  color: var(--cc-accent);
-  cursor: pointer;
-  padding: 0;
-}
-
-.command-center-page .cc-infobar-toggle:hover {
-  color: var(--cc-text);
+@media (prefers-reduced-motion: reduce) {
+  .command-center-page .cc-infobar-content {
+    animation: none;
+  }
 }
 
 .command-center-page .cc-main {
