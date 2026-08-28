@@ -1745,3 +1745,918 @@ body.gallery-lightbox-open {
 .command-center-page .logged-only {
   display: none;
 }
+
+/* ==========================================================================
+   FILE TRANSFER — dark red, matching galleries / command center
+   Scoped under .file-transfer-page so other pages stay unchanged.
+   ========================================================================== */
+
+.file-transfer-page {
+  --ft-bg: #140606;
+  --ft-bg-elevated: #1c0a0a;
+  --ft-card: #220d0d;
+  --ft-card-hover: #2c1111;
+  --ft-border: rgba(220, 110, 110, 0.16);
+  --ft-border-strong: rgba(230, 130, 130, 0.3);
+  --ft-text: #f6eaea;
+  --ft-text-muted: #b08989;
+  --ft-text-dim: #7a5454;
+  --ft-accent: #c43c3c;
+  --ft-accent-hover: #d64c4c;
+  --ft-accent-soft: rgba(196, 60, 60, 0.18);
+  --ft-danger: #ff6b6b;
+  --ft-danger-soft: rgba(255, 107, 107, 0.14);
+  --ft-font: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  --ft-radius: 4px;
+  --ft-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ft-tap: 44px;
+
+  background:
+    radial-gradient(ellipse 70% 50% at 50% -10%, rgba(140, 32, 32, 0.34), transparent 55%),
+    var(--ft-bg);
+  color: var(--ft-text);
+  font-family: var(--ft-font);
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: clip;
+  color-scheme: dark;
+  -webkit-tap-highlight-color: rgba(196, 60, 60, 0.22);
+  touch-action: manipulation;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+.file-transfer-page .container,
+.file-transfer-page .container-fluid,
+.file-transfer-page .navbar {
+  min-width: 0;
+}
+
+/* ----- Navbar ----- */
+.file-transfer-page .ft-nav {
+  background: rgba(20, 6, 6, 0.88) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--ft-border);
+  padding: 0.65rem 0;
+  padding-top: max(0.65rem, env(safe-area-inset-top));
+  z-index: 1030;
+}
+
+.file-transfer-page .ft-nav-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+.file-transfer-page .ft-brand {
+  min-width: 0;
+  gap: 0.65rem;
+}
+
+.file-transfer-page .ft-brand > a {
+  color: var(--ft-text);
+  gap: 0.65rem;
+}
+
+.file-transfer-page .ft-brand > a:hover {
+  color: #fff;
+}
+
+.file-transfer-page .ft-logo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border-radius: 50%;
+  border: 1px solid var(--ft-border);
+  flex-shrink: 0;
+}
+
+.file-transfer-page .ft-brand-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #fff;
+}
+
+.file-transfer-page .ft-brand-divider {
+  width: 1px;
+  height: 1rem;
+  background: var(--ft-border-strong);
+  display: none;
+}
+
+.file-transfer-page .ft-brand-sub {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--ft-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  display: none;
+}
+
+.file-transfer-page .ft-brand-sub-small {
+  color: #d7b3b3;
+  font-size: 1.15rem;
+  line-height: 1;
+  padding: 0.35rem;
+}
+
+@media (min-width: 576px) {
+  .file-transfer-page .ft-brand-divider,
+  .file-transfer-page .ft-brand-sub {
+    display: inline-block;
+  }
+
+  .file-transfer-page .ft-brand-sub-small {
+    display: none;
+  }
+}
+
+.file-transfer-page .ft-user {
+  color: var(--ft-text-muted);
+  font-size: 0.85rem;
+  max-width: min(34vw, 10rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  align-items: center;
+}
+
+.file-transfer-page .ft-user i {
+  margin-right: 0.35rem;
+}
+
+.file-transfer-page .ft-user strong {
+  color: var(--ft-text);
+  font-weight: 500;
+}
+
+@media (max-width: 519.98px) {
+  .file-transfer-page .ft-user strong {
+    display: none;
+  }
+
+  .file-transfer-page .ft-user {
+    max-width: none;
+  }
+
+  .file-transfer-page .ft-user i {
+    margin-right: 0;
+  }
+
+  .file-transfer-page .ft-brand-text {
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+  }
+
+  .file-transfer-page .ft-btn-ghost,
+  .file-transfer-page .ft-btn-outline {
+    padding-left: 0.7rem;
+    padding-right: 0.7rem;
+    letter-spacing: 0.08em;
+  }
+}
+
+@media (max-width: 399.98px) {
+  .file-transfer-page .ft-brand-sub-small {
+    display: none;
+  }
+}
+
+/* ----- Buttons ----- */
+.file-transfer-page .ft-btn-ghost,
+.file-transfer-page .ft-btn-outline,
+.file-transfer-page .ft-btn-primary {
+  border-radius: var(--ft-radius);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.55rem 1.15rem;
+  min-height: var(--ft-tap);
+  transition: background 0.25s var(--ft-ease), border-color 0.25s var(--ft-ease), color 0.25s var(--ft-ease), transform 0.2s var(--ft-ease);
+}
+
+.file-transfer-page .ft-btn-ghost {
+  background: transparent;
+  border: 1px solid var(--ft-border-strong);
+  color: var(--ft-text);
+}
+
+.file-transfer-page .ft-btn-ghost:hover,
+.file-transfer-page .ft-btn-ghost:focus-visible {
+  background: var(--ft-accent);
+  border-color: var(--ft-accent);
+  color: #1a0505;
+}
+
+.file-transfer-page .ft-btn-outline {
+  background: transparent;
+  border: 1px solid rgba(255, 107, 107, 0.45);
+  color: #ff8a8a;
+}
+
+.file-transfer-page .ft-btn-outline:hover,
+.file-transfer-page .ft-btn-outline:focus-visible {
+  background: var(--ft-danger-soft);
+  border-color: var(--ft-danger);
+  color: #fff;
+}
+
+.file-transfer-page .ft-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--ft-accent);
+  border: 1px solid var(--ft-accent);
+  color: #1a0505;
+  white-space: nowrap;
+}
+
+.file-transfer-page .ft-btn-primary:hover,
+.file-transfer-page .ft-btn-primary:focus-visible {
+  background: var(--ft-accent-hover);
+  border-color: var(--ft-accent-hover);
+  color: #1a0505;
+  transform: translateY(-1px);
+}
+
+.file-transfer-page .ft-btn-primary:active {
+  transform: translateY(0);
+}
+
+.file-transfer-page .logged-only {
+  display: none;
+}
+
+/* ----- Hero ----- */
+.file-transfer-page .ft-hero {
+  position: relative;
+  padding: 3.5rem 0 2.75rem;
+  overflow: hidden;
+  border-bottom: 1px solid var(--ft-border);
+}
+
+.file-transfer-page .ft-hero-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 50% 80% at 18% 50%, rgba(196, 60, 60, 0.16), transparent 60%),
+    radial-gradient(ellipse 40% 70% at 88% 28%, rgba(90, 16, 16, 0.4), transparent 55%);
+}
+
+.file-transfer-page .ft-hero-content {
+  position: relative;
+  max-width: 1100px;
+}
+
+.file-transfer-page .ft-eyebrow {
+  margin: 0 0 0.85rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ft-accent);
+}
+
+.file-transfer-page .ft-title {
+  margin: 0 0 0.65rem;
+  font-size: clamp(2rem, 6vw, 3.25rem);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: var(--ft-text);
+}
+
+.file-transfer-page .ft-subtitle {
+  margin: 0;
+  max-width: 32rem;
+  font-size: 1rem;
+  line-height: 1.55;
+  color: var(--ft-text-muted);
+}
+
+/* ----- Main / panels ----- */
+.file-transfer-page .ft-main {
+  max-width: 1100px;
+  padding-top: 2rem;
+  padding-bottom: 4rem;
+  padding-left: max(0.75rem, env(safe-area-inset-left));
+  padding-right: max(0.75rem, env(safe-area-inset-right));
+}
+
+.file-transfer-page .ft-panel {
+  background: var(--ft-card);
+  border: 1px solid var(--ft-border);
+  border-radius: var(--ft-radius);
+  padding: 1.25rem 1.15rem 1.35rem;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+}
+
+.file-transfer-page .ft-upload {
+  width: 100%;
+  margin-bottom: 1.5rem;
+}
+
+.file-transfer-page .ft-panel-head {
+  margin-bottom: 1.15rem;
+}
+
+.file-transfer-page .ft-files-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.file-transfer-page .ft-section-title {
+  margin: 0 0 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ft-text);
+}
+
+.file-transfer-page .ft-section-hint {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--ft-text-muted);
+}
+
+/* ----- Upload dropzone ----- */
+.file-transfer-page .ft-upload-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.file-transfer-page .ft-dropzone {
+  position: relative;
+  min-height: 8.5rem;
+  border: 1px dashed var(--ft-border-strong);
+  border-radius: var(--ft-radius);
+  background: rgba(255, 80, 80, 0.04);
+  overflow: hidden;
+}
+
+.file-transfer-page .ft-dropzone:focus-within {
+  border-color: var(--ft-accent);
+  box-shadow: 0 0 0 0.2rem var(--ft-accent-soft);
+}
+
+.file-transfer-page .ft-file-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+  font-size: 16px;
+}
+
+.file-transfer-page .ft-dropzone-ui {
+  position: relative;
+  z-index: 1;
+  min-height: 8.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 1.25rem 1rem;
+  text-align: center;
+  pointer-events: none;
+}
+
+.file-transfer-page .ft-dropzone-ui i {
+  font-size: 1.85rem;
+  color: var(--ft-accent);
+  margin-bottom: 0.25rem;
+}
+
+.file-transfer-page .ft-dropzone-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ft-text);
+}
+
+.file-transfer-page .ft-dropzone-hint {
+  font-size: 0.8rem;
+  color: var(--ft-text-muted);
+}
+
+.file-transfer-page .ft-btn-primary {
+  width: 100%;
+}
+
+.file-transfer-page .ft-alert {
+  background: var(--ft-danger-soft);
+  border: 1px solid rgba(255, 107, 107, 0.35);
+  color: #ffb3b3;
+  border-radius: var(--ft-radius);
+  font-size: 0.88rem;
+  margin: 0.85rem 0 0;
+}
+
+.file-transfer-page .ft-upload-status {
+  margin-top: 0.85rem;
+  font-size: 0.88rem;
+  color: #e8c4c4;
+  word-break: break-word;
+}
+
+.file-transfer-page .ft-upload-status .spinner-border {
+  color: var(--ft-accent);
+}
+
+/* ----- Sort bar (mobile) ----- */
+.file-transfer-page .ft-sort-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.file-transfer-page .ft-sort-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ft-text-dim);
+  margin-right: 0.15rem;
+}
+
+.file-transfer-page .ft-sort-btn {
+  min-height: 36px;
+  padding: 0.35rem 0.75rem;
+  background: transparent;
+  border: 1px solid var(--ft-border-strong);
+  border-radius: 999px;
+  color: var(--ft-text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.file-transfer-page .ft-sort-btn:hover,
+.file-transfer-page .ft-sort-btn:focus-visible {
+  border-color: var(--ft-accent);
+  color: var(--ft-text);
+  background: var(--ft-accent-soft);
+}
+
+/* ----- Table ----- */
+.file-transfer-page .ft-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.file-transfer-page .ft-table {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--ft-text);
+  --bs-table-striped-bg: transparent;
+  --bs-table-hover-bg: rgba(196, 60, 60, 0.1);
+  --bs-table-hover-color: var(--ft-text);
+  --bs-table-border-color: var(--ft-border);
+  margin-bottom: 0;
+  color: var(--ft-text);
+}
+
+.file-transfer-page .ft-table thead th {
+  background: var(--ft-bg-elevated);
+  color: var(--ft-text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-bottom-color: var(--ft-border-strong);
+  white-space: nowrap;
+  padding: 0.85rem 0.75rem;
+}
+
+.file-transfer-page .ft-table thead .sort-icon {
+  position: static !important;
+  margin-left: 0.35rem;
+  margin-right: 0 !important;
+}
+
+.file-transfer-page .ft-table tbody td,
+.file-transfer-page .ft-table tbody th {
+  border-color: var(--ft-border);
+  vertical-align: middle;
+  padding: 0.85rem 0.75rem;
+}
+
+.file-transfer-page .ft-file-name {
+  font-weight: 500;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.file-transfer-page .ft-file-size,
+.file-transfer-page .ft-file-date {
+  color: var(--ft-text-muted);
+  white-space: nowrap;
+}
+
+.file-transfer-page .ft-actions {
+  white-space: nowrap;
+}
+
+.file-transfer-page .ft-action-btn {
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0;
+  margin: 0 0.12rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1;
+  border-radius: var(--ft-radius);
+  border: 1px solid var(--ft-border-strong);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--ft-text);
+}
+
+.file-transfer-page .ft-action-btn i {
+  pointer-events: none;
+}
+
+.file-transfer-page .ft-action-download:hover,
+.file-transfer-page .ft-action-download:focus-visible {
+  background: var(--ft-accent);
+  border-color: var(--ft-accent);
+  color: #1a0505;
+}
+
+.file-transfer-page .ft-action-copy:hover,
+.file-transfer-page .ft-action-copy:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.file-transfer-page .ft-action-rename:hover,
+.file-transfer-page .ft-action-rename:focus-visible {
+  background: rgba(255, 193, 107, 0.16);
+  border-color: rgba(255, 193, 107, 0.45);
+  color: #ffd089;
+}
+
+.file-transfer-page .ft-action-delete {
+  border-color: rgba(255, 107, 107, 0.35);
+  color: #ff8a8a;
+}
+
+.file-transfer-page .ft-action-delete:hover,
+.file-transfer-page .ft-action-delete:focus-visible {
+  background: rgba(255, 77, 77, 0.9);
+  border-color: var(--ft-danger);
+  color: #fff;
+}
+
+.file-transfer-page #file-table-body:empty::after {
+  content: "No files yet";
+  display: block;
+  padding: 2rem 0.5rem;
+  text-align: center;
+  color: var(--ft-text-dim);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ----- Feedback ----- */
+.file-transfer-page .ft-feedback,
+.file-transfer-page #global-feedback {
+  background: rgba(34, 13, 13, 0.96) !important;
+  color: var(--ft-text) !important;
+  border: 1px solid var(--ft-border-strong);
+  border-radius: var(--ft-radius);
+  padding: 0.75rem 1.25rem !important;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  z-index: 1050 !important;
+  pointer-events: none;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* ----- Modal ----- */
+.file-transfer-page .ft-modal {
+  background-color: rgba(10, 2, 2, 0.72);
+}
+
+.file-transfer-page .ft-modal.show {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+.file-transfer-page .ft-modal .modal-dialog {
+  margin: 1rem auto;
+  width: calc(100% - 2rem);
+  max-width: min(500px, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  height: auto;
+}
+
+.file-transfer-page .ft-modal .modal-content {
+  background: #220d0d;
+  border: 1px solid var(--ft-border-strong);
+  border-radius: var(--ft-radius);
+  color: var(--ft-text);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.65);
+  max-height: calc(100dvh - 2rem);
+}
+
+.file-transfer-page .ft-modal .modal-header,
+.file-transfer-page .ft-modal .modal-footer {
+  border-color: var(--ft-border);
+}
+
+.file-transfer-page .ft-modal .modal-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.file-transfer-page .ft-modal .modal-body {
+  color: var(--ft-text-muted);
+}
+
+.file-transfer-page .ft-modal .form-label {
+  color: var(--ft-text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.file-transfer-page .ft-modal .form-control {
+  background: #140606;
+  border: 1px solid var(--ft-border-strong);
+  border-radius: var(--ft-radius);
+  color: var(--ft-text);
+  font-size: 16px;
+  padding: 0.7rem 0.85rem;
+}
+
+.file-transfer-page .ft-modal .form-control:focus {
+  background: #140606;
+  color: var(--ft-text);
+  border-color: var(--ft-accent);
+  box-shadow: 0 0 0 0.2rem var(--ft-accent-soft);
+}
+
+.file-transfer-page .ft-modal .btn-secondary {
+  background: transparent;
+  border: 1px solid var(--ft-border-strong);
+  color: var(--ft-text);
+  border-radius: var(--ft-radius);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.55rem 1.1rem;
+  min-height: var(--ft-tap);
+}
+
+.file-transfer-page .ft-modal .btn-secondary:hover {
+  background: var(--ft-accent-soft);
+  color: #fff;
+}
+
+.file-transfer-page .ft-modal .btn-primary {
+  background: var(--ft-accent);
+  border-color: var(--ft-accent);
+  color: #1a0505;
+  border-radius: var(--ft-radius);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.55rem 1.1rem;
+  min-height: var(--ft-tap);
+}
+
+.file-transfer-page .ft-modal .btn-primary:hover {
+  background: var(--ft-accent-hover);
+  border-color: var(--ft-accent-hover);
+  color: #1a0505;
+}
+
+.file-transfer-page .ft-modal .btn-danger {
+  background: transparent;
+  border: 1px solid rgba(255, 77, 77, 0.45);
+  color: #ff8a8a;
+  border-radius: var(--ft-radius);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.55rem 1.1rem;
+  min-height: var(--ft-tap);
+}
+
+.file-transfer-page .ft-modal .btn-danger:hover {
+  background: var(--ft-danger-soft);
+  border-color: var(--ft-danger);
+  color: #fff;
+}
+
+.file-transfer-page .ft-modal .alert-danger {
+  background: var(--ft-danger-soft);
+  border: 1px solid rgba(255, 77, 77, 0.35);
+  color: #ffb3b3;
+  border-radius: var(--ft-radius);
+  font-size: 0.85rem;
+}
+
+.file-transfer-page .ft-modal .modal-footer {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.file-transfer-page .ft-modal .modal-footer .btn {
+  flex: 1 1 auto;
+}
+
+/* ----- Footer ----- */
+.file-transfer-page .ft-footer {
+  border-top: 1px solid var(--ft-border);
+  padding: 1.15rem 0;
+  padding-bottom: max(1.15rem, env(safe-area-inset-bottom));
+  color: var(--ft-text-dim);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.file-transfer-page .ft-footer .container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+}
+
+.file-transfer-page .ft-footer-mark {
+  color: var(--ft-text-muted);
+  font-weight: 600;
+}
+
+.file-transfer-page .ft-footer-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ft-text-dim);
+  display: inline-block;
+}
+
+/* ----- Mobile: stacked file cards ----- */
+@media (max-width: 767.98px) {
+  .file-transfer-page .ft-hero {
+    padding: 2.15rem 0 1.75rem;
+  }
+
+  .file-transfer-page .ft-main {
+    padding-top: 1.25rem;
+    padding-bottom: 2.5rem;
+  }
+
+  .file-transfer-page .ft-panel {
+    padding: 1rem 0.85rem 1.1rem;
+  }
+
+  .file-transfer-page .ft-table-wrap {
+    overflow: visible;
+  }
+
+  .file-transfer-page .ft-table thead {
+    display: none;
+  }
+
+  .file-transfer-page .ft-table,
+  .file-transfer-page .ft-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .file-transfer-page .ft-table tbody tr {
+    display: grid;
+    grid-template-columns: 1.6rem 1fr auto;
+    grid-template-areas:
+      "num name name"
+      "num size date"
+      "actions actions actions";
+    gap: 0.2rem 0.65rem;
+    background: var(--ft-bg-elevated);
+    border: 1px solid var(--ft-border);
+    border-radius: var(--ft-radius);
+    padding: 0.9rem 0.85rem 0.8rem;
+    margin-bottom: 0.7rem;
+  }
+
+  .file-transfer-page .ft-table tbody tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .file-transfer-page .ft-table tbody td,
+  .file-transfer-page .ft-table tbody th {
+    border: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  .file-transfer-page .ft-row-num {
+    grid-area: num;
+    color: var(--ft-text-dim);
+    font-size: 0.75rem;
+    padding-top: 0.2rem;
+  }
+
+  .file-transfer-page .ft-file-name {
+    grid-area: name;
+    font-size: 0.98rem;
+    line-height: 1.3;
+  }
+
+  .file-transfer-page .ft-file-size {
+    grid-area: size;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  .file-transfer-page .ft-file-date {
+    grid-area: date;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    justify-self: end;
+  }
+
+  .file-transfer-page .ft-actions {
+    grid-area: actions;
+    display: flex;
+    width: 100%;
+    gap: 0.4rem;
+    margin-top: 0.55rem;
+    padding-top: 0.65rem;
+    border-top: 1px solid var(--ft-border);
+    white-space: normal;
+  }
+
+  .file-transfer-page .ft-action-btn {
+    flex: 1 1 0;
+    width: auto;
+    min-height: var(--ft-tap);
+    height: var(--ft-tap);
+    margin: 0;
+  }
+
+  .file-transfer-page .ft-modal .modal-footer .btn {
+    min-width: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .file-transfer-page .ft-sort-bar {
+    display: none;
+  }
+
+  .file-transfer-page .ft-files-head {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  .file-transfer-page .ft-btn-primary {
+    width: auto;
+    align-self: flex-start;
+  }
+
+  .file-transfer-page .ft-panel {
+    padding: 1.5rem 1.5rem 1.6rem;
+  }
+
+  .file-transfer-page .ft-main {
+    padding-top: 2.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .file-transfer-page .ft-btn-primary,
+  .file-transfer-page .ft-action-btn {
+    transition: none;
+  }
+}

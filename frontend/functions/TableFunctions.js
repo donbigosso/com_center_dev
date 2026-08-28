@@ -46,17 +46,29 @@ function sortTable(columnIndex, isNumeric = false, isDate = false) {
   updateRowNumbers();
 }
 
+function sortByColumnIndex(index) {
+  if (index === 1) sortTable(1);              // File Name (text)
+  if (index === 2) sortTable(2, true);        // Size (numeric after cleaning)
+  if (index === 3) sortTable(3, false, true); // Uploaded (date)
+}
+
 export function initializeTableSorting() {
 document.querySelectorAll('thead th').forEach((th, index) => {
   if (index === 4) return; // skip Actions column
 
   th.addEventListener('click', () => {
    // if (index === 0) sortTable(0, true);        // # (numeric) this column idicates the amount of rows and should not be sorted
-    if (index === 1) sortTable(1);              // File Name (text)
-    if (index === 2) sortTable(2, true);        // Size (numeric after cleaning)
-    if (index === 3) sortTable(3, false, true); // Uploaded (date)
+    sortByColumnIndex(index);
   });
-});}
+});
+
+document.querySelectorAll('.ft-sort-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const index = Number(btn.dataset.sort);
+    sortByColumnIndex(index);
+  });
+});
+}
 
 
 //-------------add row to table--------------------
@@ -68,17 +80,15 @@ newRow.dataset.filename = fileName;
   const nextRowNumber = tableBody.querySelectorAll('tr').length + 1;
 
   newRow.innerHTML = `
-    <th>${nextRowNumber}</th>
-    <td>${fileName}</td>
-    <td>${fileSize}</td>
-    <td>${date}</td>
-    <td class="text-center">
-      <button class="btn btn-sm btn-primary me-1" data-action="download"><i class="bi bi-download"></i></button>
-      <button class="btn btn-sm btn-success me-1" data-action="copy-link"><i class="bi bi-link-45deg"></i>
-        
-      </button>
-      <button class="btn btn-sm btn-warning me-1 logged-only" data-action="rename"><i class="bi bi-pencil"></i></button>
-      <button class="btn btn-sm btn-danger logged-only" data-action="delete"><i class="bi bi-trash"></i></button>
+    <th class="ft-row-num" scope="row">${nextRowNumber}</th>
+    <td class="ft-file-name" data-label="File">${fileName}</td>
+    <td class="ft-file-size" data-label="Size">${fileSize}</td>
+    <td class="ft-file-date" data-label="Uploaded">${date}</td>
+    <td class="ft-actions text-center">
+      <button type="button" class="btn ft-action-btn ft-action-download" data-action="download" aria-label="Download"><i class="bi bi-download"></i></button>
+      <button type="button" class="btn ft-action-btn ft-action-copy" data-action="copy-link" aria-label="Copy link"><i class="bi bi-link-45deg"></i></button>
+      <button type="button" class="btn ft-action-btn ft-action-rename logged-only" data-action="rename" aria-label="Rename"><i class="bi bi-pencil"></i></button>
+      <button type="button" class="btn ft-action-btn ft-action-delete logged-only" data-action="delete" aria-label="Delete"><i class="bi bi-trash"></i></button>
     </td>
   `;
 
@@ -139,9 +149,10 @@ export function addFileListToTable(fileArray){
 
 export function initializeTableButtons() {
   document.getElementById('file-table-body').addEventListener('click', function(e) {
-  if (e.target.matches('button[data-action]')) {
-    const action = e.target.dataset.action;
-    const row = e.target.closest('tr');
+  const actionButton = e.target.closest('button[data-action]');
+  if (actionButton) {
+    const action = actionButton.dataset.action;
+    const row = actionButton.closest('tr');
 
     // Get file info from row
     const fileName = row.cells[1].textContent;
