@@ -3,6 +3,7 @@
     include '../classes/core.php';
     include '../classes/user_model.php';
     include '../classes/db_access.php';
+    require_once __DIR__ . '/../classes/log_model.php';
 
     $db   = getenv('MYSQL_DATABASE');
     $user = getenv('MYSQL_USER');
@@ -30,6 +31,7 @@
                 $login_error = 'Invalid credentials.';
             } elseif (!$user_model->check_if_admin($username)) {
                 $login_error = 'Access denied. Admin only.';
+                (new LogModel())->record_result('login - admin', false, $username);
             } else {
                 // Check if user already has a valid token
                 $user_data = $user_model->get_by_name($username);
@@ -38,6 +40,7 @@
 
                 if ($token_valid) {
                     $session_token = $existing_token;
+                    (new LogModel())->record_result('login', true, $username);
                 } else {
                     // Generate a new token and set validity (14 days)
                     $new_token = bin2hex(random_bytes(16));

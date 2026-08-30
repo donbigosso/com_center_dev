@@ -1,4 +1,8 @@
 <?php
+if (class_exists('LogModel', false)) {
+    return;
+}
+
 class LogModel
 {
     protected string $log_folder;
@@ -10,18 +14,57 @@ class LogModel
         $this->log_file = $this->log_folder . '/command-center.log';
     }
 
+    public function client_ip(): string
+    {
+        $candidates = [
+            $_SERVER['HTTP_X_FORWARDED_FOR'] ?? null,
+            $_SERVER['HTTP_CLIENT_IP'] ?? null,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+        ];
+        foreach ($candidates as $value) {
+            if (!is_string($value) || $value === '') {
+                continue;
+            }
+            if (strpos($value, ',') !== false) {
+                $value = trim(explode(',', $value)[0]);
+            }
+            return $value !== '' ? $value : '-';
+        }
+        return '-';
+    }
+
+    /**
+     * Convenience wrapper: fills timestamp and client IP.
+     */
+    public function record(string $level, string $user, string $action, string $status): array
+    {
+        return $this->write_log(
+            $level !== '' ? $level : 'INFO',
+            $user !== '' ? $user : '-',
+            $action !== '' ? $action : '-',
+            $this->client_ip(),
+            $status !== '' ? $status : '-'
+        );
+    }
+
+    /**
+     * Log a method outcome. Admin actions should pass action with " - admin".
+     */
+    public function record_result(string $action, bool $success, string $user = '-'): array
+    {
+        return $this->record(
+            $success ? 'INFO' : 'WARN',
+            $user,
+            $action,
+            $success ? 'ok' : 'fail'
+        );
+    }
+
     /**
      * Append one line to command-center.log (creates the file if missing).
-     * Fields are taken from arguments only — nothing is read from request/session/DB.
      *
      * Line format: [timestamp] [level] [user] [action] [IP] [status] ;
-     * 
-     * 
      */
-    /* 
-    
-    
-    */
     public function write_log(
         string $level,
         string $user,

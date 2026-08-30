@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/log_model.php';
+
 class PostAndMessageModel
 {
     private DatabaseAccess $db;
@@ -10,6 +12,9 @@ class PostAndMessageModel
 
     public function create_contact_message(array $input): array
     {
+        $actor = trim((string)($input['name'] ?? ''));
+        $ok = false;
+        try {
         $apiKeys = json_decode((string)getenv('API_KEYS'), true);
         $providedKey = isset($input['api_key']) ? (string)$input['api_key'] : '';
 
@@ -56,12 +61,16 @@ class PostAndMessageModel
             'sender_ip' => $senderIp,
         ]);
 
+        $ok = $id > 0;
         return [
             'success' => true,
             'message' => 'Contact message saved.',
             'error' => '',
             'id' => $id,
         ];
+        } finally {
+            (new LogModel())->record_result('create contact message', $ok, $actor !== '' ? $actor : '-');
+        }
     }
     public function list_contact_messages(array $input): array
         {
@@ -91,7 +100,15 @@ class PostAndMessageModel
 
     public function delete_contact_message(array $input): array
     {
-        $admin = (new UserModel($this->db))->verify_admin_by_token($input);
+        $actor = '-';
+        $ok = false;
+        try {
+        $userModel = new UserModel($this->db);
+        $admin = $userModel->verify_admin_by_token($input);
+        $users = $userModel->get_by_token((string)($input['token'] ?? ''));
+        if (!empty($users[0]['name'])) {
+            $actor = (string)$users[0]['name'];
+        }
         if (!$admin['success']) {
             return [
                 'success' => false,
@@ -118,10 +135,14 @@ class PostAndMessageModel
             ];
         }
 
+        $ok = true;
         return [
             'success' => true,
             'message' => 'Message deleted.',
             'error' => '',
         ];
+        } finally {
+            (new LogModel())->record_result('delete contact message - admin', $ok, $actor);
+        }
     }
 }

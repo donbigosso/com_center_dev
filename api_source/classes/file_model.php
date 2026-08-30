@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/log_model.php';
+
 class FileModel {
     private DatabaseAccess $db;
     protected string $upload_folder;
@@ -58,7 +60,9 @@ class FileModel {
         $old_filename = $input['old_filename'] ?? '';
         $new_filename = $input['new_filename'] ?? '';
         $token = $input['token'] ?? '';
-
+        $username = $this->username_from_token($token);
+        $ok = false;
+        try {
         $user = new UserModel($this->db);
         if (!$user->get_by_token($token)) {
             return ["renamed" => false, "error" => "User is not logged in."];
@@ -82,7 +86,11 @@ class FileModel {
         }
 
         rename($old_path, $new_path);
+        $ok = true;
         return ["renamed" => true, "error" => ""];
+        } finally {
+            (new LogModel())->record_result('rename file', $ok, $username);
+        }
     }
     /**
      * Delete one file from media_items/ folder by basename.
@@ -309,6 +317,9 @@ class FileModel {
     public function delete_media_item_by_user(array $input): array
     {
         $token = trim((string)($input['token'] ?? ''));
+        $username = '-';
+        $ok = false;
+        try {
         if ($token === '') {
             return $this->media_delete_response(false, '', 'Token is required.');
         }
@@ -323,7 +334,13 @@ class FileModel {
             );
         }
 
-        return $this->delete_media_item_core($input);
+        $username = (string)($users[0]['name'] ?? '-');
+        $result = $this->delete_media_item_core($input);
+        $ok = !empty($result['success']);
+        return $result;
+        } finally {
+            (new LogModel())->record_result('delete media item', $ok, $username);
+        }
     }
 
     /**
@@ -333,6 +350,9 @@ class FileModel {
     public function delete_media_item_by_admin(array $input): array
     {
         $token = trim((string)($input['token'] ?? ''));
+        $username = '-';
+        $ok = false;
+        try {
         if ($token === '') {
             return $this->media_delete_response(false, '', 'Token is required.');
         }
@@ -356,7 +376,12 @@ class FileModel {
             );
         }
 
-        return $this->delete_media_item_core($input);
+        $result = $this->delete_media_item_core($input);
+        $ok = !empty($result['success']);
+        return $result;
+        } finally {
+            (new LogModel())->record_result('delete media item - admin', $ok, $username !== '' ? $username : '-');
+        }
     }
 
     /**
@@ -379,6 +404,9 @@ class FileModel {
      */
     public function upload_gallery_media(array $input): array
     {
+        $username = '-';
+        $ok = false;
+        try {
         $token = trim((string)($input['token'] ?? ''));
         $galleryId = isset($input['gallery_id'])
             ? (int)$input['gallery_id']
@@ -411,6 +439,7 @@ class FileModel {
         $userId = (int)($users[0]['user_id'] ?? 0);
         $username = (string)($users[0]['name'] ?? '');
         if ($userId <= 0 || $username === '') {
+            $username = '-';
             return $this->gallery_media_upload_fail('Could not resolve user.');
         }
 
@@ -557,6 +586,7 @@ class FileModel {
 
             $mediaResult = $galleryModel->get_gallery_media_item($galleryId, $mediaItemId);
 
+            $ok = true;
             return [
                 'success' => true,
                 'message' => 'Picture uploaded successfully.',
@@ -576,6 +606,9 @@ class FileModel {
         } catch (Throwable $e) {
             $manipulator->destroy();
             return $this->gallery_media_upload_fail('Failed to upload picture.');
+        }
+        } finally {
+            (new LogModel())->record_result('upload gallery media', $ok, $username !== '' ? $username : '-');
         }
     }
 
@@ -663,19 +696,29 @@ class FileModel {
 
     public function delete_file(array $input) {
         $file_to_delete = $input['file_to_delete'] ?? '';
+        $username = $this->username_from_token((string)($input['token'] ?? ''));
+        $ok = false;
+        try {
         $file_list = $this->show_files_in_folder($this->upload_folder);
 
         if (in_array($file_to_delete, $file_list)) {
             unlink($this->upload_folder . '/' . $file_to_delete);
+            $ok = true;
             return ["deleted" => true, "error" => ""];
         }
         return ["deleted" => false, "error" => "File does not exist."];
+        } finally {
+            (new LogModel())->record_result('delete file', $ok, $username);
+        }
     }
 
     // ====================== UPLOAD HELPERS ======================
 
     public function insert_uploaded_files(array $input) {
         $token = $input['token'] ?? '';
+        $username = $this->username_from_token((string)$token);
+        $ok = false;
+        try {
         $user = new UserModel($this->db);
 
         if (!$user->get_by_token($token)) {
@@ -746,12 +789,16 @@ class FileModel {
             }
         }
 
+        $ok = !empty($final_file_details);
         return [
             "success" => true,
             "error" => $error,
             "message" => $message,
             "uploaded_files" => $final_file_details
         ];
+        } finally {
+            (new LogModel())->record_result('upload file', $ok, $username);
+        }
     }
 
     public function check_extensions(array $file_names, array $allowed): array {
@@ -836,5 +883,15 @@ public function check_server_errors(array $file_name_list): array
         }
         
         return $move_results;
+    }
+
+    private function username_from_token(string $token): string
+    {
+        $token = trim($token);
+        if ($token === '') {
+            return '-';
+        }
+        $users = (new UserModel($this->db))->get_by_token($token);
+        return !empty($users[0]['name']) ? (string)$users[0]['name'] : '-';
     }
 }

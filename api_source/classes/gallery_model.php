@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/log_model.php';
 
 class GalleryModel
 {
@@ -115,7 +116,9 @@ class GalleryModel
         $token = trim((string)($input['token'] ?? ''));
         $title = trim((string)($input['title'] ?? ''));
         $description = trim((string)($input['description'] ?? ''));
-
+        $actor = $this->actor_from_token($token);
+        $ok = false;
+        try {
         if ($token === '') {
             return [
                 'success' => false,
@@ -139,6 +142,9 @@ class GalleryModel
         $creator = $users[0];
         $userId = (int)($creator['user_id'] ?? 0);
         $ownerName = $creator['name'] ?? null;
+        if (!empty($ownerName)) {
+            $actor = (string)$ownerName;
+        }
 
         if ($userId <= 0) {
             return [
@@ -210,6 +216,7 @@ class GalleryModel
                 ];
             }
 
+            $ok = true;
             return [
                 'success' => true,
                 'message' => 'Gallery created successfully.',
@@ -223,6 +230,9 @@ class GalleryModel
                 'error' => 'Failed to create gallery.',
                 'gallery' => null,
             ];
+        }
+        } finally {
+            (new LogModel())->record_result('create gallery', $ok, $actor);
         }
     }
 
@@ -262,7 +272,9 @@ class GalleryModel
     {
         $token = trim((string)($input['token'] ?? ''));
         $galleryId = isset($input['id']) ? (int)$input['id'] : 0;
-
+        $actor = $this->actor_from_token($token);
+        $ok = false;
+        try {
         if ($token === '') {
             return [
                 'success' => false,
@@ -401,6 +413,7 @@ class GalleryModel
             ]);
 
             $gallery = $this->get_gallery_by_id($galleryId);
+            $ok = true;
             return [
                 'success' => true,
                 'message' => 'Gallery updated successfully.',
@@ -414,6 +427,9 @@ class GalleryModel
                 'error' => 'Failed to update gallery.',
                 'gallery' => null,
             ];
+        }
+        } finally {
+            (new LogModel())->record_result('update gallery', $ok, $actor);
         }
     }
 
@@ -752,6 +768,16 @@ class GalleryModel
         return $userId > 0 ? $userId : null;
     }
 
+    private function actor_from_token(string $token): string
+    {
+        $token = trim($token);
+        if ($token === '') {
+            return '-';
+        }
+        $users = (new UserModel($this->db))->get_by_token($token);
+        return !empty($users[0]['name']) ? (string)$users[0]['name'] : '-';
+    }
+
     /**
      * Whether a media item belongs to a gallery.
      */
@@ -868,6 +894,9 @@ class GalleryModel
         $mediaId = isset($input['media_id'])
             ? (int)$input['media_id']
             : (isset($input['id']) ? (int)$input['id'] : 0);
+        $actor = $this->actor_from_token($token);
+        $ok = false;
+        try {
 
         $userId = $this->resolve_user_id_from_token($token);
         if ($userId === null) {
@@ -944,6 +973,7 @@ class GalleryModel
             ]);
 
             $result = $this->get_gallery_media_item($galleryId, $mediaId);
+            $ok = true;
             return [
                 'success' => true,
                 'message' => 'Picture updated successfully.',
@@ -957,6 +987,9 @@ class GalleryModel
                 'error' => 'Failed to update picture.',
                 'media' => null,
             ];
+        }
+        } finally {
+            (new LogModel())->record_result('update gallery media', $ok, $actor);
         }
     }
 
@@ -973,6 +1006,9 @@ class GalleryModel
         $mediaId = isset($input['media_id'])
             ? (int)$input['media_id']
             : (isset($input['id']) ? (int)$input['id'] : 0);
+        $actor = $this->actor_from_token($token);
+        $ok = false;
+        try {
 
         $userId = $this->resolve_user_id_from_token($token);
         if ($userId === null) {
@@ -1023,6 +1059,7 @@ class GalleryModel
                 'media_item_id' => $mediaId,
             ]);
 
+            $ok = true;
             return [
                 'success' => true,
                 'message' => 'Picture removed from gallery.',
@@ -1034,6 +1071,9 @@ class GalleryModel
                 'message' => '',
                 'error' => 'Failed to remove picture from gallery.',
             ];
+        }
+        } finally {
+            (new LogModel())->record_result('remove media from gallery', $ok, $actor);
         }
     }
 
@@ -1050,6 +1090,9 @@ class GalleryModel
         $mediaId = isset($input['media_id'])
             ? (int)$input['media_id']
             : (isset($input['id']) ? (int)$input['id'] : 0);
+        $actor = $this->actor_from_token($token);
+        $ok = false;
+        try {
 
         $userId = $this->resolve_user_id_from_token($token);
         if ($userId === null) {
@@ -1096,6 +1139,7 @@ class GalleryModel
             ]);
 
             $gallery = $this->get_gallery_by_id($galleryId);
+            $ok = true;
             return [
                 'success' => true,
                 'message' => 'Gallery cover updated successfully.',
@@ -1110,6 +1154,9 @@ class GalleryModel
                 'gallery' => null,
             ];
         }
+        } finally {
+            (new LogModel())->record_result('set gallery cover', $ok, $actor);
+        }
     }
 
     /**
@@ -1122,6 +1169,9 @@ class GalleryModel
     {
         $token = trim((string)($input['token'] ?? ''));
         $galleryId = isset($input['id']) ? (int)$input['id'] : 0;
+        $actor = $this->actor_from_token($token);
+        $ok = false;
+        try {
 
         $userId = $this->resolve_user_id_from_token($token);
         if ($userId === null) {
@@ -1156,7 +1206,12 @@ class GalleryModel
             ];
         }
 
-        return $this->delete_gallery_structure($galleryId, false);
+        $result = $this->delete_gallery_structure($galleryId, false);
+        $ok = !empty($result['success']);
+        return $result;
+        } finally {
+            (new LogModel())->record_result('delete gallery', $ok, $actor);
+        }
     }
 
     /**
@@ -1171,6 +1226,9 @@ class GalleryModel
         $galleryId = isset($input['id'])
             ? (int)$input['id']
             : (isset($input['gallery_id']) ? (int)$input['gallery_id'] : 0);
+        $actor = $this->actor_from_token($token);
+        $ok = false;
+        try {
 
         $userModel = new UserModel($this->db);
         $adminCheck = $userModel->verify_admin_by_token($input);
@@ -1249,6 +1307,7 @@ class GalleryModel
             }
 
             $title = (string)($gallery['title'] ?? '');
+            $ok = true;
             return [
                 'success' => true,
                 'message' => $title !== ''
@@ -1264,6 +1323,9 @@ class GalleryModel
                 'error' => 'Failed to delete gallery.',
                 'media_deleted' => 0,
             ];
+        }
+        } finally {
+            (new LogModel())->record_result('delete gallery - admin', $ok, $actor);
         }
     }
 

@@ -1,4 +1,6 @@
-<?php 
+<?php
+require_once __DIR__ . '/log_model.php';
+
 class UserModel
 {
     private DatabaseAccess $db;
@@ -38,25 +40,31 @@ class UserModel
     }
 
     public function new_user_create(string $name, string $password){
-        if(!empty($this->get_by_name($name))){
-            return false;
+        $ok = false;
+        try {
+            if(!empty($this->get_by_name($name))){
+                return false;
+            }
+            if(empty($name) || empty($password)){
+                return false;
+            }
+            $pass_regex = '/^(?=.*[A-Z])(?=.*\d).{10,}$/';
+            $pass_verify= preg_match($pass_regex, $password);
+            $user_regex = '/^[a-zA-Z0-9_]{4,16}$/';
+            $username_verify = preg_match($user_regex, $name);
+            if(!$pass_verify || !$username_verify){
+                return false;
+            }
+            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+            $this->db->insert('users', [
+                'name'       => $name,
+                'password'   => $hashed_password
+            ]);
+            $ok = true;
+            return true;
+        } finally {
+            (new LogModel())->record_result('create user', $ok, $name !== '' ? $name : '-');
         }
-        if(empty($name) || empty($password)){
-            return false;
-        }
-        $pass_regex = '/^(?=.*[A-Z])(?=.*\d).{10,}$/';
-        $pass_verify= preg_match($pass_regex, $password);
-        $user_regex = '/^[a-zA-Z0-9_]{4,16}$/';
-        $username_verify = preg_match($user_regex, $name);
-        if(!$pass_verify || !$username_verify){
-            return false;
-        }
-        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-        $this->db->insert('users', [
-            'name'       => $name,
-            'password'   => $hashed_password
-        ]);
-        return true;
     }
 
 
@@ -73,8 +81,12 @@ class UserModel
          if ($user) {
             
             $test_verify =  password_verify($password, $user[0]["password"]);
+            if (!$test_verify) {
+                (new LogModel())->record_result('login', false, $username !== '' ? $username : '-');
+            }
             return $test_verify ;
         }
+        (new LogModel())->record_result('login', false, $username !== '' ? $username : '-');
         return false; 
 
        
@@ -117,14 +129,22 @@ class UserModel
 
     public function set_token_and_validity(string $username, string $token, int $days=5)
     {
-        $token=$this->create_user_token($username, $token);
-        $validity=$this->set_token_validity($username, $days);
-        if(!$token || !$validity){
-            return false;
+        $ok = false;
+        try {
+            $token=$this->create_user_token($username, $token);
+            $validity=$this->set_token_validity($username, $days);
+            if(!$token || !$validity){
+                return false;
+            }
+            $ok = true;
+            return [$token, $validity];
+        } finally {
+            (new LogModel())->record_result('login', $ok, $username !== '' ? $username : '-');
         }
-        return [$token, $validity];
     }  
     public function reset_user_token(string $username){
+     $ok = false;
+     try {
      $user = $this->get_by_name($username);
         if (!$user) {
             return false;
@@ -135,7 +155,11 @@ class UserModel
      $date->modify('-3 days');
      $database_format_date = $date->format('Y-m-d H:i:s');
      $this->db->update('users', ['token_validity' => $database_format_date, 'token' => null], ['name' => $username]);
+     $ok = true;
      return $date;
+     } finally {
+         (new LogModel())->record_result('logout', $ok, $username !== '' ? $username : '-');
+     }
     }
     
 
@@ -171,14 +195,22 @@ class UserModel
     }
     
 
-    public function reset_user_password( string $username, string $password){
+    public function reset_user_password( string $username, string $password, bool $write_log = true){
+            $ok = false;
+            try {
             $user = $this->get_by_name($username);
         if (!$user) {
             return false;
         }
         $username = $user[0]['name'];
         $this->db->update('users', ['password' => password_hash($password, PASSWORD_DEFAULT)], ['name' => $username]);
+        $ok = true;
         return true;
+            } finally {
+                if ($write_log) {
+                    (new LogModel())->record_result('reset password', $ok, $username !== '' ? $username : '-');
+                }
+            }
     }
 
     public function check_token_existence(string $token) : bool
@@ -225,6 +257,8 @@ class UserModel
         $message = "";
         $error = "";
         $user_to_delete = $input['name'] ?? '';
+        $admin = $this->actor_from_token((string)($input['token'] ?? ''));
+        try {
         $admin_check = $this->verify_admin_by_token($input);
         if(!$admin_check['success']) {
     $error = "User is not admin.";
@@ -246,6 +280,9 @@ return [
     "error" => $error,
     "message" => $message
 ];
+        } finally {
+            (new LogModel())->record_result('delete user - admin', $success, $admin);
+        }
         
         
     }
@@ -255,7 +292,9 @@ return [
         $success = false;
         $message = "";
         $error = "";
+        $admin = $this->actor_from_token((string)($input['token'] ?? ''));
 
+        try {
         $admin_check = $this->verify_admin_by_token($input);
         if(!$admin_check['success']) {
             $error = "User is not admin.";
@@ -296,7 +335,7 @@ return [
             ];
         }
 
-        if($this->reset_user_password($username, $password)) {
+        if($this->reset_user_password($username, $password, false)) {
             $success = true;
             $message = "Password changed for user: $username";
         } else {
@@ -307,9 +346,20 @@ return [
             "error" => $error,
             "message" => $message
         ];
-    }   
+        } finally {
+            (new LogModel())->record_result('reset password - admin', $success, $admin);
+        }
+    }
 
-    
+    private function actor_from_token(string $token): string
+    {
+        $token = trim($token);
+        if ($token === '') {
+            return '-';
+        }
+        $users = $this->get_by_token($token);
+        return !empty($users[0]['name']) ? (string)$users[0]['name'] : '-';
+    }
 
 }
 

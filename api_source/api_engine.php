@@ -10,7 +10,7 @@
     include 'classes/image_manipulator.php';
     include 'classes/tailored_db_methods_2.php';
     include 'classes/post_and_message_model.php';
-    include 'classes/log_model.php';
+    require_once __DIR__ . '/classes/log_model.php';
     $core = new Core();
     $db   = getenv('MYSQL_DATABASE');
     $user = getenv('MYSQL_USER');
