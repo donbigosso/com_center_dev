@@ -149,7 +149,7 @@ class PostAndMessageModel
     /**
      * POST create_post — logged-in user inserts a row into posts.
      * Body: api_key, token, content (required); topic (optional).
-     * Content allows <b>, <i>, <u> and http(s) links; other HTML is stripped.
+     * Content allows <b>, <i>, <u>, <ol>, <ul>, <li> and http(s) links; other HTML is stripped.
      *
      * @return array{success:bool,message:string,error:string,post:?array}
      */
@@ -378,8 +378,8 @@ class PostAndMessageModel
     }
 
     /**
-     * Allow <b>, <i>, <u> and <a href="https://..."> only. Strip scripts,
-     * event handlers, and non-http(s) URLs to keep stored HTML XSS-safe.
+     * Allow <b>, <i>, <u>, <ol>, <ul>, <li> and <a href="https://..."> only.
+     * Strip scripts, event handlers, and non-http(s) URLs to keep stored HTML XSS-safe.
      */
     private function sanitize_post_content(string $content): string
     {
@@ -389,9 +389,9 @@ class PostAndMessageModel
             return '';
         }
 
-        $content = strip_tags($content, '<b><i><u><a>');
-        $content = preg_replace('/<(b|i|u)(\s[^>]*)?>/i', '<$1>', $content) ?? $content;
-        $content = preg_replace('/<\/(b|i|u)(\s[^>]*)?>/i', '</$1>', $content) ?? $content;
+        $content = strip_tags($content, '<b><i><u><ol><ul><li><a>');
+        $content = preg_replace('/<(b|i|u|ol|ul|li)(\s[^>]*)?>/i', '<$1>', $content) ?? $content;
+        $content = preg_replace('/<\/(b|i|u|ol|ul|li)(\s[^>]*)?>/i', '</$1>', $content) ?? $content;
 
         $content = preg_replace_callback(
             '/<a\s+([^>]*)>/i',
