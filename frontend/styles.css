@@ -2282,6 +2282,11 @@ body.gallery-lightbox-open {
   color: var(--ft-text);
 }
 
+/* Keep auth-gated action buttons hidden until JS shows them (beats .ft-action-btn display) */
+.file-transfer-page .ft-action-btn.logged-only {
+  display: none;
+}
+
 .file-transfer-page .ft-action-btn i {
   pointer-events: none;
 }

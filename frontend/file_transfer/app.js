@@ -10,7 +10,7 @@ import "../functions/UploadFunctions.js";
 document.addEventListener("DOMContentLoaded", () => {
   (async () => {
     addFileListToTable(await getFileList());
-    handleAutoLogin();
+    await handleAutoLogin();
     initializeTableSorting();
     initializeTableButtons();
     performTests();

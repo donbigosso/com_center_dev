@@ -103,6 +103,9 @@ export async function handleAutoLogin(){
         showLoggedOnly();
         displayLoggedUser();
         hideUnloggedOnly();
+    } else {
+        hideLoggedOnly();
+        showUnloggedOnly();
     }
 }
 
