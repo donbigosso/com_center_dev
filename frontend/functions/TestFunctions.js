@@ -4,7 +4,7 @@ import {getSessionToken} from "./CustomFunctions.js";
 import {requestDeleteFile} from "./RequestFunctions.js";
 import {POSTJSONRequest} from "./CoreFunctions.js";
 import {createMediaTilePic, createPictureWrapper} from "./GalleryFunctions.js";
-import {getPLN_GMD_w_text, getAstronoutsHTML} from "./ExtApiFunctions.js";
+import {getPLN_GMD_w_text} from "./ExtApiFunctions.js";
 
 
 
@@ -67,6 +67,6 @@ export async function runtCCtests (){
 //  console.log(await getAustronautsNames());
   let GMDconversionRate = await getPLN_GMD_w_text("PLN", "GMD");
   resultArea1.textContent = GMDconversionRate;
-  let result2 = await getAstronoutsHTML();
+  let result2 = "Result 2 not set";
   resultArea2.innerHTML = result2;
 }

@@ -85,6 +85,18 @@ export async function getEUR_GMD_w_text(){
 const FREECRYPTOAPI_BASE = "https://api.freecryptoapi.com/v1";
 let cachedFreeCryptoApiKey = null;
 
+async function fetchWithTimeout(url, timeoutMs = 5000, headers) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { signal: controller.signal, headers });
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    return await response.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function getFreeCryptoApiKey() {
   if (cachedFreeCryptoApiKey) return cachedFreeCryptoApiKey;
   const { getSetting } = await import("./CoreFunctions.js");
@@ -152,136 +164,4 @@ export async function getBTC_PLN_w_text() {
   const rate = await getBTC_PLNrate();
   return "BTC/PLN: " + rate;
 }
-
-
-//ISS
-// open-notify.org is HTTP-only with no CORS support, so on an HTTPS
-// site the browser blocks it outright (mixed content). We proxy both
-// calls through our own backend (api_engine.php: get_iss_position /
-// get_astronauts), which fetches open-notify server-side instead.
-
-async function fetchWithTimeout(url, timeoutMs = 5000, headers) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, { signal: controller.signal, headers });
-    if (!response.ok) throw new Error("HTTP " + response.status);
-    return await response.json();
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function getISSastroData(){
-    const { fetchAPIdataWGetParams } = await import("./CoreFunctions.js");
-    const result = await fetchAPIdataWGetParams({ request: "get_astronauts" });
-    if (!result || !result.success) {
-      const err = new Error(result?.error || "ISS astronaut data fetch failed");
-      console.error(err.message);
-      throw err;
-    }
-    return result.data;
-}
-
-export async function getCurrentAstronoutNumber(){
-    const data = await getISSastroData();
-    return data.number;
-}
-
-export async function getCurrentAstronouts_w_text(){
-    const number = await getCurrentAstronoutNumber();
-    return "People in space: " + number;
-}
-
-export async function getAustronautsNames(){
-    const data = await getISSastroData();
-    return data.people;
-}
-
-export async function getAstronoutsHTML(){
-  let namesList = await getAustronautsNames();
-  // Group by craft
-  let grouped = namesList.reduce((acc, person) => {
-    if (!acc[person.craft]) acc[person.craft] = [];
-    acc[person.craft].push(person.name);
-    return acc;
-  }, {});
-
-  // Build HTML
-  let html = '';
-  for (let craft in grouped) {
-    html += `<b>${craft}</b>\n<ul>\n`;
-    grouped[craft].forEach(name => {
-      html += `  <li>${name}</li>\n`;
-    });
-    html += `</ul>\n`;
-  }
-
-  return html;
-}
-
-let lastISSPosition = null; // module-level cache
-
-async function getISSpositionData() {
-  const { fetchAPIdataWGetParams } = await import("./CoreFunctions.js");
-  const result = await fetchAPIdataWGetParams({ request: "get_iss_position" });
-  if (!result || !result.success) {
-    const err = new Error(result?.error || "ISS position fetch failed");
-    console.error(err.message);
-    throw err;
-  }
-  return result.data;
-}
-
-export async function getISSposition() {
-  try {
-    const data = await getISSpositionData();
-    const longitude = data.iss_position.longitude;
-    const latitude = data.iss_position.latitude;
-    return longitude + ", " + latitude;
-  } catch (err) {
-    console.error("ISS position fetch failed:", err);
-    throw err;
-  }
-}
-
-export async function updateISSPosition(elementId = "result_2") {
-  const resultArea = document.getElementById(elementId);
-  if (!resultArea) return;
-
-  const sep = resultArea.previousElementSibling;
-  const isSep = sep && sep.classList && sep.classList.contains("cc-infobar-sep");
-
-  try {
-    const data = await getISSpositionData();
-    lastISSPosition =
-      `ISS position: ${data.iss_position.latitude}, ${data.iss_position.longitude}`;
-    resultArea.textContent = lastISSPosition;
-    resultArea.classList.remove("d-none");
-    if (isSep) sep.classList.remove("d-none");
-  } catch (error) {
-    // Keep previous value if we have one; otherwise show loading (first paint).
-    if (lastISSPosition !== null) {
-      resultArea.textContent = lastISSPosition;
-      resultArea.classList.remove("d-none");
-      if (isSep) sep.classList.remove("d-none");
-    } else {
-      resultArea.textContent = "Loading ISS position data";
-      resultArea.classList.remove("d-none");
-      if (isSep) sep.classList.remove("d-none");
-    }
-    console.error(error);
-  }
-}
-
-export function startISSPositionUpdate(elementId = "result_2") {
-  updateISSPosition(elementId);
-  setInterval(() => {
-    updateISSPosition(elementId);
-  }, 5000);
-}
-
-
-
-
 

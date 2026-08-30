@@ -1530,12 +1530,6 @@ body.gallery-lightbox-open {
   white-space: nowrap;
 }
 
-.command-center-page .cc-infobar-item-clickable {
-  cursor: pointer;
-  text-decoration: underline dotted;
-  text-underline-offset: 2px;
-}
-
 .command-center-page .cc-infobar-sep {
   color: var(--cc-border-strong);
 }

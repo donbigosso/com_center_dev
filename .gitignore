@@ -14,6 +14,10 @@ api_source/uploads/*
 !api_source/uploads/.gitkeep
 #copy of index
 index copy.php 
+#logs 
+api_source/logs/*
+!api_source/logs/.gitkeep
+
 
 vendor/
 uploads/*
