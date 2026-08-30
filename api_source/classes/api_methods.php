@@ -221,7 +221,13 @@ class ApiMethods extends Core
                     break;
                 case 'delete_contact_message':
                     $this->handle_delete_contact_message($input);
-                    break;    
+                    break;
+                case 'create_post':
+                    $this->handle_create_post($input);
+                    break;
+                case 'delete_post':
+                    $this->handle_delete_post($input);
+                    break;
                 default:
                     $this->send_JSON_Response(false, "", "", "Unknown request: " . $input['request']);
                     break;
@@ -912,4 +918,29 @@ public function handle_clear_token(array $input): void{
                 $result['error']
             );
         }
+
+    private function handle_create_post(array $input): void
+    {
+        $model = new PostAndMessageModel($this->db_access);
+        $result = $model->create_post($input);
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            ['post' => $result['post']]
+        );
+    }
+
+    private function handle_delete_post(array $input): void
+    {
+        $model = new PostAndMessageModel($this->db_access);
+        $result = $model->delete_post($input);
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error']
+        );
+    }
 }
