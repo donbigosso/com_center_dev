@@ -378,8 +378,26 @@ class PostAndMessageModel
     }
 
     /**
-     * Allow <b>, <i>, <u>, <ol>, <ul>, <li> and <a href="https://..."> only.
-     * Strip scripts, event handlers, and non-http(s) URLs to keep stored HTML XSS-safe.
+     * Post content is stored as a small custom markup, NOT raw HTML.
+     * This keeps storage inert (nothing here can ever be interpreted as a
+     * tag by a browser) and lets the frontend render it purely with
+     * document.createElement / appendChild (see
+     * frontend/functions/PostContentFunctions.js) — never innerHTML — so
+     * stored content cannot cause XSS even if this sanitizer had a bug.
+     *
+     * Supported formatting a user can type in a post:
+     *   [b]bold text[/b]
+     *   [i]italic text[/i]
+     *   [u]underlined text[/u]
+     *   [ol][li]first[/li][li]second[/li][/ol]   -> ordered list
+     *   [ul][li]first[/li][li]second[/li][/ul]   -> unordered list
+     *   [url=https://example.com]link text[/url] -> link (http/https only)
+     *
+     * Anything else — real HTML tags, unknown [tags], unmatched brackets —
+     * is left as plain, literal text: strip_tags() removes actual HTML
+     * first, then only the whitelisted [tag] patterns below are recognized;
+     * everything else round-trips as-is and is displayed verbatim by the
+     * frontend parser instead of being interpreted.
      */
     private function sanitize_post_content(string $content): string
     {
@@ -389,33 +407,82 @@ class PostAndMessageModel
             return '';
         }
 
-        $content = strip_tags($content, '<b><i><u><ol><ul><li><a>');
-        $content = preg_replace('/<(b|i|u|ol|ul|li)(\s[^>]*)?>/i', '<$1>', $content) ?? $content;
-        $content = preg_replace('/<\/(b|i|u|ol|ul|li)(\s[^>]*)?>/i', '</$1>', $content) ?? $content;
+        // Remove any literal HTML the user pasted in — only our own
+        // [tag] markup below is ever treated as formatting.
+        $content = strip_tags($content);
 
+        $allowedTags = ['b', 'i', 'u', 'ol', 'ul', 'li'];
+
+        // Normalize/validate every [tag] occurrence. [url=...] additionally
+        // requires a safe http(s) href or it is dropped (its label text is
+        // kept, the tag itself is not).
         $content = preg_replace_callback(
-            '/<a\s+([^>]*)>/i',
-            function (array $matches): string {
-                $attrs = $matches[1];
-                $href = '';
-                if (preg_match('/href\s*=\s*(["\'])(.*?)\1/i', $attrs, $hrefMatch)) {
-                    $href = $hrefMatch[2];
-                } elseif (preg_match('/href\s*=\s*([^\s>]+)/i', $attrs, $hrefMatch)) {
-                    $href = $hrefMatch[1];
+            '/\[(\/?)([a-zA-Z]+)(=[^\]]*)?\]/',
+            function (array $matches) use ($allowedTags): string {
+                $closing = $matches[1] === '/';
+                $tag = strtolower($matches[2]);
+                $rawAttr = isset($matches[3]) ? ltrim($matches[3], '=') : '';
+
+                if ($tag === 'url') {
+                    if ($closing) {
+                        return '[/url]';
+                    }
+                    $href = html_entity_decode(trim($rawAttr, " \t\"'"), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $safeHref = $this->sanitize_href($href);
+                    // Invalid/unsafe href: drop the tag, keep surrounding text intact.
+                    return $safeHref !== null ? '[url=' . $safeHref . ']' : '';
                 }
 
-                $href = html_entity_decode($href, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                $safeHref = $this->sanitize_href($href);
-                if ($safeHref === null) {
-                    return '<a>';
+                if (in_array($tag, $allowedTags, true)) {
+                    return $closing ? "[/{$tag}]" : "[{$tag}]";
                 }
 
-                return '<a href="' . htmlspecialchars($safeHref, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '" rel="noopener noreferrer" target="_blank">';
+                // Not one of our known tags: leave the brackets as plain
+                // text rather than as active markup.
+                return htmlspecialchars($matches[0], ENT_QUOTES | ENT_HTML5, 'UTF-8');
             },
             $content
         ) ?? $content;
 
-        return trim($content);
+        return trim($this->balance_markup_tags($content, $allowedTags));
+    }
+
+    /**
+     * Drops closing [tag]s that never had a matching opener and auto-closes
+     * any tag still open at the end of the content, so malformed nesting
+     * from the client (or a hand-crafted request) can't produce markup the
+     * frontend parser would render unbalanced.
+     */
+    private function balance_markup_tags(string $content, array $allowedTags): string
+    {
+        $trackedTags = array_merge($allowedTags, ['url']);
+        $pattern = '/\[(\/?)(' . implode('|', $trackedTags) . ')(=[^\]]*)?\]/i';
+
+        $stack = [];
+        $result = preg_replace_callback($pattern, function (array $m) use (&$stack): string {
+            $closing = $m[1] === '/';
+            $tag = strtolower($m[2]);
+
+            if (!$closing) {
+                $stack[] = $tag;
+                return $m[0];
+            }
+
+            // Only keep a closing tag if it matches the most recently opened one.
+            if (!empty($stack) && end($stack) === $tag) {
+                array_pop($stack);
+                return $m[0];
+            }
+
+            return ''; // stray closing tag, drop it
+        }, $content) ?? $content;
+
+        // Auto-close anything left open, innermost first.
+        while (!empty($stack)) {
+            $result .= '[/' . array_pop($stack) . ']';
+        }
+
+        return $result;
     }
 
     private function sanitize_href(string $url): ?string
