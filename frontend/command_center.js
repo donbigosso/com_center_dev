@@ -5,7 +5,7 @@ import { initApiAddressCache, initFileSettingsCache, showFeedback } from "./func
 import { validateContactForm } from "./functions/FormValidation.js";
 import { getSetting } from "./functions/CoreFunctions.js";
 import { createContactMessage } from "./functions/RequestFunctions.js";
-import { runtCCtests } from "./functions/TestFunctions.js";
+import { runtCCtests, initHomepagePostTest } from "./functions/TestFunctions.js";
 import { initInfobar } from "./functions/InfoBarFunctions.js";
 
 const WEB3FORMS_ENDPOINT = "https://api.web3forms.com/submit";

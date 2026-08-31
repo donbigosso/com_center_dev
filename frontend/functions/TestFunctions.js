@@ -5,6 +5,7 @@ import {requestDeleteFile} from "./RequestFunctions.js";
 import {POSTJSONRequest} from "./CoreFunctions.js";
 import {createMediaTilePic, createPictureWrapper} from "./GalleryFunctions.js";
 import {getPLN_GMD_w_text} from "./ExtApiFunctions.js";
+import { createPostForm, listPosts, renderPostCard } from "./PostFunctions.js";
 
 
 
@@ -42,7 +43,6 @@ const test_response= await requestDeleteFile("	sddefault.jpg", "supertoken1234")
     
 }
 
-
 export function createImagepics(){
   const wrapper = createPictureWrapper();
   
@@ -54,19 +54,52 @@ export function createImagepics(){
   document.getElementById("pics").appendChild(wrapper);
 }
 
+export async function renderLastPost(container) {
+  if (!(container instanceof HTMLElement)) {
+    return;
+  }
 
+  container.replaceChildren();
+  const response = await listPosts({ page: 1, limit: 1 });
+  const posts = response?.data?.posts || [];
+
+  if (!response?.success || posts.length === 0) {
+    container.textContent = "no posts";
+    return;
+  }
+
+  container.appendChild(renderPostCard(posts[0]));
+}
+
+export function mountTestPostForm(container, onCreated) {
+  if (!(container instanceof HTMLElement)) {
+    return null;
+  }
+
+  container.replaceChildren();
+  return createPostForm(container, { onCreated });
+}
+
+export async function initHomepagePostTest() {
+  const formSlot = document.getElementById("result_1");
+  const readSlot = document.getElementById("result_2");
+  if (!formSlot || !readSlot) {
+    return;
+  }
+
+  mountTestPostForm(formSlot, async () => {
+    await renderLastPost(readSlot);
+  });
+  await renderLastPost(readSlot);
+}
 
 export async function runtCCtests (){
   const testArea = document.getElementById("cc-test-area");
   
-  // Connemt/uncomment below line to display test area
-  testArea.classList.add('d-none');
-  const resultArea1 = document.getElementById("result_1");  
-  const resultArea2 = document.getElementById("result_2");  
-//  startISSPositionUpdate();
-//  console.log(await getAustronautsNames());
-  let GMDconversionRate = await getPLN_GMD_w_text("PLN", "GMD");
-  resultArea1.textContent = GMDconversionRate;
-  let result2 = "Result 2 not set";
-  resultArea2.innerHTML = result2;
+  // Keep visible so homepage post create/read can be tested
+  if (testArea) {
+    testArea.classList.remove("d-none");
+  }
+
+  await initHomepagePostTest();
 }
