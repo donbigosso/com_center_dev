@@ -101,6 +101,12 @@ class ApiMethods extends Core
                 case 'get_gallery_cover_miniature_filename':
                     $this->handle_get_gallery_cover_miniature_filename($input);
                     break;
+                case 'get_post':
+                    $this->handle_get_post($input);
+                    break;
+                case 'list_posts':
+                    $this->handle_list_posts($input);
+                    break;
                 case 'download':
                     $this->handle_download();
                     break;
@@ -941,6 +947,39 @@ public function handle_clear_token(array $input): void{
             $result['message'],
             '',
             $result['error']
+        );
+    }
+
+    private function handle_get_post(array $input): void
+    {
+        $model = new PostAndMessageModel($this->db_access);
+        $result = $model->get_post($input);
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            ['post' => $result['post']]
+        );
+    }
+
+    private function handle_list_posts(array $input): void
+    {
+        $model = new PostAndMessageModel($this->db_access);
+        $result = $model->list_posts($input);
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            [
+                'posts' => $result['posts'],
+                'page' => $result['page'],
+                'limit' => $result['limit'],
+                'total' => $result['total'],
+                'has_more' => $result['has_more'],
+                'author_filter' => $result['author_filter'],
+            ]
         );
     }
 }

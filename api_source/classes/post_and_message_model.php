@@ -369,6 +369,132 @@ class PostAndMessageModel
         }
     }
 
+
+    /**
+     * GET get_post — public read of one posts row.
+     * Query: id|post_id.
+     *
+     * @return array{success:bool,message:string,error:string,post:?array}
+     */
+    public function get_post(array $input): array
+    {
+        $postId = (int)($input['post_id'] ?? $input['id'] ?? 0);
+        if ($postId <= 0) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'id is required.',
+                'post' => null,
+            ];
+        }
+
+        $rows = $this->db->queryAll(
+            'SELECT
+                p.post_id,
+                p.author_id,
+                u.name AS author,
+                p.topic,
+                p.content,
+                p.date_added
+             FROM posts p
+             LEFT JOIN users u ON u.user_id = p.author_id
+             WHERE p.post_id = :id
+             LIMIT 1',
+            [':id' => $postId]
+        );
+
+        if (empty($rows)) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Post not found.',
+                'post' => null,
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Post retrieved.',
+            'error' => '',
+            'post' => $this->map_post_row($rows[0]),
+        ];
+    }
+
+    /**
+     * GET list_posts — paginated public list.
+     * Query: page (default 1), limit (default 20, max 100), user (optional author name).
+     *
+     * @return array{success:bool,message:string,error:string,posts:array,page:int,limit:int,total:int,has_more:bool,author_filter:?string}
+     */
+    public function list_posts(array $input): array
+    {
+        $page = max(1, (int)($input['page'] ?? 1));
+        $limit = max(1, min(100, (int)($input['limit'] ?? 20)));
+        $offset = ($page - 1) * $limit;
+        $author = trim((string)($input['user'] ?? $input['author'] ?? ''));
+        if ($author === '') {
+            $author = null;
+        }
+
+        $params = [];
+        $authorSql = '';
+        if ($author !== null) {
+            $authorSql = ' AND u.name = :author_name ';
+            $params[':author_name'] = $author;
+        }
+
+        $total = (int)($this->db->queryValue(
+            "SELECT COUNT(*)
+             FROM posts p
+             LEFT JOIN users u ON u.user_id = p.author_id
+             WHERE 1=1 {$authorSql}",
+            $params
+        ) ?? 0);
+
+        $rows = $this->db->queryAll(
+            "SELECT
+                p.post_id,
+                p.author_id,
+                u.name AS author,
+                p.topic,
+                p.content,
+                p.date_added
+             FROM posts p
+             LEFT JOIN users u ON u.user_id = p.author_id
+             WHERE 1=1 {$authorSql}
+             ORDER BY p.date_added DESC, p.post_id DESC
+             LIMIT {$limit} OFFSET {$offset}",
+            $params
+        );
+
+        $posts = array_map(fn(array $row): array => $this->map_post_row($row), $rows);
+        $returned = count($posts);
+
+        return [
+            'success' => true,
+            'message' => 'Posts retrieved.',
+            'error' => '',
+            'posts' => $posts,
+            'page' => $page,
+            'limit' => $limit,
+            'total' => $total,
+            'has_more' => ($offset + $returned) < $total,
+            'author_filter' => $author,
+        ];
+    }
+
+    private function map_post_row(array $row): array
+    {
+        return [
+            'post_id' => (int)$row['post_id'],
+            'author_id' => isset($row['author_id']) ? (int)$row['author_id'] : null,
+            'author' => $row['author'] ?? null,
+            'topic' => $row['topic'] !== null && $row['topic'] !== '' ? $row['topic'] : null,
+            'content' => $row['content'] ?? '',
+            'date_added' => $row['date_added'] ?? null,
+        ];
+    }
+
     private function is_valid_api_key(array $input): bool
     {
         $apiKeys = json_decode((string)getenv('API_KEYS'), true);
