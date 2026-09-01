@@ -1,0 +1,211 @@
+/* ==========================================================================
+   POSTS — dark green, matching command-center-page (--cc-* tokens)
+   Scoped under .command-center-page so other pages stay unchanged.
+   Covers: create-post form/modal, formatting toolbar, live preview,
+   and rendered post cards produced by frontend/functions/PostFunctions.js
+   and PostContentFunctions.js.
+
+   Load this after styles.css, e.g.:
+     <link rel="stylesheet" href="styles.css">
+     <link rel="stylesheet" href="post-styles.css">
+   ========================================================================== */
+
+/* ----- Form shell (works both inline via createPostForm() and inside
+   the create-post modal via handleAddPost()) ----- */
+
+.command-center-page .post-form {
+  color: var(--cc-text);
+}
+
+.command-center-page .post-form .form-label {
+  color: var(--cc-text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Inline mount (not inside .cc-modal) still needs dark inputs */
+.command-center-page .post-form .form-control {
+  background: #06140e;
+  border: 1px solid var(--cc-border-strong);
+  border-radius: var(--cc-radius);
+  color: var(--cc-text);
+  padding: 0.7rem 0.85rem;
+}
+
+.command-center-page .post-form .form-control:focus {
+  background: #06140e;
+  color: var(--cc-text);
+  border-color: var(--cc-accent);
+  box-shadow: 0 0 0 0.2rem var(--cc-accent-soft);
+}
+
+.command-center-page .post-form .form-control::placeholder {
+  color: var(--cc-text-dim);
+}
+
+.command-center-page .post-form textarea.form-control {
+  resize: vertical;
+  min-height: 8rem;
+  line-height: 1.5;
+}
+
+/* ----- Formatting toolbar ----- */
+
+.command-center-page .post-toolbar {
+  gap: 0.4rem;
+}
+
+.command-center-page .post-toolbar .btn {
+  margin: 0 !important;
+  min-width: 2.4rem;
+  border-radius: var(--cc-radius);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.command-center-page .post-toolbar .btn-outline-secondary {
+  background: transparent;
+  border: 1px solid var(--cc-border-strong);
+  color: var(--cc-text-muted);
+}
+
+.command-center-page .post-toolbar .btn-outline-secondary:hover,
+.command-center-page .post-toolbar .btn-outline-secondary:focus {
+  background: var(--cc-accent);
+  border-color: var(--cc-accent);
+  color: #04120c;
+}
+
+/* ----- Live preview pane ----- */
+
+.command-center-page .post-preview {
+  background: var(--cc-bg-elevated) !important;
+  border: 1px solid var(--cc-border) !important;
+  border-radius: var(--cc-radius);
+  min-height: 4rem;
+  padding: 0.85rem 1rem !important;
+  color: var(--cc-text);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.command-center-page .post-preview:empty::before {
+  content: "Nothing to preview yet — start typing above.";
+  color: var(--cc-text-dim);
+  font-style: italic;
+}
+
+/* Formatting tags rendered inside the preview (and inside .post-body,
+   see below) — kept minimal since PostContentFunctions.js only ever
+   produces b/i/u/ol/ul/li/a nodes. */
+.command-center-page .post-preview b,
+.command-center-page .post-preview strong,
+.command-center-page .post-body b,
+.command-center-page .post-body strong {
+  color: #fff;
+  font-weight: 700;
+}
+
+.command-center-page .post-preview i,
+.command-center-page .post-preview em,
+.command-center-page .post-body i,
+.command-center-page .post-body em {
+  color: var(--cc-text);
+}
+
+.command-center-page .post-preview u,
+.command-center-page .post-body u {
+  text-decoration-color: var(--cc-accent);
+}
+
+.command-center-page .post-preview ol,
+.command-center-page .post-preview ul,
+.command-center-page .post-body ol,
+.command-center-page .post-body ul {
+  margin: 0.35rem 0 0.35rem 1.1rem;
+  padding-left: 0.6rem;
+}
+
+.command-center-page .post-preview li,
+.command-center-page .post-body li {
+  margin-bottom: 0.2rem;
+}
+
+.command-center-page .post-preview a,
+.command-center-page .post-body a {
+  color: var(--cc-accent);
+  text-decoration: underline;
+  text-decoration-color: var(--cc-accent-soft);
+  text-underline-offset: 0.15em;
+}
+
+.command-center-page .post-preview a:hover,
+.command-center-page .post-body a:hover {
+  color: #4cb07a;
+}
+
+/* ----- Alert / feedback inside the post form ----- */
+
+.command-center-page .post-form .alert-danger {
+  background: rgba(255, 107, 107, 0.14);
+  border: 1px solid rgba(255, 107, 107, 0.35);
+  color: #ffb3b3;
+  border-radius: var(--cc-radius);
+  font-size: 0.85rem;
+}
+
+/* ----- Inline "Post" submit button (createPostForm's own button;
+   the modal footer's Post button is already covered by .cc-modal) ----- */
+
+.command-center-page .post-form > .btn-primary {
+  background: var(--cc-accent);
+  border: 1px solid var(--cc-accent);
+  color: #04120c;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.65rem 1.35rem;
+  border-radius: var(--cc-radius);
+}
+
+.command-center-page .post-form > .btn-primary:hover {
+  background: #4cb07a;
+  border-color: #4cb07a;
+  color: #04120c;
+}
+
+/* ----- Rendered post card (renderPostCard / renderPost) ----- */
+
+.command-center-page .post-card {
+  background: var(--cc-card);
+  border: 1px solid var(--cc-border) !important;
+  border-radius: var(--cc-radius);
+  transition: border-color 0.3s var(--cc-ease), background 0.3s var(--cc-ease);
+}
+
+.command-center-page .post-card:hover {
+  background: var(--cc-card-hover);
+  border-color: var(--cc-border-strong) !important;
+}
+
+.command-center-page .post-topic {
+  color: var(--cc-text);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.command-center-page .post-meta {
+  color: var(--cc-text-dim) !important;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.command-center-page .post-body {
+  color: var(--cc-text-muted);
+}
