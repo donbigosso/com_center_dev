@@ -1,9 +1,10 @@
 import { POSTJSONRequest, fetchAPIdataWGetParams, getSetting } from "./CoreFunctions.js";
 import { getSessionToken, showFeedback } from "./CustomFunctions.js";
 import { showGenericModal } from "./NewModalMethods.js";
-import { newHideModal, createDIV, createLabel, createBootstrapTextInput, createBootstrapTextArea, createButton } from "./PageAppearance.js";
+import { newHideModal, createDIV, createLabel, createBootstrapTextInput, createBootstrapTextArea, createButton, createHTMLelement } from "./PageAppearance.js";
 import { verifySession } from "./RequestFunctions.js";
 import { renderPostContent } from "./PostContentFunctions.js";
+import { createPictureWrapper, getGalleryFolder } from "./GalleryFunctions.js";
 
 /*
  * Post formatting reference
@@ -268,6 +269,148 @@ export function renderPostCard(post) {
   const body = createDIV("post-body");
   renderPostContent(body, post?.content || "");
   card.appendChild(body);
+  return card;
+}
+
+// Bootstrap Icons class per media_items.media_type (VID/YT — PIC gets a real thumbnail instead).
+function mediaTypeIcon(mediaType) {
+  switch (mediaType) {
+    case "VID":
+      return "bi-camera-reels";
+    case "YT":
+      return "bi-youtube";
+    default:
+      return "bi-image";
+  }
+}
+
+// Simple, single-image fullscreen viewer for post pictures. Unlike the
+// gallery lightbox this has no prev/next navigation and never touches the
+// address bar — it just shows the one picture that was clicked.
+function ensurePostImageViewer() {
+  let root = document.getElementById("post-image-viewer");
+  if (root) return root;
+
+  root = createDIV("post-image-viewer");
+  root.id = "post-image-viewer";
+
+  const backdrop = createDIV("post-image-viewer-backdrop");
+  const img = createHTMLelement("img", "post-image-viewer-img");
+  img.id = "post-image-viewer-img";
+  img.alt = "";
+
+  const closeBtn = createButton("button", "\u00d7", "btn post-image-viewer-close");
+  closeBtn.type = "button";
+  closeBtn.setAttribute("aria-label", "Close");
+
+  const close = () => {
+    root.classList.remove("is-open");
+    img.src = "";
+  };
+  closeBtn.addEventListener("click", close);
+  backdrop.addEventListener("click", close);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && root.classList.contains("is-open")) close();
+  });
+
+  root.appendChild(backdrop);
+  root.appendChild(img);
+  root.appendChild(closeBtn);
+  document.body.appendChild(root);
+  return root;
+}
+
+function openPostImageViewer(fullUrl, title) {
+  const root = ensurePostImageViewer();
+  const img = document.getElementById("post-image-viewer-img");
+  img.src = fullUrl;
+  img.alt = title || "";
+  root.classList.add("is-open");
+}
+
+// Media tile shown under a post's content: a real 200x200 thumbnail for
+// pictures (click opens the fullscreen viewer above), or an icon+title
+// tile for non-picture media (video/YouTube) and pictures with no file
+// on disk.
+function createPostMediaTile(mediaItem, folder) {
+  const col = createDIV("col-auto");
+
+  const isPicture = mediaItem?.media_type === "PIC" && mediaItem?.miniature_filename && mediaItem?.filename && folder;
+
+  if (isPicture) {
+    const thumbUrl = `${folder}${encodeURIComponent(mediaItem.miniature_filename)}`;
+    const fullUrl = `${folder}${encodeURIComponent(mediaItem.filename)}`;
+
+    const tile = createDIV("post-media-pic-tile");
+    const img = createHTMLelement("img", "post-media-pic-img");
+    img.src = thumbUrl;
+    img.alt = mediaItem.title || "Attached picture";
+    img.loading = "lazy";
+    img.decoding = "async";
+
+    tile.setAttribute("role", "button");
+    tile.tabIndex = 0;
+    tile.title = mediaItem.title || "Open full size";
+    const open = () => openPostImageViewer(fullUrl, mediaItem.title);
+    tile.addEventListener("click", open);
+    tile.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        open();
+      }
+    });
+
+    tile.appendChild(img);
+    col.appendChild(tile);
+    return col;
+  }
+
+  const tile = createDIV("post-media-tile d-flex align-items-center");
+  const icon = createHTMLelement("i", `bi ${mediaTypeIcon(mediaItem?.media_type)} post-media-tile-icon`);
+  const title = createHTMLelement("span", "post-media-tile-title");
+  title.textContent = mediaItem?.title || "Untitled";
+
+  tile.appendChild(icon);
+  tile.appendChild(title);
+  col.appendChild(tile);
+  return col;
+}
+
+/**
+ * Same as renderPostCard(), plus a row of media tiles for anything
+ * attached to the post via the media_in_post table (post.media, populated
+ * server-side by get_post / list_posts). Pictures render as a real
+ * 200x200 thumbnail that opens a single-image fullscreen viewer on click
+ * (no browsing between pictures, no address-bar changes); video/YouTube
+ * items fall back to an icon+title tile. Returns a plain post card,
+ * unchanged, when the post has no attached media.
+ * @param {object} post
+ * @returns {Promise<HTMLElement>}
+ */
+export async function renderPostCardWithMedia(post) {
+  const card = renderPostCard(post);
+
+  const media = Array.isArray(post?.media) ? post.media : [];
+  if (media.length === 0) {
+    return card;
+  }
+
+  const folder = await getGalleryFolder();
+
+  const mediaSection = createDIV("post-media-section mt-3");
+  const mediaLabel = createDIV("post-media-label");
+  mediaLabel.textContent = "Attached media";
+  const mediaRow = createPictureWrapper();
+  mediaRow.classList.add("post-media-row");
+
+  media.forEach((mediaItem) => {
+    mediaRow.appendChild(createPostMediaTile(mediaItem, folder));
+  });
+
+  mediaSection.appendChild(mediaLabel);
+  mediaSection.appendChild(mediaRow);
+  card.appendChild(mediaSection);
+
   return card;
 }
 

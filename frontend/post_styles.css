@@ -209,3 +209,141 @@
 .command-center-page .post-body {
   color: var(--cc-text-muted);
 }
+
+/* ----- Attached media tiles (renderPostCardWithMedia in PostFunctions.js)
+   Title-only tiles for rows from media_in_post — no thumbnail, just an
+   icon by media_type + the media_items.title, sitting below the post
+   content. Reuses .gallery-pictures-row (createPictureWrapper() from
+   GalleryFunctions.js) for the grid, so spacing matches gallery tiles. ----- */
+
+.command-center-page .post-media-section {
+  border-top: 1px dashed var(--cc-border);
+  padding-top: 0.75rem;
+}
+
+.command-center-page .post-media-label {
+  color: var(--cc-text-dim);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+.command-center-page .post-media-row.gallery-pictures-row {
+  --bs-gutter-x: 0.6rem;
+  --bs-gutter-y: 0.6rem;
+}
+
+.command-center-page .post-media-tile {
+  background: var(--cc-bg-elevated);
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius);
+  padding: 0.4rem 0.75rem;
+  gap: 0.5rem;
+  transition: border-color 0.3s var(--cc-ease), background 0.3s var(--cc-ease);
+}
+
+.command-center-page .post-media-tile:hover {
+  background: var(--cc-card-hover);
+  border-color: var(--cc-accent-soft);
+}
+
+.command-center-page .post-media-tile-icon {
+  color: var(--cc-accent);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.command-center-page .post-media-tile-title {
+  color: var(--cc-text);
+  font-size: 0.82rem;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ----- Picture tiles (media_type PIC): real 200x200 thumbnail ----- */
+
+.command-center-page .post-media-pic-tile {
+  width: 200px;
+  height: 200px;
+  border-radius: var(--cc-radius);
+  border: 1px solid var(--cc-border);
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--cc-bg-elevated);
+  transition: border-color 0.3s var(--cc-ease), transform 0.2s var(--cc-ease);
+}
+
+.command-center-page .post-media-pic-tile:hover,
+.command-center-page .post-media-pic-tile:focus-visible {
+  border-color: var(--cc-accent);
+  transform: translateY(-2px);
+  outline: none;
+}
+
+.command-center-page .post-media-pic-img {
+  width: 200px;
+  height: 200px;
+  object-fit: cover;
+  display: block;
+}
+
+/* ----- Fullscreen single-image viewer (openPostImageViewer in
+   PostFunctions.js) — no prev/next, no address-bar interaction, just
+   the clicked picture over a dimmed backdrop. ----- */
+
+#post-image-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 1080;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+#post-image-viewer.is-open {
+  display: flex;
+}
+
+.post-image-viewer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 10, 7, 0.88);
+  backdrop-filter: blur(2px);
+}
+
+.post-image-viewer-img {
+  position: relative;
+  max-width: min(92vw, 1400px);
+  max-height: 92vh;
+  border-radius: var(--cc-radius);
+  border: 1px solid var(--cc-border-strong);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  object-fit: contain;
+}
+
+.post-image-viewer-close {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.5rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  background: var(--cc-bg-elevated);
+  border: 1px solid var(--cc-border-strong);
+  color: var(--cc-text);
+  font-size: 1.6rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.post-image-viewer-close:hover {
+  background: var(--cc-accent);
+  border-color: var(--cc-accent);
+  color: #04120c;
+}

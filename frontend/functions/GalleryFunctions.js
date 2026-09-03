@@ -253,7 +253,7 @@ function fromDatetimeLocalValue(value) {
 /**
  * Base URL for media files (trailing slash), from settings.json gallery_folder.
  */
-async function getGalleryFolder() {
+export async function getGalleryFolder() {
   if (cachedGalleryFolder) return cachedGalleryFolder;
 
   const folder = await getSetting("gallery_folder");

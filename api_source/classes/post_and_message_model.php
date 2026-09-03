@@ -412,11 +412,14 @@ class PostAndMessageModel
             ];
         }
 
+        $post = $this->map_post_row($rows[0]);
+        $post['media'] = $this->get_media_for_post_ids([$post['post_id']])[$post['post_id']] ?? [];
+
         return [
             'success' => true,
             'message' => 'Post retrieved.',
             'error' => '',
-            'post' => $this->map_post_row($rows[0]),
+            'post' => $post,
         ];
     }
 
@@ -468,6 +471,13 @@ class PostAndMessageModel
         );
 
         $posts = array_map(fn(array $row): array => $this->map_post_row($row), $rows);
+
+        $mediaByPost = $this->get_media_for_post_ids(array_column($posts, 'post_id'));
+        foreach ($posts as &$post) {
+            $post['media'] = $mediaByPost[$post['post_id']] ?? [];
+        }
+        unset($post);
+
         $returned = count($posts);
 
         return [
@@ -492,7 +502,77 @@ class PostAndMessageModel
             'topic' => $row['topic'] !== null && $row['topic'] !== '' ? $row['topic'] : null,
             'content' => $row['content'] ?? '',
             'date_added' => $row['date_added'] ?? null,
+            // 'media' is filled in separately by get_media_for_post_ids()
+            // once the caller knows every post_id it needs (see get_post /
+            // list_posts) so we only ever run one extra query, not one per post.
+            'media' => [],
         ];
+    }
+
+    /**
+     * Bulk-fetch media attached to posts via media_in_post, keyed by post_id.
+     * Same filename/miniature_filename convention as
+     * GalleryModel::list_gallery_media() ({base}_sm.{ext}) so the frontend
+     * can resolve thumbnail/full-size URLs against the same gallery_folder
+     * setting regardless of whether the media came from a gallery or a post.
+     *
+     * @param array<int> $postIds
+     * @return array<int, array<int, array{
+     *   media_item_id:int, title:?string, media_type:string,
+     *   filename:?string, miniature_filename:?string
+     * }>>
+     */
+    private function get_media_for_post_ids(array $postIds): array
+    {
+        $postIds = array_values(array_unique(array_map('intval', $postIds)));
+        $postIds = array_filter($postIds, fn(int $id): bool => $id > 0);
+        if (empty($postIds)) {
+            return [];
+        }
+
+        $placeholders = [];
+        $params = [];
+        foreach ($postIds as $i => $id) {
+            $key = ":post_id_{$i}";
+            $placeholders[] = $key;
+            $params[$key] = $id;
+        }
+
+        $rows = $this->db->queryAll(
+            'SELECT
+                mip.post_id,
+                mi.media_item_id,
+                mi.title,
+                mi.media_type,
+                f.filename
+             FROM media_in_post mip
+             JOIN media_items mi ON mi.media_item_id = mip.media_item_id
+             JOIN files f ON f.file_id = mi.file_id
+             WHERE mip.post_id IN (' . implode(', ', $placeholders) . ')
+             ORDER BY mi.media_item_id ASC',
+            $params
+        );
+
+        $byPost = [];
+        foreach ($rows as $row) {
+            $postId = (int)$row['post_id'];
+            $filename = (string)($row['filename'] ?? '');
+            $base = pathinfo($filename, PATHINFO_FILENAME);
+            $ext = pathinfo($filename, PATHINFO_EXTENSION);
+            $miniature = $filename !== ''
+                ? ($ext !== '' ? "{$base}_sm.{$ext}" : "{$base}_sm")
+                : null;
+
+            $byPost[$postId][] = [
+                'media_item_id' => (int)$row['media_item_id'],
+                'title' => $row['title'] !== null && $row['title'] !== '' ? $row['title'] : null,
+                'media_type' => (string)$row['media_type'],
+                'filename' => $filename !== '' ? $filename : null,
+                'miniature_filename' => $miniature,
+            ];
+        }
+
+        return $byPost;
     }
 
     private function is_valid_api_key(array $input): bool

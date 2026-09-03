@@ -5,7 +5,7 @@ import {requestDeleteFile} from "./RequestFunctions.js";
 import {POSTJSONRequest} from "./CoreFunctions.js";
 import {createMediaTilePic, createPictureWrapper} from "./GalleryFunctions.js";
 import {getPLN_GMD_w_text} from "./ExtApiFunctions.js";
-import { createPostForm, listPosts, renderPostCard } from "./PostFunctions.js";
+import { createPostForm, listPosts, renderPostCardWithMedia } from "./PostFunctions.js";
 
 
 
@@ -68,7 +68,8 @@ export async function renderLastPost(container) {
     return;
   }
 
-  container.appendChild(renderPostCard(posts[0]));
+  // Last post now includes attached media (if any) via media_in_post.
+  container.appendChild(await renderPostCardWithMedia(posts[0]));
 }
 
 export function mountTestPostForm(container, onCreated) {
