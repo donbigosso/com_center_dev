@@ -7,8 +7,110 @@
 
    Load this after styles.css, e.g.:
      <link rel="stylesheet" href="styles.css">
-     <link rel="stylesheet" href="post-styles.css">
+     <link rel="stylesheet" href="post_styles.css">
+
+   Also covers frontend/create_post.html (body.create-post-page).
    ========================================================================== */
+
+/* ----- Create-post page layout (create_post.html) ----- */
+
+.command-center-page.create-post-page .cc-main {
+  max-width: 44rem;
+}
+
+.command-center-page.create-post-page .create-post-panel {
+  width: 100%;
+  margin-bottom: 3rem;
+  padding: 1.75rem 1.5rem;
+  background: var(--cc-card);
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius);
+}
+
+.command-center-page.create-post-page .create-post-section-title {
+  margin: 0 0 0.4rem;
+  font-size: 1.45rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.command-center-page.create-post-page .create-post-section-lead,
+.command-center-page.create-post-page .create-post-empty {
+  margin: 0 0 1.25rem;
+  color: var(--cc-text-muted);
+  font-size: 0.95rem;
+}
+
+.command-center-page.create-post-page .create-post-empty {
+  margin-bottom: 0;
+}
+
+.command-center-page.create-post-page #create-post-param-alert {
+  background: rgba(255, 193, 7, 0.12);
+  border: 1px solid rgba(255, 193, 7, 0.35);
+  color: #f3d48a;
+}
+
+/* ----- Media picker on the create-post form ----- */
+
+.command-center-page .post-media-picker-hint {
+  color: var(--cc-text-dim);
+  font-size: 0.82rem;
+  margin: -0.35rem 0 0.85rem;
+}
+
+.command-center-page .post-media-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.command-center-page .post-media-slot {
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+  padding: 0.75rem;
+  background: var(--cc-bg-elevated);
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius);
+}
+
+.command-center-page .post-media-slot-preview {
+  width: 88px;
+  height: 88px;
+  object-fit: cover;
+  border-radius: var(--cc-radius);
+  border: 1px solid var(--cc-border);
+  flex: 0 0 auto;
+}
+
+.command-center-page .post-media-slot-fields {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.command-center-page .post-media-slot-remove {
+  margin-top: 0.55rem;
+}
+
+.command-center-page .post-media-add-btn {
+  border: 1px solid var(--cc-border-strong);
+  color: var(--cc-text-muted);
+}
+
+.command-center-page .post-media-add-btn:hover,
+.command-center-page .post-media-add-btn:focus {
+  background: var(--cc-accent);
+  border-color: var(--cc-accent);
+  color: #04120c;
+}
+
+.command-center-page .post-media-add-btn:disabled {
+  opacity: 0.55;
+  background: transparent;
+  color: var(--cc-text-dim);
+}
 
 /* ----- Form shell (works both inline via createPostForm() and inside
    the create-post modal via handleAddPost()) ----- */
@@ -267,6 +369,7 @@
 /* ----- Picture tiles (media_type PIC): real 200x200 thumbnail ----- */
 
 .command-center-page .post-media-pic-tile {
+  position: relative;
   width: 200px;
   height: 200px;
   border-radius: var(--cc-radius);
@@ -291,6 +394,22 @@
   display: block;
 }
 
+.command-center-page .post-media-pic-title {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0.4rem 0.5rem;
+  background: linear-gradient(transparent, rgba(4, 18, 12, 0.88));
+  color: var(--cc-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ----- Fullscreen single-image viewer (openPostImageViewer in
    PostFunctions.js) — no prev/next, no address-bar interaction, just
    the clicked picture over a dimmed backdrop. ----- */
@@ -306,6 +425,7 @@
 
 #post-image-viewer.is-open {
   display: flex;
+  flex-direction: column;
 }
 
 .post-image-viewer-backdrop {
@@ -318,7 +438,7 @@
 .post-image-viewer-img {
   position: relative;
   max-width: min(92vw, 1400px);
-  max-height: 92vh;
+  max-height: 82vh;
   border-radius: var(--cc-radius);
   border: 1px solid var(--cc-border-strong);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
@@ -346,4 +466,20 @@
   background: var(--cc-accent);
   border-color: var(--cc-accent);
   color: #04120c;
+}
+
+.post-image-viewer-caption {
+  position: relative;
+  z-index: 1;
+  max-width: min(92vw, 1400px);
+  margin-top: 0.75rem;
+  padding: 0.45rem 0.85rem;
+  background: var(--cc-bg-elevated);
+  border: 1px solid var(--cc-border-strong);
+  border-radius: var(--cc-radius);
+  color: var(--cc-text);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: center;
+  align-self: center;
 }

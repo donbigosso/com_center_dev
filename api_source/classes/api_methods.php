@@ -107,6 +107,9 @@ class ApiMethods extends Core
                 case 'list_posts':
                     $this->handle_list_posts($input);
                     break;
+                case 'list_post_pages':
+                    $this->handle_list_post_pages($input);
+                    break;
                 case 'download':
                     $this->handle_download();
                     break;
@@ -191,6 +194,9 @@ class ApiMethods extends Core
                     break;
                 case 'upload_gallery_media':
                     $this->handle_upload_gallery_media($input);
+                    break;
+                case 'upload_post_media':
+                    $this->handle_upload_post_media($input);
                     break;
                 case 'get_file_settings':
                     $this->handle_get_file_settings();
@@ -829,6 +835,28 @@ public function handle_clear_token(array $input): void{
         );
     }
 
+    /**
+     * POST upload_post_media — single picture upload for a post (multipart).
+     * Fields: token, post_id, title|caption, file (one image). Max 5 per post.
+     * Description is not collected; media_items.descr is stored as null.
+     */
+    private function handle_upload_post_media(array $input): void
+    {
+        $file_model = new FileModel($this->db_access);
+        $result = $file_model->upload_post_media($input);
+
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            [
+                'media' => $result['media'],
+                'post_id' => $result['post_id'],
+            ]
+        );
+    }
+
     public function handle_send_table_to_frontend(array $input){
         $s=true;
         $msg="msg";
@@ -979,7 +1007,21 @@ public function handle_clear_token(array $input): void{
                 'total' => $result['total'],
                 'has_more' => $result['has_more'],
                 'author_filter' => $result['author_filter'],
+                'on_page' => $result['on_page'] ?? null,
             ]
+        );
+    }
+
+    private function handle_list_post_pages(array $input): void
+    {
+        $model = new PostAndMessageModel($this->db_access);
+        $pages = $model->list_post_pages();
+        $this->send_JSON_Response(
+            true,
+            'Post pages retrieved.',
+            '',
+            '',
+            ['pages' => $pages]
         );
     }
 }

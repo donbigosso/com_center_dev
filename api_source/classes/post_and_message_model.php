@@ -213,6 +213,16 @@ class PostAndMessageModel
                 ];
             }
 
+            $page = strtoupper(trim((string)($input['page'] ?? '')));
+            if ($page !== '' && !$this->is_valid_post_page($page)) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Invalid page. Allowed: ' . implode(', ', $this->get_post_page_enums()) . '.',
+                    'post' => null,
+                ];
+            }
+
             $rawContent = (string)($input['content'] ?? '');
             $content = $this->sanitize_post_content($rawContent);
             if ($content === '') {
@@ -248,6 +258,13 @@ class PostAndMessageModel
                 ];
             }
 
+            if ($page !== '') {
+                $this->db->insert('posts_in_pages', [
+                    'post_id' => $postId,
+                    'page' => $page,
+                ]);
+            }
+
             $ok = true;
             return [
                 'success' => true,
@@ -259,6 +276,8 @@ class PostAndMessageModel
                     'author' => $actor !== '-' ? $actor : null,
                     'topic' => $topic !== '' ? $topic : null,
                     'content' => $content,
+                    'pages' => $page !== '' ? [$page] : [],
+                    'media' => [],
                 ],
             ];
         } finally {
@@ -346,6 +365,7 @@ class PostAndMessageModel
             }
 
             $this->db->delete('media_in_post', ['post_id' => $postId]);
+            $this->db->delete('posts_in_pages', ['post_id' => $postId]);
             $deleted = $this->db->delete('posts', [
                 'post_id' => $postId,
                 'author_id' => $authorId,
@@ -425,7 +445,9 @@ class PostAndMessageModel
 
     /**
      * GET list_posts — paginated public list.
-     * Query: page (default 1), limit (default 20, max 100), user (optional author name).
+     * Query: page (default 1), limit (default 20, max 100),
+     *        user (optional author name),
+     *        on_page (optional posts_in_pages.page ENUM: TRIP, BLOG, ABOUT).
      *
      * @return array{success:bool,message:string,error:string,posts:array,page:int,limit:int,total:int,has_more:bool,author_filter:?string}
      */
@@ -446,11 +468,38 @@ class PostAndMessageModel
             $params[':author_name'] = $author;
         }
 
+        $onPage = strtoupper(trim((string)($input['on_page'] ?? $input['page_enum'] ?? '')));
+        if ($onPage === '') {
+            $onPage = null;
+        } elseif (!$this->is_valid_post_page($onPage)) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Invalid on_page. Allowed: ' . implode(', ', $this->get_post_page_enums()) . '.',
+                'posts' => [],
+                'page' => $page,
+                'limit' => $limit,
+                'total' => 0,
+                'has_more' => false,
+                'author_filter' => $author,
+                'on_page' => $onPage,
+            ];
+        }
+
+        $pageJoinSql = '';
+        $pageSql = '';
+        if ($onPage !== null) {
+            $pageJoinSql = ' INNER JOIN posts_in_pages pip ON pip.post_id = p.post_id ';
+            $pageSql = ' AND pip.page = :on_page ';
+            $params[':on_page'] = $onPage;
+        }
+
         $total = (int)($this->db->queryValue(
             "SELECT COUNT(*)
              FROM posts p
              LEFT JOIN users u ON u.user_id = p.author_id
-             WHERE 1=1 {$authorSql}",
+             {$pageJoinSql}
+             WHERE 1=1 {$authorSql} {$pageSql}",
             $params
         ) ?? 0);
 
@@ -464,7 +513,8 @@ class PostAndMessageModel
                 p.date_added
              FROM posts p
              LEFT JOIN users u ON u.user_id = p.author_id
-             WHERE 1=1 {$authorSql}
+             {$pageJoinSql}
+             WHERE 1=1 {$authorSql} {$pageSql}
              ORDER BY p.date_added DESC, p.post_id DESC
              LIMIT {$limit} OFFSET {$offset}",
             $params
@@ -490,7 +540,18 @@ class PostAndMessageModel
             'total' => $total,
             'has_more' => ($offset + $returned) < $total,
             'author_filter' => $author,
+            'on_page' => $onPage,
         ];
+    }
+
+    /**
+     * GET list_post_pages — allowed posts_in_pages.page ENUM values.
+     *
+     * @return array<int, string>
+     */
+    public function list_post_pages(): array
+    {
+        return $this->get_post_page_enums();
     }
 
     private function map_post_row(array $row): array
@@ -573,6 +634,19 @@ class PostAndMessageModel
         }
 
         return $byPost;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function get_post_page_enums(): array
+    {
+        return ['TRIP', 'BLOG', 'ABOUT'];
+    }
+
+    private function is_valid_post_page(string $page): bool
+    {
+        return in_array(strtoupper($page), $this->get_post_page_enums(), true);
     }
 
     private function is_valid_api_key(array $input): bool

@@ -18,7 +18,13 @@ import { createPictureWrapper, getGalleryFolder } from "./GalleryFunctions.js";
  *   createPostForm(document.getElementById("form-slot"));
  *   renderPost(document.getElementById("post-slot"), 12);
  *   handleAddPost(); // modal, same as galleries
+ *
+ * Dedicated create page:
+ *   frontend/create_post.html?page=TRIP&include_media=yes
  */
+
+export const MAX_POST_MEDIA = 5;
+export const POST_PAGE_ENUMS = ["TRIP", "BLOG", "ABOUT"];
 
 let postFormSeq = 0;
 
@@ -94,14 +100,142 @@ function nextFormIds() {
     textarea: `post-content-textarea-${n}`,
     preview: `post-preview-pane-${n}`,
     alert: `post-form-alert-${n}`,
+    media: `post-media-picker-${n}`,
   };
 }
 
-async function submitPostFromIds(ids, errorField) {
+function defaultCaptionFromFilename(filename) {
+  const base = String(filename || "picture").replace(/\.[^.]+$/, "");
+  return base.slice(0, 255);
+}
+
+/**
+ * Inline picture picker for create-post: caption + file, max N items.
+ * Description is intentionally omitted; caption maps to media_items.title.
+ */
+function buildPostMediaPicker(ids, maxMedia = MAX_POST_MEDIA) {
+  const items = [];
+  let seq = 0;
+
+  const section = createDIV("post-media-picker mt-4");
+  const heading = createLabel(
+    `Pictures (optional, up to ${maxMedia})`,
+    ids.media,
+    "form-label"
+  );
+  const hint = createDIV("post-media-picker-hint");
+  hint.textContent = "Each picture needs a caption. No description is stored.";
+
+  const list = createDIV("post-media-picker-list");
+  list.id = ids.media;
+
+  const fileInput = createHTMLelement("input", "d-none");
+  fileInput.type = "file";
+  fileInput.accept = "image/jpeg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp";
+  fileInput.multiple = true;
+
+  const addBtn = createButton("button", "Add picture", "btn btn-sm btn-outline-secondary post-media-add-btn");
+  addBtn.type = "button";
+
+  const updateAddState = () => {
+    const remaining = maxMedia - items.length;
+    addBtn.disabled = remaining <= 0;
+    addBtn.textContent = remaining <= 0 ? "Picture limit reached" : "Add picture";
+    fileInput.multiple = remaining > 1;
+  };
+
+  const removeItem = (itemId) => {
+    const index = items.findIndex((item) => item.id === itemId);
+    if (index < 0) return;
+    const [removed] = items.splice(index, 1);
+    if (removed?.previewUrl) {
+      URL.revokeObjectURL(removed.previewUrl);
+    }
+    const row = list.querySelector(`[data-media-slot="${itemId}"]`);
+    if (row) row.remove();
+    updateAddState();
+  };
+
+  const addFiles = (fileList) => {
+    const incoming = Array.from(fileList || []);
+    const remaining = maxMedia - items.length;
+    incoming.slice(0, remaining).forEach((file) => {
+      seq += 1;
+      const itemId = `${ids.media}-${seq}`;
+      const previewUrl = URL.createObjectURL(file);
+      const item = {
+        id: itemId,
+        file,
+        caption: defaultCaptionFromFilename(file.name),
+        previewUrl,
+      };
+      items.push(item);
+
+      const row = createDIV("post-media-slot");
+      row.dataset.mediaSlot = itemId;
+
+      const preview = createHTMLelement("img", "post-media-slot-preview");
+      preview.src = previewUrl;
+      preview.alt = item.caption;
+
+      const fields = createDIV("post-media-slot-fields");
+      const captionId = `${itemId}-caption`;
+      const captionLabel = createLabel("Caption", captionId, "form-label");
+      const captionInput = createBootstrapTextInput(captionId, true, 255, item.caption);
+      captionInput.addEventListener("input", () => {
+        item.caption = captionInput.value;
+      });
+
+      const removeBtn = createButton("button", "Remove", "btn btn-sm btn-outline-danger post-media-slot-remove");
+      removeBtn.type = "button";
+      removeBtn.addEventListener("click", () => removeItem(itemId));
+
+      fields.appendChild(captionLabel);
+      fields.appendChild(captionInput);
+      fields.appendChild(removeBtn);
+      row.appendChild(preview);
+      row.appendChild(fields);
+      list.appendChild(row);
+    });
+    updateAddState();
+  };
+
+  addBtn.addEventListener("click", () => {
+    if (items.length >= maxMedia) return;
+    fileInput.click();
+  });
+
+  fileInput.addEventListener("change", () => {
+    addFiles(fileInput.files);
+    fileInput.value = "";
+  });
+
+  section.appendChild(heading);
+  section.appendChild(hint);
+  section.appendChild(list);
+  section.appendChild(fileInput);
+  section.appendChild(addBtn);
+  updateAddState();
+
+  return {
+    element: section,
+    getItems: () =>
+      items.map((item) => ({
+        file: item.file,
+        caption: (item.caption || "").trim(),
+      })),
+    reset: () => {
+      [...items].forEach((item) => removeItem(item.id));
+    },
+  };
+}
+
+async function submitPostFromIds(ids, errorField, extras = {}) {
   const textarea = document.getElementById(ids.textarea);
   const topicInput = document.getElementById(ids.topic);
   const content = (textarea?.value || "").trim();
   const topic = (topicInput?.value || "").trim();
+  const mediaItems = typeof extras.getMediaItems === "function" ? extras.getMediaItems() : [];
 
   if (errorField) {
     errorField.style.display = "none";
@@ -116,6 +250,32 @@ async function submitPostFromIds(ids, errorField) {
     return null;
   }
 
+  if (mediaItems.length > MAX_POST_MEDIA) {
+    if (errorField) {
+      errorField.textContent = `A post can have at most ${MAX_POST_MEDIA} pictures.`;
+      errorField.style.display = "block";
+    }
+    return null;
+  }
+
+  for (const item of mediaItems) {
+    const caption = (item.caption || "").trim();
+    if (!item.file) {
+      if (errorField) {
+        errorField.textContent = "Each picture needs a file.";
+        errorField.style.display = "block";
+      }
+      return null;
+    }
+    if (caption === "") {
+      if (errorField) {
+        errorField.textContent = "Each picture needs a caption.";
+        errorField.style.display = "block";
+      }
+      return null;
+    }
+  }
+
   const sessionToken = getSessionToken();
   if (!sessionToken) {
     if (errorField) {
@@ -125,7 +285,7 @@ async function submitPostFromIds(ids, errorField) {
     return null;
   }
 
-  const response = await createPost(topic, content, sessionToken);
+  const response = await createPost(topic, content, sessionToken, extras.page || null);
   if (!response?.success || !response.data?.post) {
     if (errorField) {
       errorField.textContent = response?.error || "Failed to create post";
@@ -134,13 +294,51 @@ async function submitPostFromIds(ids, errorField) {
     return null;
   }
 
-  return response.data.post;
+  const post = response.data.post;
+  const postId = post.post_id;
+  const uploadedMedia = [];
+
+  for (const item of mediaItems) {
+    const upload = await uploadPostMedia({
+      postId,
+      caption: (item.caption || "").trim(),
+      file: item.file,
+      sessionToken,
+    });
+    if (!upload?.success || !upload.data?.media) {
+      if (errorField) {
+        errorField.textContent =
+          upload?.error ||
+          "Post was created but a picture failed to upload. You can try again with a new post.";
+        errorField.style.display = "block";
+      }
+      post.media = uploadedMedia;
+      return post;
+    }
+    uploadedMedia.push(upload.data.media);
+  }
+
+  if (uploadedMedia.length > 0) {
+    const refreshed = await getPost(postId);
+    if (refreshed?.success && refreshed.data?.post) {
+      return refreshed.data.post;
+    }
+    post.media = uploadedMedia;
+  }
+
+  return post;
 }
 
 /**
  * Mount a create-post form into any container.
  * @param {HTMLElement} container
- * @param {{ onCreated?: (post: object) => void, showSubmit?: boolean }} [opts]
+ * @param {{
+ *   onCreated?: (post: object) => void,
+ *   showSubmit?: boolean,
+ *   page?: string|null,
+ *   includeMedia?: boolean,
+ *   maxMedia?: number,
+ * }} [opts]
  * @returns {{ form: HTMLElement, ids: object } | null}
  */
 export function createPostForm(container, opts = {}) {
@@ -155,6 +353,15 @@ export function createPostForm(container, opts = {}) {
   alert.style.display = "none";
   form.appendChild(alert);
 
+  const includeMedia = Boolean(opts.includeMedia);
+  const maxMedia = Number(opts.maxMedia) > 0 ? Number(opts.maxMedia) : MAX_POST_MEDIA;
+  let mediaPicker = null;
+
+  if (includeMedia) {
+    mediaPicker = buildPostMediaPicker(ids, maxMedia);
+    form.appendChild(mediaPicker.element);
+  }
+
   if (opts.showSubmit !== false) {
     const submit = createButton("button", "Post", "btn btn-primary mt-3");
     submit.addEventListener("click", async () => {
@@ -163,10 +370,26 @@ export function createPostForm(container, opts = {}) {
         showFeedback("You must be logged in");
         return;
       }
+      const originalLabel = submit.textContent;
+      submit.disabled = true;
+      submit.textContent = includeMedia ? "Publishing…" : "Posting…";
       try {
-        const post = await submitPostFromIds(ids, alert);
+        const post = await submitPostFromIds(ids, alert, {
+          page: opts.page || null,
+          getMediaItems: mediaPicker ? mediaPicker.getItems : null,
+        });
         if (!post) return;
-        showFeedback("Post created successfully");
+        const mediaFailed = alert.style.display === "block";
+        showFeedback(mediaFailed ? "Post created, but some pictures failed" : "Post created successfully");
+        if (!mediaFailed) {
+          const topicInput = document.getElementById(ids.topic);
+          const textarea = document.getElementById(ids.textarea);
+          const previewPane = document.getElementById(ids.preview);
+          if (topicInput) topicInput.value = "";
+          if (textarea) textarea.value = "";
+          if (previewPane) previewPane.replaceChildren();
+          if (mediaPicker) mediaPicker.reset();
+        }
         if (typeof opts.onCreated === "function") {
           opts.onCreated(post);
         }
@@ -174,6 +397,9 @@ export function createPostForm(container, opts = {}) {
         console.error("Create post error:", err);
         alert.textContent = "Failed to create post";
         alert.style.display = "block";
+      } finally {
+        submit.disabled = false;
+        submit.textContent = originalLabel;
       }
     });
     form.appendChild(submit);
@@ -220,15 +446,51 @@ export async function handleAddPost() {
   });
 }
 
-export async function createPost(topic, content, sessionToken) {
+export async function createPost(topic, content, sessionToken, page = null) {
   const apiKey = await getSetting("api_key");
-  return POSTJSONRequest({
+  const payload = {
     request: "create_post",
     api_key: apiKey,
     token: sessionToken,
     topic,
     content,
+  };
+  if (page) {
+    payload.page = page;
+  }
+  return POSTJSONRequest(payload);
+}
+
+export async function listPostPages() {
+  return fetchAPIdataWGetParams({
+    request: "list_post_pages",
   });
+}
+
+export async function uploadPostMedia({ postId, caption, file, sessionToken }) {
+  const apiAddress = await getSetting("api_address");
+  if (!apiAddress) {
+    return { success: false, error: "API address is not configured." };
+  }
+
+  const formData = new FormData();
+  formData.append("request", "upload_post_media");
+  formData.append("token", sessionToken);
+  formData.append("post_id", String(postId));
+  formData.append("caption", caption);
+  formData.append("title", caption);
+  formData.append("file", file);
+
+  const response = await fetch(apiAddress, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Server error: ${response.status}`);
+  }
+
+  return response.json();
 }
 
 export async function getPost(postId) {
@@ -238,7 +500,7 @@ export async function getPost(postId) {
   });
 }
 
-export async function listPosts({ page = 1, limit = 20, user = null } = {}) {
+export async function listPosts({ page = 1, limit = 20, user = null, onPage = null } = {}) {
   const params = {
     request: "list_posts",
     page,
@@ -246,6 +508,9 @@ export async function listPosts({ page = 1, limit = 20, user = null } = {}) {
   };
   if (user) {
     params.user = user;
+  }
+  if (onPage) {
+    params.on_page = onPage;
   }
   return fetchAPIdataWGetParams(params);
 }
@@ -303,9 +568,15 @@ function ensurePostImageViewer() {
   closeBtn.type = "button";
   closeBtn.setAttribute("aria-label", "Close");
 
+  const caption = createDIV("post-image-viewer-caption");
+  caption.id = "post-image-viewer-caption";
+
   const close = () => {
     root.classList.remove("is-open");
     img.src = "";
+    img.alt = "";
+    caption.textContent = "";
+    caption.classList.add("d-none");
   };
   closeBtn.addEventListener("click", close);
   backdrop.addEventListener("click", close);
@@ -315,6 +586,7 @@ function ensurePostImageViewer() {
 
   root.appendChild(backdrop);
   root.appendChild(img);
+  root.appendChild(caption);
   root.appendChild(closeBtn);
   document.body.appendChild(root);
   return root;
@@ -323,8 +595,13 @@ function ensurePostImageViewer() {
 function openPostImageViewer(fullUrl, title) {
   const root = ensurePostImageViewer();
   const img = document.getElementById("post-image-viewer-img");
+  const caption = document.getElementById("post-image-viewer-caption");
   img.src = fullUrl;
   img.alt = title || "";
+  if (caption) {
+    caption.textContent = title || "";
+    caption.classList.toggle("d-none", !title);
+  }
   root.classList.add("is-open");
 }
 
@@ -361,6 +638,11 @@ function createPostMediaTile(mediaItem, folder) {
     });
 
     tile.appendChild(img);
+    if (mediaItem.title) {
+      const caption = createHTMLelement("span", "post-media-pic-title");
+      caption.textContent = mediaItem.title;
+      tile.appendChild(caption);
+    }
     col.appendChild(tile);
     return col;
   }

@@ -613,6 +613,214 @@ class FileModel {
     }
 
     /**
+     * Multipart fields:
+     *   token, post_id, title|caption, file (single image)
+     *
+     * Same convert/watermark/miniature pipeline as gallery uploads.
+     * Caption is stored as media_items.title; descr is always null.
+     * Max 5 media items per post (media_in_post).
+     *
+     * @return array{
+     *   success:bool,message:string,error:string,media:?array,post_id:?int
+     * }
+     */
+    public function upload_post_media(array $input): array
+    {
+        $username = '-';
+        $ok = false;
+        try {
+            $token = trim((string)($input['token'] ?? ''));
+            $postId = isset($input['post_id'])
+                ? (int)$input['post_id']
+                : (isset($input['id']) ? (int)$input['id'] : 0);
+            $title = trim((string)($input['title'] ?? $input['caption'] ?? ''));
+
+            if ($token === '') {
+                return $this->post_media_upload_fail('Token is required.');
+            }
+            if ($postId <= 0) {
+                return $this->post_media_upload_fail('Post id is required.');
+            }
+            if ($title === '') {
+                return $this->post_media_upload_fail('Caption is required.');
+            }
+            if (mb_strlen($title) > 255) {
+                return $this->post_media_upload_fail('Caption must be at most 255 characters.');
+            }
+
+            $userModel = new UserModel($this->db);
+            $users = $userModel->get_by_token($token);
+            if (empty($users)) {
+                return $this->post_media_upload_fail('User is not logged in or token expired.');
+            }
+
+            $userId = (int)($users[0]['user_id'] ?? 0);
+            $username = (string)($users[0]['name'] ?? '');
+            if ($userId <= 0 || $username === '') {
+                $username = '-';
+                return $this->post_media_upload_fail('Could not resolve user.');
+            }
+
+            $posts = $this->db->select('posts', ['post_id' => $postId]);
+            if (empty($posts)) {
+                return $this->post_media_upload_fail('Post not found.');
+            }
+            if ((int)($posts[0]['author_id'] ?? 0) !== $userId) {
+                return $this->post_media_upload_fail(
+                    'Only the author can attach media to this post.'
+                );
+            }
+
+            $attachedCount = (int)($this->db->queryValue(
+                'SELECT COUNT(*) FROM media_in_post WHERE post_id = :post_id',
+                [':post_id' => $postId]
+            ) ?? 0);
+            if ($attachedCount >= 5) {
+                return $this->post_media_upload_fail('A post can have at most 5 media items.');
+            }
+
+            $file = $this->extract_single_upload_file();
+            if ($file === null) {
+                return $this->post_media_upload_fail(
+                    'Exactly one image file is required (field name: file).'
+                );
+            }
+            if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                return $this->post_media_upload_fail(
+                    'Upload failed (error code ' . (int)$file['error'] . ').'
+                );
+            }
+
+            $tmpPath = (string)($file['tmp_name'] ?? '');
+            if ($tmpPath === '' || !is_uploaded_file($tmpPath)) {
+                return $this->post_media_upload_fail('Invalid uploaded file.');
+            }
+
+            $config = $this->getUploadConfig();
+            $maxBytes = max(1, (int)$config['max_size_mb']) * 1024 * 1024;
+            $size = (int)($file['size'] ?? 0);
+            if ($size <= 0 || $size > $maxBytes) {
+                return $this->post_media_upload_fail(
+                    'File is empty or exceeds max size of ' . $config['max_size_mb'] . ' MB.'
+                );
+            }
+
+            $origName = (string)($file['name'] ?? 'image');
+            $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+            $imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+            if (!in_array($ext, $imageExts, true)) {
+                return $this->post_media_upload_fail(
+                    'Unsupported image type. Allowed: ' . implode(', ', $imageExts) . '.'
+                );
+            }
+
+            if (!extension_loaded('gd')) {
+                return $this->post_media_upload_fail(
+                    'Server image library (GD) is not available. Rebuild the PHP container.'
+                );
+            }
+
+            $manipulator = new ImageManipulator();
+            if (!$manipulator->loadFromFile($tmpPath)) {
+                return $this->post_media_upload_fail(
+                    'Could not read the image. Use a valid JPG, PNG, GIF, or WEBP file.'
+                );
+            }
+
+            $coordinatesJson = $manipulator->getDecimalCoordinatesJson();
+            $creationDate = $manipulator->getCreationDateFromExif();
+
+            $manipulator->resizeIfLongerSideExceeds($manipulator->getFullMaxLongSide());
+            $manipulator->addWatermarkBottomRight();
+
+            $safeUser = preg_replace('/[^a-zA-Z0-9_]/', '_', $username) ?: 'user';
+            $placeholderName = 'media_item_' . $safeUser . '_pending_' . bin2hex(random_bytes(4)) . '.jpg';
+
+            try {
+                $fileId = (int)$this->db->insert('files', [
+                    'filename' => $placeholderName,
+                    'size_in_kb' => max(1, (int)round($size / 1024)),
+                ]);
+                if ($fileId <= 0) {
+                    $manipulator->destroy();
+                    return $this->post_media_upload_fail('Failed to create file record.');
+                }
+
+                $mediaItemId = (int)$this->db->insert('media_items', [
+                    'media_type' => 'PIC',
+                    'file_id' => $fileId,
+                    'title' => $title,
+                    'descr' => null,
+                    'tags' => null,
+                    'coordinates' => $coordinatesJson,
+                    'creation_date' => $creationDate,
+                ]);
+                if ($mediaItemId <= 0) {
+                    $this->db->delete('files', ['file_id' => $fileId]);
+                    $manipulator->destroy();
+                    return $this->post_media_upload_fail('Failed to create media item.');
+                }
+
+                $finalBasename = 'media_item_' . $safeUser . '_' . $mediaItemId . '.jpg';
+                $miniBasename = 'media_item_' . $safeUser . '_' . $mediaItemId . '_sm.jpg';
+                $fullPath = $this->media_items_folder . '/' . $finalBasename;
+                $miniPath = $this->media_items_folder . '/' . $miniBasename;
+
+                if (!is_dir($this->media_items_folder)) {
+                    @mkdir($this->media_items_folder, 0755, true);
+                }
+
+                if (!$manipulator->saveJpeg($fullPath)) {
+                    $this->rollback_media_upload($mediaItemId, $fileId, null, null);
+                    $manipulator->destroy();
+                    return $this->post_media_upload_fail('Failed to save full-size image.');
+                }
+
+                if (!$manipulator->saveMiniatureJpeg($miniPath)) {
+                    $this->rollback_media_upload($mediaItemId, $fileId, $fullPath, null);
+                    $manipulator->destroy();
+                    return $this->post_media_upload_fail('Failed to save miniature image.');
+                }
+
+                $manipulator->destroy();
+
+                $sizeKb = max(1, (int)round(filesize($fullPath) / 1024));
+                $this->db->update('files', [
+                    'filename' => $finalBasename,
+                    'size_in_kb' => $sizeKb,
+                ], [
+                    'file_id' => $fileId,
+                ]);
+
+                $this->db->insert('media_in_post', [
+                    'media_item_id' => $mediaItemId,
+                    'post_id' => $postId,
+                ]);
+
+                $ok = true;
+                return [
+                    'success' => true,
+                    'message' => 'Picture uploaded successfully.',
+                    'error' => '',
+                    'media' => [
+                        'media_item_id' => $mediaItemId,
+                        'media_type' => 'PIC',
+                        'title' => $title,
+                        'filename' => $finalBasename,
+                        'miniature_filename' => $miniBasename,
+                    ],
+                    'post_id' => $postId,
+                ];
+            } catch (Throwable $e) {
+                $manipulator->destroy();
+                return $this->post_media_upload_fail('Failed to upload picture.');
+            }
+        } finally {
+            (new LogModel())->record_result('upload post media', $ok, $username !== '' ? $username : '-');
+        }
+    }
+
+    /**
      * @return array{name:string,type:string,tmp_name:string,error:int,size:int}|null
      */
     private function extract_single_upload_file(): ?array
@@ -669,6 +877,17 @@ class FileModel {
         ];
     }
 
+    private function post_media_upload_fail(string $error): array
+    {
+        return [
+            'success' => false,
+            'message' => '',
+            'error' => $error,
+            'media' => null,
+            'post_id' => null,
+        ];
+    }
+
     private function rollback_media_upload(
         int $mediaItemId,
         int $fileId,
@@ -678,6 +897,7 @@ class FileModel {
         try {
             if ($mediaItemId > 0) {
                 $this->db->delete('media_in_collection', ['media_item_id' => $mediaItemId]);
+                $this->db->delete('media_in_post', ['media_item_id' => $mediaItemId]);
                 $this->db->delete('media_items', ['media_item_id' => $mediaItemId]);
             }
             if ($fileId > 0) {
