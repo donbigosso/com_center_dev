@@ -744,7 +744,7 @@ class FileModel {
             $creationDate = $manipulator->getCreationDateFromExif();
 
             $manipulator->resizeIfLongerSideExceeds($manipulator->getFullMaxLongSide());
-            $manipulator->addWatermarkBottomRight();
+            $manipulator->addWatermarkBottomRight("Trips - Donbigosso");
 
             $safeUser = preg_replace('/[^a-zA-Z0-9_]/', '_', $username) ?: 'user';
             $placeholderName = 'media_item_' . $safeUser . '_pending_' . bin2hex(random_bytes(4)) . '.jpg';
