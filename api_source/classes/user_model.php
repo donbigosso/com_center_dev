@@ -230,7 +230,22 @@ class UserModel
         if (!$user) {
             return false;
         }
-        return $user[0]['is_admin'] === 1;
+        return $this->row_is_admin($user[0]);
+    }
+
+    public function row_is_admin(array $user): bool
+    {
+        $flag = $user['is_admin'] ?? 0;
+        return (int)$flag === 1;
+    }
+
+    public function can_manage_post(array $user, int $authorId): bool
+    {
+        $userId = (int)($user['user_id'] ?? 0);
+        if ($userId > 0 && $authorId > 0 && $userId === $authorId) {
+            return true;
+        }
+        return $this->row_is_admin($user);
     }
 
     public function verify_admin_by_token(array $input){

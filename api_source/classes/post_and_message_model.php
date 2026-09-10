@@ -291,6 +291,142 @@ class PostAndMessageModel
     }
 
     /**
+     * POST update_post — author or admin updates topic/content.
+     * Body: api_key, token, id|post_id, content (required), topic (optional).
+     *
+     * @return array{success:bool,message:string,error:string,post:?array}
+     */
+    public function update_post(array $input): array
+    {
+        $actor = '-';
+        $ok = false;
+        $logDetail = LogModel::id_detail($input['post_id'] ?? $input['id'] ?? 0);
+        try {
+            if (!$this->is_valid_api_key($input)) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Invalid or missing api_key.',
+                    'post' => null,
+                ];
+            }
+
+            $token = trim((string)($input['token'] ?? ''));
+            if ($token === '') {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Token is required.',
+                    'post' => null,
+                ];
+            }
+
+            $userModel = new UserModel($this->db);
+            $users = $userModel->get_by_token($token);
+            if (empty($users)) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'User is not logged in or token expired.',
+                    'post' => null,
+                ];
+            }
+
+            $editor = $users[0];
+            if (!empty($editor['name'])) {
+                $actor = (string)$editor['name'];
+            }
+
+            $postId = (int)($input['post_id'] ?? $input['id'] ?? 0);
+            if ($postId <= 0) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'id is required.',
+                    'post' => null,
+                ];
+            }
+            $logDetail = LogModel::id_detail($postId);
+
+            $rows = $this->db->select('posts', ['post_id' => $postId]);
+            if (empty($rows)) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Post not found.',
+                    'post' => null,
+                ];
+            }
+
+            $authorId = (int)($rows[0]['author_id'] ?? 0);
+            if (!$userModel->can_manage_post($editor, $authorId)) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Only the author or an admin can edit this post.',
+                    'post' => null,
+                ];
+            }
+
+            $topic = trim(strip_tags((string)($input['topic'] ?? $input['title'] ?? '')));
+            if (mb_strlen($topic) > 255) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Topic must be at most 255 characters.',
+                    'post' => null,
+                ];
+            }
+
+            $rawContent = (string)($input['content'] ?? '');
+            $content = $this->sanitize_post_content($rawContent);
+            if ($content === '') {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'content is required.',
+                    'post' => null,
+                ];
+            }
+
+            if (mb_strlen($content) > 65535) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Content is too long.',
+                    'post' => null,
+                ];
+            }
+
+            $updated = $this->db->update('posts', [
+                'topic' => $topic !== '' ? $topic : null,
+                'content' => $content,
+            ], [
+                'post_id' => $postId,
+            ]);
+            if (!$updated) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Failed to update post.',
+                    'post' => null,
+                ];
+            }
+
+            $fetched = $this->get_post(['post_id' => $postId]);
+            $ok = !empty($fetched['success']);
+            return [
+                'success' => $ok,
+                'message' => $ok ? 'Post updated.' : '',
+                'error' => $ok ? '' : ($fetched['error'] ?? 'Post updated but could not be reloaded.'),
+                'post' => $fetched['post'] ?? null,
+            ];
+        } finally {
+            (new LogModel())->record_result('update post', $ok, $actor, $logDetail);
+        }
+    }
+
+    /**
      * POST delete_post — author deletes their own post.
      * Body: api_key, token, id|post_id.
      *

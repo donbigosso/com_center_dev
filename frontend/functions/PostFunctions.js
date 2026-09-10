@@ -22,6 +22,8 @@ import { createPictureWrapper, getGalleryFolder } from "./GalleryFunctions.js";
  *
  * Dedicated create page:
  *   frontend/create_post.html?page=TRIP&include_media=yes
+ * Dedicated edit page:
+ *   frontend/edit_post.html?post_id=12
  */
 
 export const MAX_POST_MEDIA = 5;
@@ -112,11 +114,44 @@ function defaultCaptionFromFilename(filename) {
   return base.slice(0, 255);
 }
 
+function liveItemCount(items) {
+  return items.filter((item) => !item.deleted).length;
+}
+
+function renderMediaSlot(item, list, onRemove) {
+  const row = createDIV("post-media-slot");
+  row.dataset.mediaSlot = item.id;
+
+  const preview = createHTMLelement("img", "post-media-slot-preview");
+  preview.src = item.previewUrl || "";
+  preview.alt = item.caption || "Picture";
+
+  const fields = createDIV("post-media-slot-fields");
+  const captionId = `${item.id}-caption`;
+  const captionLabel = createLabel("Caption", captionId, "form-label");
+  const captionInput = createBootstrapTextInput(captionId, true, 255, item.caption);
+  captionInput.addEventListener("input", () => {
+    item.caption = captionInput.value;
+  });
+
+  const removeBtn = createButton("button", "Remove", "btn btn-sm btn-outline-danger post-media-slot-remove");
+  removeBtn.type = "button";
+  removeBtn.addEventListener("click", () => onRemove(item.id));
+
+  fields.appendChild(captionLabel);
+  fields.appendChild(captionInput);
+  fields.appendChild(removeBtn);
+  row.appendChild(preview);
+  row.appendChild(fields);
+  list.appendChild(row);
+}
+
 /**
- * Inline picture picker for create-post: caption + file, max N items.
- * Description is intentionally omitted; caption maps to media_items.title.
+ * Inline picture picker: caption + file, max N items.
+ * Description is omitted; caption maps to media_items.title.
+ * existingMedia items: { mediaItemId, title, previewUrl }
  */
-function buildPostMediaPicker(ids, maxMedia = MAX_POST_MEDIA) {
+function buildPostMediaPicker(ids, maxMedia = MAX_POST_MEDIA, existingMedia = []) {
   const items = [];
   let seq = 0;
 
@@ -141,70 +176,77 @@ function buildPostMediaPicker(ids, maxMedia = MAX_POST_MEDIA) {
   addBtn.type = "button";
 
   const updateAddState = () => {
-    const remaining = maxMedia - items.length;
+    const remaining = maxMedia - liveItemCount(items);
     addBtn.disabled = remaining <= 0;
     addBtn.textContent = remaining <= 0 ? "Picture limit reached" : "Add picture";
     fileInput.multiple = remaining > 1;
   };
 
   const removeItem = (itemId) => {
-    const index = items.findIndex((item) => item.id === itemId);
-    if (index < 0) return;
-    const [removed] = items.splice(index, 1);
-    if (removed?.previewUrl) {
-      URL.revokeObjectURL(removed.previewUrl);
+    const item = items.find((entry) => entry.id === itemId);
+    if (!item || item.deleted) return;
+    if (item.existing) {
+      item.deleted = true;
+    } else {
+      const index = items.findIndex((entry) => entry.id === itemId);
+      if (index >= 0) {
+        const [removed] = items.splice(index, 1);
+        if (removed?.objectUrl) {
+          URL.revokeObjectURL(removed.objectUrl);
+        }
+      }
     }
     const row = list.querySelector(`[data-media-slot="${itemId}"]`);
     if (row) row.remove();
     updateAddState();
   };
 
+  const addExisting = (media) => {
+    seq += 1;
+    const itemId = `${ids.media}-existing-${media.mediaItemId || seq}`;
+    const item = {
+      id: itemId,
+      existing: true,
+      deleted: false,
+      mediaItemId: media.mediaItemId,
+      file: null,
+      caption: media.title || "",
+      originalCaption: media.title || "",
+      previewUrl: media.previewUrl || "",
+      objectUrl: null,
+    };
+    items.push(item);
+    renderMediaSlot(item, list, removeItem);
+  };
+
   const addFiles = (fileList) => {
     const incoming = Array.from(fileList || []);
-    const remaining = maxMedia - items.length;
+    const remaining = maxMedia - liveItemCount(items);
     incoming.slice(0, remaining).forEach((file) => {
       seq += 1;
       const itemId = `${ids.media}-${seq}`;
-      const previewUrl = URL.createObjectURL(file);
+      const objectUrl = URL.createObjectURL(file);
       const item = {
         id: itemId,
+        existing: false,
+        deleted: false,
+        mediaItemId: null,
         file,
         caption: defaultCaptionFromFilename(file.name),
-        previewUrl,
+        originalCaption: "",
+        previewUrl: objectUrl,
+        objectUrl,
       };
       items.push(item);
-
-      const row = createDIV("post-media-slot");
-      row.dataset.mediaSlot = itemId;
-
-      const preview = createHTMLelement("img", "post-media-slot-preview");
-      preview.src = previewUrl;
-      preview.alt = item.caption;
-
-      const fields = createDIV("post-media-slot-fields");
-      const captionId = `${itemId}-caption`;
-      const captionLabel = createLabel("Caption", captionId, "form-label");
-      const captionInput = createBootstrapTextInput(captionId, true, 255, item.caption);
-      captionInput.addEventListener("input", () => {
-        item.caption = captionInput.value;
-      });
-
-      const removeBtn = createButton("button", "Remove", "btn btn-sm btn-outline-danger post-media-slot-remove");
-      removeBtn.type = "button";
-      removeBtn.addEventListener("click", () => removeItem(itemId));
-
-      fields.appendChild(captionLabel);
-      fields.appendChild(captionInput);
-      fields.appendChild(removeBtn);
-      row.appendChild(preview);
-      row.appendChild(fields);
-      list.appendChild(row);
+      renderMediaSlot(item, list, removeItem);
     });
     updateAddState();
   };
 
+  (Array.isArray(existingMedia) ? existingMedia : []).forEach(addExisting);
+
   addBtn.addEventListener("click", () => {
-    if (items.length >= maxMedia) return;
+    if (liveItemCount(items) >= maxMedia) return;
     fileInput.click();
   });
 
@@ -223,12 +265,39 @@ function buildPostMediaPicker(ids, maxMedia = MAX_POST_MEDIA) {
   return {
     element: section,
     getItems: () =>
-      items.map((item) => ({
-        file: item.file,
-        caption: (item.caption || "").trim(),
-      })),
+      items
+        .filter((item) => !item.existing && !item.deleted && item.file)
+        .map((item) => ({
+          file: item.file,
+          caption: (item.caption || "").trim(),
+        })),
+    getEditState: () => ({
+      toRemove: items
+        .filter((item) => item.existing && item.deleted && item.mediaItemId)
+        .map((item) => item.mediaItemId),
+      toUpdate: items
+        .filter(
+          (item) =>
+            item.existing &&
+            !item.deleted &&
+            item.mediaItemId &&
+            (item.caption || "").trim() !== (item.originalCaption || "").trim()
+        )
+        .map((item) => ({
+          mediaItemId: item.mediaItemId,
+          caption: (item.caption || "").trim(),
+        })),
+      toAdd: items
+        .filter((item) => !item.existing && !item.deleted && item.file)
+        .map((item) => ({
+          file: item.file,
+          caption: (item.caption || "").trim(),
+        })),
+    }),
     reset: () => {
-      [...items].forEach((item) => removeItem(item.id));
+      [...items].forEach((item) => {
+        if (!item.existing) removeItem(item.id);
+      });
     },
   };
 }
@@ -412,6 +481,200 @@ export function createPostForm(container, opts = {}) {
   return { form, ids };
 }
 
+function fillPostFormFields(ids, post) {
+  const topicInput = document.getElementById(ids.topic);
+  const textarea = document.getElementById(ids.textarea);
+  const previewPane = document.getElementById(ids.preview);
+  if (topicInput) topicInput.value = post?.topic || "";
+  if (textarea) textarea.value = post?.content || "";
+  if (previewPane) {
+    previewPane.replaceChildren();
+    renderPostContent(previewPane, post?.content || "");
+  }
+}
+
+/**
+ * Mount an edit-post form: same compose/preview as create, plus existing media.
+ * @param {HTMLElement} container
+ * @param {{
+ *   post: object,
+ *   onSaved?: (post: object) => void,
+ *   maxMedia?: number,
+ * }} opts
+ */
+export async function createEditPostForm(container, opts = {}) {
+  if (!(container instanceof HTMLElement) || !opts.post) {
+    return null;
+  }
+
+  const post = opts.post;
+  const ids = nextFormIds();
+  const form = buildPostFormBody(ids);
+  const alert = createDIV("alert alert-danger mt-2");
+  alert.id = ids.alert;
+  alert.style.display = "none";
+  form.appendChild(alert);
+
+  const maxMedia = Number(opts.maxMedia) > 0 ? Number(opts.maxMedia) : MAX_POST_MEDIA;
+  const folder = await getGalleryFolder();
+  const existingMedia = (Array.isArray(post.media) ? post.media : [])
+    .filter((item) => item?.media_item_id)
+    .map((item) => ({
+      mediaItemId: item.media_item_id,
+      title: item.title || "",
+      previewUrl:
+        folder && item.miniature_filename
+          ? `${folder}${encodeURIComponent(item.miniature_filename)}`
+          : "",
+    }));
+
+  const mediaPicker = buildPostMediaPicker(ids, maxMedia, existingMedia);
+  form.appendChild(mediaPicker.element);
+
+  const submit = createButton("button", "Save", "btn btn-primary mt-3");
+  submit.addEventListener("click", async () => {
+    const sessionTest = await verifySession();
+    if (!sessionTest) {
+      showFeedback("You must be logged in");
+      return;
+    }
+    const originalLabel = submit.textContent;
+    submit.disabled = true;
+    submit.textContent = "Saving…";
+    try {
+      const updated = await submitPostEditFromIds(ids, alert, {
+        postId: post.post_id,
+        getEditState: mediaPicker.getEditState,
+      });
+      if (!updated) return;
+      const mediaFailed = alert.style.display === "block";
+      showFeedback(mediaFailed ? "Post saved, but some pictures failed" : "Post saved");
+      if (typeof opts.onSaved === "function") {
+        opts.onSaved(updated);
+      }
+    } catch (err) {
+      console.error("Edit post error:", err);
+      alert.textContent = "Failed to save post";
+      alert.style.display = "block";
+    } finally {
+      submit.disabled = false;
+      submit.textContent = originalLabel;
+    }
+  });
+  form.appendChild(submit);
+
+  container.appendChild(form);
+  fillPostFormFields(ids, post);
+  return { form, ids };
+}
+
+async function submitPostEditFromIds(ids, errorField, extras = {}) {
+  const textarea = document.getElementById(ids.textarea);
+  const topicInput = document.getElementById(ids.topic);
+  const content = (textarea?.value || "").trim();
+  const topic = (topicInput?.value || "").trim();
+  const state = typeof extras.getEditState === "function"
+    ? extras.getEditState()
+    : { toRemove: [], toUpdate: [], toAdd: [] };
+
+  if (errorField) {
+    errorField.style.display = "none";
+    errorField.textContent = "";
+  }
+
+  if (content === "") {
+    if (errorField) {
+      errorField.textContent = "Content is required.";
+      errorField.style.display = "block";
+    }
+    return null;
+  }
+
+  for (const item of state.toUpdate || []) {
+    if (!(item.caption || "").trim()) {
+      if (errorField) {
+        errorField.textContent = "Each picture needs a caption.";
+        errorField.style.display = "block";
+      }
+      return null;
+    }
+  }
+  for (const item of state.toAdd || []) {
+    if (!item.file || !(item.caption || "").trim()) {
+      if (errorField) {
+        errorField.textContent = "Each new picture needs a file and a caption.";
+        errorField.style.display = "block";
+      }
+      return null;
+    }
+  }
+
+  const sessionToken = getSessionToken();
+  if (!sessionToken) {
+    if (errorField) {
+      errorField.textContent = "Session token missing";
+      errorField.style.display = "block";
+    }
+    return null;
+  }
+
+  const postId = extras.postId;
+  const updateResponse = await updatePost(postId, topic, content, sessionToken);
+  if (!updateResponse?.success || !updateResponse.data?.post) {
+    if (errorField) {
+      errorField.textContent = updateResponse?.error || "Failed to save post";
+      errorField.style.display = "block";
+    }
+    return null;
+  }
+
+  for (const mediaItemId of state.toRemove || []) {
+    const removed = await removeMediaFromPost({ postId, mediaItemId, sessionToken });
+    if (!removed?.success) {
+      if (errorField) {
+        errorField.textContent = removed?.error || "Post saved, but a picture could not be removed.";
+        errorField.style.display = "block";
+      }
+    }
+  }
+
+  for (const item of state.toUpdate || []) {
+    const updatedMedia = await updatePostMedia({
+      postId,
+      mediaItemId: item.mediaItemId,
+      caption: item.caption,
+      sessionToken,
+    });
+    if (!updatedMedia?.success) {
+      if (errorField) {
+        errorField.textContent = updatedMedia?.error || "Post saved, but a caption could not be updated.";
+        errorField.style.display = "block";
+      }
+    }
+  }
+
+  for (const item of state.toAdd || []) {
+    const uploaded = await uploadPostMedia({
+      postId,
+      caption: item.caption,
+      file: item.file,
+      sessionToken,
+    });
+    if (!uploaded?.success) {
+      if (errorField) {
+        errorField.textContent = uploaded?.error || "Post saved, but a new picture failed to upload.";
+        errorField.style.display = "block";
+      }
+    }
+  }
+
+  const refreshed = await getPost(postId);
+  if (refreshed?.success && refreshed.data?.post) {
+    return refreshed.data.post;
+  }
+  return updateResponse.data.post;
+}
+
 export async function handleAddPost() {
   const sessionTest = await verifySession();
   if (!sessionTest) {
@@ -446,6 +709,38 @@ export async function handleAddPost() {
         },
       },
     ],
+  });
+}
+
+export async function updatePost(postId, topic, content, sessionToken) {
+  const apiKey = await getSetting("api_key");
+  return POSTJSONRequest({
+    request: "update_post",
+    api_key: apiKey,
+    token: sessionToken,
+    post_id: postId,
+    topic,
+    content,
+  });
+}
+
+export async function updatePostMedia({ postId, mediaItemId, caption, sessionToken }) {
+  return POSTJSONRequest({
+    request: "update_post_media",
+    token: sessionToken,
+    post_id: postId,
+    media_item_id: mediaItemId,
+    caption,
+    title: caption,
+  });
+}
+
+export async function removeMediaFromPost({ postId, mediaItemId, sessionToken }) {
+  return POSTJSONRequest({
+    request: "remove_media_from_post",
+    token: sessionToken,
+    post_id: postId,
+    media_item_id: mediaItemId,
   });
 }
 

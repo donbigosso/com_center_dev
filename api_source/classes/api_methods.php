@@ -237,8 +237,17 @@ class ApiMethods extends Core
                 case 'create_post':
                     $this->handle_create_post($input);
                     break;
+                case 'update_post':
+                    $this->handle_update_post($input);
+                    break;
                 case 'delete_post':
                     $this->handle_delete_post($input);
+                    break;
+                case 'update_post_media':
+                    $this->handle_update_post_media($input);
+                    break;
+                case 'remove_media_from_post':
+                    $this->handle_remove_media_from_post($input);
                     break;
                 default:
                     $this->send_JSON_Response(false, "", "", "Unknown request: " . $input['request']);
@@ -410,14 +419,19 @@ public function handle_clear_token(array $input): void{
             $warning = "";
             $error = "";
             $username = $result[0]['name'];
+            $isAdmin = $user->row_is_admin($result[0]);
         }
         else {
             $success = false;
             $warning = "";
             $error = "User not found.";
             $username = null;
+            $isAdmin = false;
         }
-        $this->send_JSON_Response($success, $message, $warning, $error, ['user_found' => $username]);
+        $this->send_JSON_Response($success, $message, $warning, $error, [
+            'user_found' => $username,
+            'is_admin' => $isAdmin,
+        ]);
     }
 
     /**
@@ -966,6 +980,19 @@ public function handle_clear_token(array $input): void{
         );
     }
 
+    private function handle_update_post(array $input): void
+    {
+        $model = new PostAndMessageModel($this->db_access);
+        $result = $model->update_post($input);
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            ['post' => $result['post'] ?? null]
+        );
+    }
+
     private function handle_delete_post(array $input): void
     {
         $model = new PostAndMessageModel($this->db_access);
@@ -975,6 +1002,38 @@ public function handle_clear_token(array $input): void{
             $result['message'],
             '',
             $result['error']
+        );
+    }
+
+    private function handle_update_post_media(array $input): void
+    {
+        $file_model = new FileModel($this->db_access);
+        $result = $file_model->update_post_media($input);
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            [
+                'media' => $result['media'] ?? null,
+                'post_id' => $result['post_id'] ?? null,
+            ]
+        );
+    }
+
+    private function handle_remove_media_from_post(array $input): void
+    {
+        $file_model = new FileModel($this->db_access);
+        $result = $file_model->remove_media_from_post($input);
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            [
+                'media_item_id' => $result['media_item_id'] ?? null,
+                'post_id' => $result['post_id'] ?? null,
+            ]
         );
     }
 

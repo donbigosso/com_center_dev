@@ -678,9 +678,9 @@ class FileModel {
             if (empty($posts)) {
                 return $this->post_media_upload_fail('Post not found.');
             }
-            if ((int)($posts[0]['author_id'] ?? 0) !== $userId) {
+            if (!$userModel->can_manage_post($users[0], (int)($posts[0]['author_id'] ?? 0))) {
                 return $this->post_media_upload_fail(
-                    'Only the author can attach media to this post.'
+                    'Only the author or an admin can attach media to this post.'
                 );
             }
 
@@ -832,6 +832,183 @@ class FileModel {
         } finally {
             (new LogModel())->record_result('upload post media', $ok, $username !== '' ? $username : '-', $logDetail);
         }
+    }
+
+    /**
+     * POST update_post_media — author or admin changes caption (media_items.title).
+     * Body: token, post_id, media_item_id, title|caption.
+     */
+    public function update_post_media(array $input): array
+    {
+        $username = '-';
+        $ok = false;
+        $logDetail = LogModel::id_detail($input['media_item_id'] ?? $input['media_id'] ?? $input['id'] ?? 0);
+        try {
+            $auth = $this->resolve_post_media_editor($input);
+            if (!$auth['success']) {
+                return $auth;
+            }
+
+            $username = $auth['username'];
+            $postId = $auth['post_id'];
+            $mediaItemId = $auth['media_item_id'];
+            $logDetail = LogModel::id_detail($mediaItemId);
+
+            $title = trim((string)($input['title'] ?? $input['caption'] ?? ''));
+            if ($title === '') {
+                return $this->post_media_upload_fail('Caption is required.');
+            }
+            if (mb_strlen($title) > 255) {
+                return $this->post_media_upload_fail('Caption must be at most 255 characters.');
+            }
+
+            $this->db->update('media_items', [
+                'title' => $title,
+            ], [
+                'media_item_id' => $mediaItemId,
+            ]);
+
+            $ok = true;
+            return [
+                'success' => true,
+                'message' => 'Picture caption updated.',
+                'error' => '',
+                'media' => [
+                    'media_item_id' => $mediaItemId,
+                    'title' => $title,
+                ],
+                'post_id' => $postId,
+            ];
+        } finally {
+            (new LogModel())->record_result('update post media', $ok, $username !== '' ? $username : '-', $logDetail);
+        }
+    }
+
+    /**
+     * POST remove_media_from_post — author or admin unlinks a picture from a post.
+     * Deletes the media item (files + DB) when it is not in any gallery.
+     * Body: token, post_id, media_item_id.
+     */
+    public function remove_media_from_post(array $input): array
+    {
+        $username = '-';
+        $ok = false;
+        $logDetail = LogModel::id_detail($input['media_item_id'] ?? $input['media_id'] ?? $input['id'] ?? 0);
+        try {
+            $auth = $this->resolve_post_media_editor($input);
+            if (!$auth['success']) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => $auth['error'],
+                    'media_item_id' => null,
+                    'post_id' => null,
+                ];
+            }
+
+            $username = $auth['username'];
+            $postId = $auth['post_id'];
+            $mediaItemId = $auth['media_item_id'];
+            $logDetail = LogModel::id_detail($mediaItemId);
+
+            $this->db->delete('media_in_post', [
+                'media_item_id' => $mediaItemId,
+                'post_id' => $postId,
+            ]);
+
+            $stillInGallery = (int)($this->db->queryValue(
+                'SELECT COUNT(*) FROM media_in_collection WHERE media_item_id = :id',
+                [':id' => $mediaItemId]
+            ) ?? 0);
+            $stillInPost = (int)($this->db->queryValue(
+                'SELECT COUNT(*) FROM media_in_post WHERE media_item_id = :id',
+                [':id' => $mediaItemId]
+            ) ?? 0);
+
+            if ($stillInGallery === 0 && $stillInPost === 0) {
+                $this->delete_media_item_core([
+                    'media_item_id' => $mediaItemId,
+                ]);
+            }
+
+            $ok = true;
+            return [
+                'success' => true,
+                'message' => 'Picture removed from post.',
+                'error' => '',
+                'media_item_id' => $mediaItemId,
+                'post_id' => $postId,
+            ];
+        } finally {
+            (new LogModel())->record_result('remove media from post', $ok, $username !== '' ? $username : '-', $logDetail);
+        }
+    }
+
+    /**
+     * @return array{
+     *   success:bool,error:string,username:string,post_id:int,media_item_id:int,
+     *   media:?array,post_id:?int
+     * }
+     */
+    private function resolve_post_media_editor(array $input): array
+    {
+        $fail = $this->post_media_upload_fail('Could not edit post media.');
+        $token = trim((string)($input['token'] ?? ''));
+        $postId = isset($input['post_id'])
+            ? (int)$input['post_id']
+            : (isset($input['id']) ? (int)$input['id'] : 0);
+        $mediaItemId = isset($input['media_item_id'])
+            ? (int)$input['media_item_id']
+            : (isset($input['media_id']) ? (int)$input['media_id'] : 0);
+
+        if ($token === '') {
+            return $this->post_media_upload_fail('Token is required.');
+        }
+        if ($postId <= 0) {
+            return $this->post_media_upload_fail('Post id is required.');
+        }
+        if ($mediaItemId <= 0) {
+            return $this->post_media_upload_fail('Media id is required.');
+        }
+
+        $userModel = new UserModel($this->db);
+        $users = $userModel->get_by_token($token);
+        if (empty($users)) {
+            return $this->post_media_upload_fail('User is not logged in or token expired.');
+        }
+
+        $username = (string)($users[0]['name'] ?? '');
+        $posts = $this->db->select('posts', ['post_id' => $postId]);
+        if (empty($posts)) {
+            return $this->post_media_upload_fail('Post not found.');
+        }
+        if (!$userModel->can_manage_post($users[0], (int)($posts[0]['author_id'] ?? 0))) {
+            return $this->post_media_upload_fail(
+                'Only the author or an admin can edit media on this post.'
+            );
+        }
+
+        $linked = (int)($this->db->queryValue(
+            'SELECT COUNT(*) FROM media_in_post
+             WHERE post_id = :post_id AND media_item_id = :media_item_id',
+            [
+                ':post_id' => $postId,
+                ':media_item_id' => $mediaItemId,
+            ]
+        ) ?? 0);
+        if ($linked < 1) {
+            return $this->post_media_upload_fail('Picture is not attached to this post.');
+        }
+
+        return [
+            'success' => true,
+            'error' => '',
+            'message' => '',
+            'media' => null,
+            'post_id' => $postId,
+            'media_item_id' => $mediaItemId,
+            'username' => $username !== '' ? $username : '-',
+        ];
     }
 
     /**
