@@ -352,6 +352,45 @@ class FileModel {
     }
 
     /**
+     * POST list_media_items_admin — id + title for admin delete UI.
+     *
+     * @return array{success:bool,message:string,error:string,media:array}
+     */
+    public function list_media_items_admin(array $input): array
+    {
+        $admin = (new UserModel($this->db))->verify_admin_by_token($input);
+        if (!$admin['success']) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Admin token required.',
+                'media' => [],
+            ];
+        }
+
+        $rows = $this->db->queryAll(
+            'SELECT media_item_id, title
+             FROM media_items
+             ORDER BY media_item_id DESC'
+        );
+
+        $media = array_map(static function (array $row): array {
+            $title = trim((string)($row['title'] ?? ''));
+            return [
+                'id' => (int)$row['media_item_id'],
+                'title' => $title !== '' ? $title : '(no title)',
+            ];
+        }, $rows);
+
+        return [
+            'success' => true,
+            'message' => 'Media items retrieved.',
+            'error' => '',
+            'media' => $media,
+        ];
+    }
+
+    /**
      * Delete a media item as admin (token + is_admin via check_if_admin).
      * Body: token, media_item_id|media_id|id (or filename).
      */

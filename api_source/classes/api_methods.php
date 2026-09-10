@@ -243,6 +243,21 @@ class ApiMethods extends Core
                 case 'delete_post':
                     $this->handle_delete_post($input);
                     break;
+                case 'list_posts_admin':
+                    $this->handle_list_posts_admin($input);
+                    break;
+                case 'list_media_items_admin':
+                    $this->handle_list_media_items_admin($input);
+                    break;
+                case 'list_page_posting_permissions':
+                    $this->handle_list_page_posting_permissions($input);
+                    break;
+                case 'add_page_posting_permission':
+                    $this->handle_add_page_posting_permission($input);
+                    break;
+                case 'remove_page_posting_permission':
+                    $this->handle_remove_page_posting_permission($input);
+                    break;
                 case 'update_post_media':
                     $this->handle_update_post_media($input);
                     break;
@@ -1081,6 +1096,73 @@ public function handle_clear_token(array $input): void{
             '',
             '',
             ['pages' => $pages]
+        );
+    }
+
+    private function handle_list_posts_admin(array $input): void
+    {
+        $model = new PostAndMessageModel($this->db_access);
+        $result = $model->list_posts_admin($input);
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            ['posts' => $result['posts']]
+        );
+    }
+
+    private function handle_list_media_items_admin(array $input): void
+    {
+        $file_model = new FileModel($this->db_access);
+        $result = $file_model->list_media_items_admin($input);
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            ['media' => $result['media']]
+        );
+    }
+
+    private function handle_list_page_posting_permissions(array $input): void
+    {
+        $model = new PostAndMessageModel($this->db_access);
+        $result = $model->list_page_posting_permissions($input);
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            [
+                'pages' => $result['pages'] ?? [],
+                'permissions' => $result['permissions'] ?? [],
+            ]
+        );
+    }
+
+    private function handle_add_page_posting_permission(array $input): void
+    {
+        $model = new PostAndMessageModel($this->db_access);
+        $result = $model->add_page_posting_permission($input);
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            ['permission' => $result['permission'] ?? null]
+        );
+    }
+
+    private function handle_remove_page_posting_permission(array $input): void
+    {
+        $model = new PostAndMessageModel($this->db_access);
+        $result = $model->remove_page_posting_permission($input);
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error']
         );
     }
 }

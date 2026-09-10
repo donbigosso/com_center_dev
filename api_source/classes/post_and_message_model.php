@@ -227,6 +227,15 @@ class PostAndMessageModel
                 ];
             }
 
+            if ($page !== '' && !$this->user_can_post_on_page($author, $page)) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'You are not allowed to post on this page.',
+                    'post' => null,
+                ];
+            }
+
             $rawContent = (string)($input['content'] ?? '');
             $content = $this->sanitize_post_content($rawContent);
             if ($content === '') {
@@ -436,16 +445,9 @@ class PostAndMessageModel
     {
         $actor = '-';
         $ok = false;
+        $isAdminAction = false;
         $logDetail = LogModel::id_detail($input['post_id'] ?? $input['id'] ?? 0);
         try {
-            if (!$this->is_valid_api_key($input)) {
-                return [
-                    'success' => false,
-                    'message' => '',
-                    'error' => 'Invalid or missing api_key.',
-                ];
-            }
-
             $token = trim((string)($input['token'] ?? ''));
             if ($token === '') {
                 return [
@@ -467,6 +469,13 @@ class PostAndMessageModel
 
             $author = $users[0];
             $authorId = (int)($author['user_id'] ?? 0);
+            if (!$userModel->row_is_admin($author) && !$this->is_valid_api_key($input)) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Invalid or missing api_key.',
+                ];
+            }
             if (!empty($author['name'])) {
                 $actor = (string)$author['name'];
             }
@@ -498,11 +507,12 @@ class PostAndMessageModel
             }
 
             $postAuthorId = (int)($rows[0]['author_id'] ?? 0);
-            if ($postAuthorId !== $authorId) {
+            $isAdminAction = $postAuthorId !== $authorId;
+            if (!$userModel->can_manage_post($author, $postAuthorId)) {
                 return [
                     'success' => false,
                     'message' => '',
-                    'error' => 'Only the author can delete this post.',
+                    'error' => 'Only the author or an admin can delete this post.',
                 ];
             }
 
@@ -510,7 +520,6 @@ class PostAndMessageModel
             $this->db->delete('posts_in_pages', ['post_id' => $postId]);
             $deleted = $this->db->delete('posts', [
                 'post_id' => $postId,
-                'author_id' => $authorId,
             ]);
             if ($deleted < 1) {
                 return [
@@ -527,7 +536,12 @@ class PostAndMessageModel
                 'error' => '',
             ];
         } finally {
-            (new LogModel())->record_result('delete post', $ok, $actor, $logDetail);
+            (new LogModel())->record_result(
+                !empty($isAdminAction) ? 'delete post - admin' : 'delete post',
+                $ok,
+                $actor,
+                $logDetail
+            );
         }
     }
 
@@ -696,6 +710,242 @@ class PostAndMessageModel
         return $this->get_post_page_enums();
     }
 
+    /**
+     * POST list_posts_admin — id + topic for admin delete UI.
+     *
+     * @return array{success:bool,message:string,error:string,posts:array}
+     */
+    public function list_posts_admin(array $input): array
+    {
+        $admin = (new UserModel($this->db))->verify_admin_by_token($input);
+        if (!$admin['success']) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Admin token required.',
+                'posts' => [],
+            ];
+        }
+
+        $rows = $this->db->queryAll(
+            'SELECT post_id, topic
+             FROM posts
+             ORDER BY post_id DESC'
+        );
+
+        $posts = array_map(static function (array $row): array {
+            $topic = trim((string)($row['topic'] ?? ''));
+            return [
+                'id' => (int)$row['post_id'],
+                'title' => $topic !== '' ? $topic : '(no topic)',
+            ];
+        }, $rows);
+
+        return [
+            'success' => true,
+            'message' => 'Posts retrieved.',
+            'error' => '',
+            'posts' => $posts,
+        ];
+    }
+
+    /**
+     * POST list_page_posting_permissions — admin view of who may post on each page.
+     *
+     * @return array{success:bool,message:string,error:string,pages:array,permissions:array}
+     */
+    public function list_page_posting_permissions(array $input): array
+    {
+        $admin = (new UserModel($this->db))->verify_admin_by_token($input);
+        if (!$admin['success']) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Admin token required.',
+                'pages' => [],
+                'permissions' => [],
+            ];
+        }
+
+        $rows = $this->db->queryAll(
+            'SELECT ppp.page, ppp.user_id, u.name
+             FROM page_posting_permissions ppp
+             JOIN users u ON u.user_id = ppp.user_id
+             ORDER BY ppp.page ASC, u.name ASC'
+        );
+
+        $permissions = array_map(static function (array $row): array {
+            return [
+                'page' => (string)$row['page'],
+                'user_id' => (int)$row['user_id'],
+                'name' => (string)($row['name'] ?? ''),
+            ];
+        }, $rows);
+
+        return [
+            'success' => true,
+            'message' => 'Posting permissions retrieved.',
+            'error' => '',
+            'pages' => $this->get_post_page_enums(),
+            'permissions' => $permissions,
+        ];
+    }
+
+    /**
+     * POST add_page_posting_permission — admin grants a user a page.
+     * Body: token, page, user_id|name.
+     *
+     * @return array{success:bool,message:string,error:string,permission:?array}
+     */
+    public function add_page_posting_permission(array $input): array
+    {
+        $actor = '-';
+        $ok = false;
+        $logDetail = '';
+        try {
+            $userModel = new UserModel($this->db);
+            $admin = $userModel->verify_admin_by_token($input);
+            $admins = $userModel->get_by_token((string)($input['token'] ?? ''));
+            if (!empty($admins[0]['name'])) {
+                $actor = (string)$admins[0]['name'];
+            }
+            if (!$admin['success']) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Admin token required.',
+                    'permission' => null,
+                ];
+            }
+
+            $page = strtoupper(trim((string)($input['page'] ?? '')));
+            if (!$this->is_valid_post_page($page)) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Invalid page. Allowed: ' . implode(', ', $this->get_post_page_enums()) . '.',
+                    'permission' => null,
+                ];
+            }
+
+            $target = $this->resolve_permission_user($input);
+            if ($target === null) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'User not found. Provide user_id or name.',
+                    'permission' => null,
+                ];
+            }
+
+            $userId = (int)$target['user_id'];
+            $logDetail = 'id ' . $userId . ' ' . $page;
+
+            $exists = $this->db->queryValue(
+                'SELECT 1 FROM page_posting_permissions
+                 WHERE page = :page AND user_id = :user_id LIMIT 1',
+                [':page' => $page, ':user_id' => $userId]
+            );
+            if ($exists !== null) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'User already has permission for this page.',
+                    'permission' => null,
+                ];
+            }
+
+            $this->db->insert('page_posting_permissions', [
+                'page' => $page,
+                'user_id' => $userId,
+            ]);
+
+            $ok = true;
+            return [
+                'success' => true,
+                'message' => 'Posting permission granted.',
+                'error' => '',
+                'permission' => [
+                    'page' => $page,
+                    'user_id' => $userId,
+                    'name' => (string)($target['name'] ?? ''),
+                ],
+            ];
+        } finally {
+            (new LogModel())->record_result('add page posting permission - admin', $ok, $actor, $logDetail);
+        }
+    }
+
+    /**
+     * POST remove_page_posting_permission — admin revokes a user from a page.
+     * Body: token, page, user_id|name.
+     *
+     * @return array{success:bool,message:string,error:string}
+     */
+    public function remove_page_posting_permission(array $input): array
+    {
+        $actor = '-';
+        $ok = false;
+        $logDetail = '';
+        try {
+            $userModel = new UserModel($this->db);
+            $admin = $userModel->verify_admin_by_token($input);
+            $admins = $userModel->get_by_token((string)($input['token'] ?? ''));
+            if (!empty($admins[0]['name'])) {
+                $actor = (string)$admins[0]['name'];
+            }
+            if (!$admin['success']) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Admin token required.',
+                ];
+            }
+
+            $page = strtoupper(trim((string)($input['page'] ?? '')));
+            if (!$this->is_valid_post_page($page)) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Invalid page. Allowed: ' . implode(', ', $this->get_post_page_enums()) . '.',
+                ];
+            }
+
+            $target = $this->resolve_permission_user($input);
+            if ($target === null) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'User not found. Provide user_id or name.',
+                ];
+            }
+
+            $userId = (int)$target['user_id'];
+            $logDetail = 'id ' . $userId . ' ' . $page;
+
+            $deleted = $this->db->delete('page_posting_permissions', [
+                'page' => $page,
+                'user_id' => $userId,
+            ]);
+            if ($deleted < 1) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => 'Permission not found.',
+                ];
+            }
+
+            $ok = true;
+            return [
+                'success' => true,
+                'message' => 'Posting permission removed.',
+                'error' => '',
+            ];
+        } finally {
+            (new LogModel())->record_result('remove page posting permission - admin', $ok, $actor, $logDetail);
+        }
+    }
+
     private function map_post_row(array $row): array
     {
         return [
@@ -789,6 +1039,57 @@ class PostAndMessageModel
     private function is_valid_post_page(string $page): bool
     {
         return in_array(strtoupper($page), $this->get_post_page_enums(), true);
+    }
+
+    private function user_can_post_on_page(array $user, string $page): bool
+    {
+        $userModel = new UserModel($this->db);
+        if ($userModel->row_is_admin($user)) {
+            return true;
+        }
+
+        $userId = (int)($user['user_id'] ?? 0);
+        if ($userId <= 0 || !$this->is_valid_post_page($page)) {
+            return false;
+        }
+
+        $found = $this->db->queryValue(
+            'SELECT 1 FROM page_posting_permissions
+             WHERE page = :page AND user_id = :user_id
+             LIMIT 1',
+            [
+                ':page' => strtoupper($page),
+                ':user_id' => $userId,
+            ]
+        );
+
+        return $found !== null;
+    }
+
+    /**
+     * @return array{user_id:int,name:?string}|null
+     */
+    private function resolve_permission_user(array $input): ?array
+    {
+        $userId = (int)($input['user_id'] ?? $input['id'] ?? 0);
+        $name = trim((string)($input['name'] ?? $input['username'] ?? ''));
+
+        if ($userId > 0) {
+            $rows = $this->db->select('users', ['user_id' => $userId]);
+        } elseif ($name !== '') {
+            $rows = $this->db->select('users', ['name' => $name]);
+        } else {
+            return null;
+        }
+
+        if (empty($rows)) {
+            return null;
+        }
+
+        return [
+            'user_id' => (int)$rows[0]['user_id'],
+            'name' => $rows[0]['name'] ?? null,
+        ];
     }
 
     private function is_valid_api_key(array $input): bool

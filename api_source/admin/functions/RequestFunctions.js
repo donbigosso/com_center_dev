@@ -155,3 +155,52 @@ export async function deleteContactMessageAdmin(id) {
     const token = window.SESSION.token;
     return POSTJSONRequest({ request: "delete_contact_message", token, id });
 }
+
+export async function listPagePostingPermissionsAdmin() {
+    const token = window.SESSION.token;
+    return POSTJSONRequest({ request: "list_page_posting_permissions", token });
+}
+
+export async function addPagePostingPermissionAdmin(page, userId) {
+    const token = window.SESSION.token;
+    return POSTJSONRequest({
+        request: "add_page_posting_permission",
+        token,
+        page,
+        user_id: userId,
+    });
+}
+
+export async function removePagePostingPermissionAdmin(page, userId) {
+    const token = window.SESSION.token;
+    return POSTJSONRequest({
+        request: "remove_page_posting_permission",
+        token,
+        page,
+        user_id: userId,
+    });
+}
+
+export async function listPostsAdmin() {
+    const token = window.SESSION.token;
+    return POSTJSONRequest({ request: "list_posts_admin", token });
+}
+
+export async function deletePostAdmin(postId) {
+    const token = window.SESSION.token;
+    return POSTJSONRequest({ request: "delete_post", token, post_id: postId });
+}
+
+export async function listMediaItemsAdmin() {
+    const token = window.SESSION.token;
+    return POSTJSONRequest({ request: "list_media_items_admin", token });
+}
+
+export async function deleteMediaItemAdmin(mediaItemId) {
+    const token = window.SESSION.token;
+    return POSTJSONRequest({
+        request: "delete_media_item_by_admin",
+        token,
+        media_item_id: mediaItemId,
+    });
+}

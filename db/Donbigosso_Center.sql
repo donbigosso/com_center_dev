@@ -127,6 +127,7 @@ CREATE TABLE `posts_in_pages` (
   CONSTRAINT `fk_pip_post_id` FOREIGN KEY (`post_id`) REFERENCES `posts` (`post_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `page_posting_permissions`;
 DROP TABLE IF EXISTS `users`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -144,6 +145,24 @@ CREATE TABLE `users` (
   UNIQUE KEY `name_UNIQUE` (`name`)
 ) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `page_posting_permissions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `page_posting_permissions` (
+  `page` enum('TRIP','BLOG','ABOUT') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `user_id` int NOT NULL,
+  PRIMARY KEY (`page`,`user_id`),
+  KEY `fk_ppp_user_id` (`user_id`),
+  CONSTRAINT `fk_ppp_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+INSERT INTO `page_posting_permissions` (`page`, `user_id`)
+SELECT p.page, u.user_id
+FROM `users` u
+CROSS JOIN (
+  SELECT 'TRIP' AS page UNION ALL SELECT 'BLOG' UNION ALL SELECT 'ABOUT'
+) p
+WHERE u.name = 'bigos';
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;

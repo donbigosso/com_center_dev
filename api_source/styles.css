@@ -120,6 +120,33 @@ button .bi svg {
     background: linear-gradient(to right, #8B0000, #000000)!important;
 }
 
+.tile-btn {
+    background: #fff;
+    border: 1px solid #e4e7ec;
+    color: #2c3e50;
+    min-height: 8.5rem;
+    border-radius: 10px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.tile-btn i {
+    color: #8B0000;
+}
+
+.tile-btn:hover,
+.tile-btn:focus {
+    background: #fff8f8;
+    border-color: #8B0000;
+    color: #8B0000;
+}
+
+.posting-perm-card .card-title {
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
 
 .nice-table {
     width: 100%;

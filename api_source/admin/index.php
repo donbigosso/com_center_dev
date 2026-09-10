@@ -108,6 +108,24 @@
                     Delete gallery
                 </button>
             </div>
+            <div class="col-6 col-md-3">
+                <button class="btn w-100 py-4 shadow-sm tile-btn" id="tile-posting-permissions">
+                    <i class="bi bi-shield-lock fs-2 d-block mb-2"></i>
+                    Manage posting permissions
+                </button>
+            </div>
+            <div class="col-6 col-md-3">
+                <button class="btn w-100 py-4 shadow-sm tile-btn" id="tile-delete-media">
+                    <i class="bi bi-camera fs-2 d-block mb-2"></i>
+                    Remove media items
+                </button>
+            </div>
+            <div class="col-6 col-md-3">
+                <button class="btn w-100 py-4 shadow-sm tile-btn" id="tile-delete-posts">
+                    <i class="bi bi-journal-x fs-2 d-block mb-2"></i>
+                    Remove posts
+                </button>
+            </div>
         </div>
     </section>
 

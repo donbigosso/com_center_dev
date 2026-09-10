@@ -7,6 +7,13 @@ import {
   deleteGalleryByAdmin,
   listContactMessagesAdmin,
   deleteContactMessageAdmin,
+  listPagePostingPermissionsAdmin,
+  addPagePostingPermissionAdmin,
+  removePagePostingPermissionAdmin,
+  listPostsAdmin,
+  deletePostAdmin,
+  listMediaItemsAdmin,
+  deleteMediaItemAdmin,
 } from "./functions/RequestFunctions.js";
 import {
   drawTable,
@@ -17,6 +24,8 @@ import {
   createGalleryTableRow,
   drawGalleryDeletionForm,
   drawMessagesList,
+  drawIdTitleDeletionForm,
+  drawPostingPermissionsPanel,
 } from "./functions/PageAppearance.js";
 import {
   showFeedback,
@@ -251,6 +260,127 @@ async function showDeleteGalleryForm() {
   );
 }
 
+async function showPostingPermissions() {
+  const resultArea = clearResultArea();
+  if (!resultArea) return;
+
+  const [permResponse, usersResponse] = await Promise.all([
+    listPagePostingPermissionsAdmin(),
+    requestSendTableAdmin("users", [], ["user_id", "name"]),
+  ]);
+
+  if (!permResponse?.success) {
+    showFeedback(permResponse?.error || "Failed to load posting permissions.", "red");
+    return;
+  }
+  if (!usersResponse?.success || !Array.isArray(usersResponse.data)) {
+    showFeedback(usersResponse?.error || "Failed to load users.", "red");
+    return;
+  }
+
+  const userRows = usersResponse.data.slice(1);
+  const users = userRows.map((row) => ({
+    user_id: Number(row[0]),
+    name: String(row[1] || ""),
+  })).filter((user) => user.user_id > 0 && user.name);
+
+  resultArea.appendChild(
+    drawPostingPermissionsPanel(
+      {
+        pages: permResponse.data?.pages || ["TRIP", "BLOG", "ABOUT"],
+        permissions: permResponse.data?.permissions || [],
+        users,
+      },
+      {
+        onAdd: async ({ page, userId, name }) => {
+          const response = await addPagePostingPermissionAdmin(page, userId);
+          if (!response?.success) {
+            showFeedback(response?.error || "Could not grant permission.", "red");
+            return null;
+          }
+          showFeedback(`${name || userId} can now post on ${page}.`);
+          return response.data?.permission || { page, user_id: userId, name };
+        },
+        onRemove: async ({ page, userId, name }) => {
+          const response = await removePagePostingPermissionAdmin(page, userId);
+          if (!response?.success) {
+            showFeedback(response?.error || "Could not remove permission.", "red");
+            return false;
+          }
+          showFeedback(`Removed ${name || userId} from ${page}.`);
+          return true;
+        },
+      }
+    )
+  );
+}
+
+async function showDeleteMediaForm() {
+  const resultArea = clearResultArea();
+  if (!resultArea) return;
+
+  const response = await listMediaItemsAdmin();
+  if (!response?.success) {
+    showFeedback(response?.error || "Failed to load media items.", "red");
+    return;
+  }
+
+  resultArea.appendChild(
+    drawIdTitleDeletionForm(
+      {
+        heading: "Remove media items",
+        label: "Select media item",
+        buttonText: "Delete media item",
+        emptyText: "No media items found.",
+        confirmPrefix: "Delete media item",
+        items: response.data?.media || [],
+      },
+      async ({ id, title }) => {
+        const serverResponse = await deleteMediaItemAdmin(id);
+        if (serverResponse?.success) {
+          showFeedback(`Deleted media #${id} (${title}).`);
+          return true;
+        }
+        showFeedback(serverResponse?.error || `Failed to delete media #${id}.`, "red");
+        return false;
+      }
+    )
+  );
+}
+
+async function showDeletePostsForm() {
+  const resultArea = clearResultArea();
+  if (!resultArea) return;
+
+  const response = await listPostsAdmin();
+  if (!response?.success) {
+    showFeedback(response?.error || "Failed to load posts.", "red");
+    return;
+  }
+
+  resultArea.appendChild(
+    drawIdTitleDeletionForm(
+      {
+        heading: "Remove posts",
+        label: "Select post",
+        buttonText: "Delete post",
+        emptyText: "No posts found.",
+        confirmPrefix: "Delete post",
+        items: response.data?.posts || [],
+      },
+      async ({ id, title }) => {
+        const serverResponse = await deletePostAdmin(id);
+        if (serverResponse?.success) {
+          showFeedback(`Deleted post #${id} (${title}).`);
+          return true;
+        }
+        showFeedback(serverResponse?.error || `Failed to delete post #${id}.`, "red");
+        return false;
+      }
+    )
+  );
+}
+
 function initAdminTiles() {
   const logoutBtn = document.getElementById("logout-btn");
   if (logoutBtn) {
@@ -266,6 +396,9 @@ function initAdminTiles() {
   bindClick("tile-media-collections", loadMediaCollectionsTable);
   bindClick("tile-list-galleries", loadGalleriesList);
   bindClick("tile-delete-gallery", showDeleteGalleryForm);
+  bindClick("tile-posting-permissions", showPostingPermissions);
+  bindClick("tile-delete-media", showDeleteMediaForm);
+  bindClick("tile-delete-posts", showDeletePostsForm);
 
   console.info("Admin tiles initialized.");
 }

@@ -534,3 +534,231 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
+
+/**
+ * Select + delete for items that have id and title.
+ * @param {{
+ *   heading: string,
+ *   label: string,
+ *   buttonText: string,
+ *   emptyText: string,
+ *   confirmPrefix: string,
+ *   items: Array<{id:number,title:string}>,
+ * }} opts
+ * @param {(payload:{id:number,title:string}) => Promise<boolean>} onSubmit
+ */
+export function drawIdTitleDeletionForm(opts, onSubmit) {
+  const form = document.createElement("form");
+  const heading = document.createElement("h5");
+  heading.className = "text-muted mb-3 px-1";
+  heading.textContent = opts.heading || "Delete";
+  form.appendChild(heading);
+
+  const items = Array.isArray(opts.items) ? opts.items : [];
+  if (items.length === 0) {
+    const empty = createDIV("text-muted px-1");
+    empty.textContent = opts.emptyText || "Nothing to delete.";
+    form.appendChild(empty);
+    return form;
+  }
+
+  const selectWrapper = createDIV("mb-3 px-5");
+  const selectLabel = createLabel(opts.label || "Select item", "select-id-title", "form-label");
+  const select = createHTMLelement("select", "form-select");
+  select.id = "select-id-title";
+
+  const defaultOption = document.createElement("option");
+  defaultOption.textContent = "-- Select --";
+  defaultOption.value = "";
+  select.appendChild(defaultOption);
+
+  items.forEach((item) => {
+    const option = document.createElement("option");
+    option.value = String(item.id);
+    option.textContent = `#${item.id} — ${item.title || "(untitled)"}`;
+    select.appendChild(option);
+  });
+
+  selectWrapper.appendChild(selectLabel);
+  selectWrapper.appendChild(select);
+  form.appendChild(selectWrapper);
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.textContent = opts.buttonText || "Delete";
+  btn.className = "btn btn-danger w-50";
+  btn.addEventListener("click", async () => {
+    const id = parseInt(select.value, 10);
+    if (!id) {
+      return showFeedback("Please select an item.", "red");
+    }
+    const selected = items.find((item) => Number(item.id) === id);
+    const title = selected?.title || String(id);
+    const ok = window.confirm(
+      `${opts.confirmPrefix || "Delete"} #${id} ("${title}")?\n\nThis cannot be undone.`
+    );
+    if (!ok) return;
+
+    const wasDeleted = await onSubmit({ id, title });
+    if (wasDeleted) {
+      const optionToRemove = select.querySelector(`option[value="${id}"]`);
+      if (optionToRemove) optionToRemove.remove();
+      select.value = "";
+    }
+  });
+
+  const btnWrapper = createDIV("d-flex justify-content-center mt-2 px-5");
+  btnWrapper.appendChild(btn);
+  form.appendChild(btnWrapper);
+  return form;
+}
+
+/**
+ * Admin UI: view / grant / revoke posting permissions per page ENUM.
+ * @param {{
+ *   pages: string[],
+ *   permissions: Array<{page:string,user_id:number,name:string}>,
+ *   users: Array<{user_id:number,name:string}>,
+ * }} data
+ * @param {{
+ *   onAdd: (payload:{page:string,userId:number,name:string}) => Promise<object|null>,
+ *   onRemove: (payload:{page:string,userId:number,name:string}) => Promise<boolean>,
+ * }} handlers
+ */
+export function drawPostingPermissionsPanel(data, handlers) {
+  const wrap = createDIV("posting-permissions");
+  const heading = document.createElement("h5");
+  heading.className = "text-muted mb-3 px-1";
+  heading.textContent = "Manage posting permissions";
+  wrap.appendChild(heading);
+
+  const pages = Array.isArray(data.pages) ? data.pages : [];
+  const permissions = Array.isArray(data.permissions) ? data.permissions : [];
+  const users = Array.isArray(data.users) ? data.users : [];
+
+  pages.forEach((page) => {
+    const card = createDIV("card mb-3 posting-perm-card");
+    const body = createDIV("card-body");
+
+    const title = document.createElement("h6");
+    title.className = "card-title d-flex align-items-center gap-2 mb-3";
+    const icon = createHTMLelement("i", "bi bi-file-earmark-text");
+    title.appendChild(icon);
+    title.appendChild(document.createTextNode(` ${page}`));
+    body.appendChild(title);
+
+    const list = document.createElement("ul");
+    list.className = "list-group mb-3 posting-perm-list";
+    list.dataset.page = page;
+
+    const pageUsers = permissions.filter((row) => row.page === page);
+    if (pageUsers.length === 0) {
+      const empty = document.createElement("li");
+      empty.className = "list-group-item text-muted posting-perm-empty";
+      empty.textContent = "No users granted yet.";
+      list.appendChild(empty);
+    } else {
+      pageUsers.forEach((row) => {
+        list.appendChild(createPermissionRow(page, row, handlers.onRemove));
+      });
+    }
+    body.appendChild(list);
+
+    const addRow = createDIV("d-flex flex-wrap gap-2 align-items-end");
+    const selectWrap = createDIV("flex-grow-1");
+    const selectId = `perm-user-${page}`;
+    const selectLabel = createLabel("Grant user", selectId, "form-label");
+    const select = createHTMLelement("select", "form-select");
+    select.id = selectId;
+
+    const defaultOption = document.createElement("option");
+    defaultOption.value = "";
+    defaultOption.textContent = "-- Select a user --";
+    select.appendChild(defaultOption);
+    users.forEach((user) => {
+      const option = document.createElement("option");
+      option.value = String(user.user_id);
+      option.textContent = `${user.name} (#${user.user_id})`;
+      select.appendChild(option);
+    });
+    selectWrap.appendChild(selectLabel);
+    selectWrap.appendChild(select);
+
+    const addBtn = createButton("button", "Add", "btn btn-primary");
+    addBtn.addEventListener("click", async () => {
+      const userId = parseInt(select.value, 10);
+      if (!userId) {
+        return showFeedback("Select a user to grant.", "red");
+      }
+      const user = users.find((entry) => Number(entry.user_id) === userId);
+      const added = await handlers.onAdd({
+        page,
+        userId,
+        name: user?.name || "",
+      });
+      if (!added) return;
+      const empty = list.querySelector(".posting-perm-empty");
+      if (empty) empty.remove();
+      list.appendChild(
+        createPermissionRow(
+          page,
+          { page, user_id: userId, name: added.name || user?.name || "" },
+          handlers.onRemove
+        )
+      );
+      select.value = "";
+    });
+
+    addRow.appendChild(selectWrap);
+    addRow.appendChild(addBtn);
+    body.appendChild(addRow);
+    card.appendChild(body);
+    wrap.appendChild(card);
+  });
+
+  return wrap;
+}
+
+function createPermissionRow(page, row, onRemove) {
+  const item = document.createElement("li");
+  item.className =
+    "list-group-item d-flex justify-content-between align-items-center posting-perm-row";
+  item.dataset.userId = String(row.user_id);
+
+  const label = createDIV("d-flex align-items-center gap-2");
+  const person = createHTMLelement("i", "bi bi-person-check");
+  const name = document.createElement("strong");
+  name.textContent = row.name || `user #${row.user_id}`;
+  const meta = document.createElement("span");
+  meta.className = "text-muted small";
+  meta.textContent = ` #${row.user_id}`;
+  label.appendChild(person);
+  label.appendChild(name);
+  label.appendChild(meta);
+
+  const removeBtn = createButton("button", "Remove", "btn btn-sm btn-outline-danger");
+  removeBtn.addEventListener("click", async () => {
+    const ok = window.confirm(
+      `Remove ${row.name || row.user_id} from ${page}?`
+    );
+    if (!ok) return;
+    const removed = await onRemove({
+      page,
+      userId: row.user_id,
+      name: row.name || "",
+    });
+    if (!removed) return;
+    const list = item.parentElement;
+    item.remove();
+    if (list && !list.querySelector(".posting-perm-row")) {
+      const empty = document.createElement("li");
+      empty.className = "list-group-item text-muted posting-perm-empty";
+      empty.textContent = "No users granted yet.";
+      list.appendChild(empty);
+    }
+  });
+
+  item.appendChild(label);
+  item.appendChild(removeBtn);
+  return item;
+}
