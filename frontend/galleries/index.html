@@ -61,10 +61,32 @@
                         Curated collections. Precision. Presence.
                     </p>
                 </div>
-                <button class="btn galleries-btn-primary logged-only" id="add-gallery-btn">
-                    <i class="bi bi-plus-lg"></i>
-                    <span>New Gallery</span>
-                </button>
+                <div class="d-flex flex-wrap align-items-center gap-2 ms-md-auto">
+                    <div class="gallery-share-actions">
+                        <button
+                            type="button"
+                            class="btn galleries-btn-ghost gallery-share-icon-btn"
+                            id="galleries-copy-link-btn"
+                            title="Copy link"
+                        >
+                            <i class="bi bi-link-45deg"></i>
+                            <span class="visually-hidden">Copy link</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="btn galleries-btn-ghost gallery-share-icon-btn d-none"
+                            id="galleries-share-btn"
+                            title="Share"
+                        >
+                            <i class="bi bi-share"></i>
+                            <span class="visually-hidden">Share</span>
+                        </button>
+                    </div>
+                    <button class="btn galleries-btn-primary logged-only" id="add-gallery-btn">
+                        <i class="bi bi-plus-lg"></i>
+                        <span>New Gallery</span>
+                    </button>
+                </div>
             </div>
         </div>
     </section>

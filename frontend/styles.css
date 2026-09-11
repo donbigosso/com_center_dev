@@ -1093,9 +1093,41 @@ body.gallery-lightbox-open {
   cursor: default;
 }
 
-.gallery-lightbox-close {
+.gallery-lightbox-toolbar {
+  position: absolute;
   top: 1rem;
   right: 1rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.gallery-lightbox-close {
+  position: relative;
+  top: auto;
+  right: auto;
+}
+
+.galleries-page .gallery-share-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.galleries-page .gallery-share-icon-btn {
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0;
+}
+
+.galleries-page .gallery-share-icon-btn i {
+  font-size: 1.15rem;
+  margin: 0;
 }
 
 .gallery-lightbox-prev {

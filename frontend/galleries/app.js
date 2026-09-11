@@ -2,7 +2,7 @@ import { onClick } from "../functions/EventFunctions.js";
 import { showLoginModal } from "../functions/NewModalMethods.js";
 import { handleAutoLogin, handleLogout } from "../functions/LoginFunctions.js";
 import { initApiAddressCache, initFileSettingsCache } from "../functions/CustomFunctions.js";
-import { loadGalleries, handleAddGallery } from "../functions/GalleryFunctions.js";
+import { loadGalleries, handleAddGallery, initGalleriesIndexShare } from "../functions/GalleryFunctions.js";
 
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     await initFileSettingsCache();
     await loadGalleries();
     handleAutoLogin();
+    initGalleriesIndexShare();
   })();
 
   const loginButton = document.querySelector("#login-btn");

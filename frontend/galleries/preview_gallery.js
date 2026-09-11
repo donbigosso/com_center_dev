@@ -6,6 +6,7 @@ import {
   initGalleryPreview,
   attachGalleryPreviewOwnerHandlers,
   refreshGalleryPreviewAuthUI,
+  initGalleryPreviewShare,
 } from "../functions/GalleryFunctions.js";
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -15,6 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
     await initGalleryPreview();
     await handleAutoLogin();
     attachGalleryPreviewOwnerHandlers();
+    initGalleryPreviewShare();
   })();
 
   const loginButton = document.querySelector("#login-btn");

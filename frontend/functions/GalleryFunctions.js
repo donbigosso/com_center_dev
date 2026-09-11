@@ -6,7 +6,13 @@ import {
   createInfiniteScroller,
 } from "./CoreFunctions.js";
 import { verifySession } from "./RequestFunctions.js";
-import { getSessionToken, showFeedback } from "./CustomFunctions.js";
+import {
+  getSessionToken,
+  showFeedback,
+  canNativeShare,
+  copyTextWithFeedback,
+  nativeShare,
+} from "./CustomFunctions.js";
 import { showGenericModal } from "./NewModalMethods.js";
 import {
   newHideModal,
@@ -1593,6 +1599,29 @@ function ensurePictureLightbox() {
   const backdrop = createDIV("gallery-lightbox-backdrop");
   const stage = createDIV("gallery-lightbox-stage");
 
+  const toolbar = createDIV("gallery-lightbox-toolbar");
+
+  const copyBtn = createButton(
+    "button",
+    "",
+    "btn gallery-lightbox-close gallery-lightbox-copy"
+  );
+  copyBtn.setAttribute("aria-label", "Copy link");
+  copyBtn.title = "Copy link";
+  copyBtn.innerHTML = '<i class="bi bi-link-45deg"></i>';
+
+  const shareBtn = createButton(
+    "button",
+    "",
+    "btn gallery-lightbox-close gallery-lightbox-share"
+  );
+  shareBtn.setAttribute("aria-label", "Share");
+  shareBtn.title = "Share";
+  shareBtn.innerHTML = '<i class="bi bi-share"></i>';
+  if (!canNativeShare({ url: window.location.href, title: document.title })) {
+    shareBtn.hidden = true;
+  }
+
   const closeBtn = createButton(
     "button",
     "",
@@ -1636,13 +1665,31 @@ function ensurePictureLightbox() {
   stage.appendChild(img);
   stage.appendChild(meta);
 
+  toolbar.appendChild(copyBtn);
+  toolbar.appendChild(shareBtn);
+  toolbar.appendChild(closeBtn);
+
   root.appendChild(backdrop);
-  root.appendChild(closeBtn);
+  root.appendChild(toolbar);
   root.appendChild(prevBtn);
   root.appendChild(nextBtn);
   root.appendChild(stage);
   document.body.appendChild(root);
 
+  copyBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    copyTextWithFeedback(window.location.href, "Link copied");
+  });
+  shareBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const item = loadedGalleryPictures[lightboxIndex];
+    const galleryTitle = currentPreviewGallery?.title || "Donbigosso Galleries";
+    nativeShare({
+      title: item?.title ? `${item.title} — ${galleryTitle}` : galleryTitle,
+      text: item?.caption || item?.title || galleryTitle,
+      url: window.location.href,
+    });
+  });
   // Close only via the X button (not backdrop click)
   closeBtn.addEventListener("click", () => closePictureLightbox());
   prevBtn.addEventListener("click", (e) => {
@@ -1758,6 +1805,62 @@ function showLightboxAt(index) {
 export function openPictureLightbox(index) {
   ensurePictureLightbox();
   showLightboxAt(index);
+}
+
+function bindShareButtons({ copyBtnId, shareBtnId, getPayload }) {
+  const copyBtn = document.getElementById(copyBtnId);
+  const shareBtn = document.getElementById(shareBtnId);
+  if (!copyBtn) return;
+
+  copyBtn.addEventListener("click", () => {
+    const payload = getPayload();
+    copyTextWithFeedback(payload.url, "Link copied");
+  });
+
+  if (shareBtn) {
+    if (canNativeShare(getPayload())) {
+      shareBtn.classList.remove("d-none");
+      shareBtn.addEventListener("click", () => {
+        nativeShare(getPayload());
+      });
+    } else {
+      shareBtn.classList.add("d-none");
+    }
+  }
+}
+
+export function initGalleriesIndexShare() {
+  bindShareButtons({
+    copyBtnId: "galleries-copy-link-btn",
+    shareBtnId: "galleries-share-btn",
+    getPayload: () => {
+      const heading = document.getElementById("galleries-heading");
+      const title = heading?.textContent?.trim() || "Donbigosso Galleries";
+      return {
+        title,
+        text: "Donbigosso Galleries",
+        url: window.location.href,
+      };
+    },
+  });
+}
+
+export function initGalleryPreviewShare() {
+  bindShareButtons({
+    copyBtnId: "gallery-copy-link-btn",
+    shareBtnId: "gallery-share-btn",
+    getPayload: () => {
+      const titleEl = document.getElementById("gallery-title");
+      const title = titleEl?.textContent?.trim() || "Gallery";
+      const url = new URL(window.location.href);
+      url.searchParams.delete("picid");
+      return {
+        title: `${title} — Donbigosso Galleries`,
+        text: title,
+        url: url.toString(),
+      };
+    },
+  });
 }
 
 /**

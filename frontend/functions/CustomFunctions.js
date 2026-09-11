@@ -66,6 +66,56 @@ export function copyToClipboard(text) {
     }
 }
 
+export function canNativeShare(data = { url: window.location.href }) {
+  if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
+    return false;
+  }
+  if (typeof navigator.canShare === "function") {
+    try {
+      return navigator.canShare(data);
+    } catch (err) {
+      return true;
+    }
+  }
+  return true;
+}
+
+export async function copyTextWithFeedback(text, message = "Link copied") {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      fallbackCopy(text);
+    }
+    showFeedback(message);
+  } catch (err) {
+    console.error("Clipboard write failed: ", err);
+    fallbackCopy(text);
+    showFeedback(message);
+  }
+}
+
+export async function nativeShare({ title, text, url }) {
+  const payload = {
+    title: title || document.title,
+    text: text || "",
+    url: url || window.location.href,
+  };
+  if (!canNativeShare(payload)) {
+    return false;
+  }
+  try {
+    await navigator.share(payload);
+    return true;
+  } catch (err) {
+    if (err && err.name === "AbortError") {
+      return false;
+    }
+    console.error("Share failed: ", err);
+    return false;
+  }
+}
+
 function fallbackCopy(text) {
     const textarea = document.createElement('textarea');
     textarea.value = text;
