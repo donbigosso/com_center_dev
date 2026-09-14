@@ -711,6 +711,73 @@ class PostAndMessageModel
     }
 
     /**
+     * GET list_page_media — pictures attached to posts on a posts_in_pages page.
+     * Query: page|on_page (TRIP|BLOG|ABOUT).
+     *
+     * @return array{success:bool,message:string,error:string,media:array,page:?string}
+     */
+    public function list_page_media(array $input): array
+    {
+        $page = strtoupper(trim((string)($input['page'] ?? $input['on_page'] ?? '')));
+        if (!$this->is_valid_post_page($page)) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Invalid page. Allowed: ' . implode(', ', $this->get_post_page_enums()) . '.',
+                'media' => [],
+                'page' => $page !== '' ? $page : null,
+            ];
+        }
+
+        $rows = $this->db->queryAll(
+            'SELECT
+                mip.post_id,
+                mi.media_item_id,
+                mi.title,
+                mi.media_type,
+                f.filename
+             FROM posts_in_pages pip
+             INNER JOIN media_in_post mip ON mip.post_id = pip.post_id
+             INNER JOIN media_items mi ON mi.media_item_id = mip.media_item_id
+             INNER JOIN files f ON f.file_id = mi.file_id
+             WHERE pip.page = :page
+               AND mi.media_type = :media_type
+             ORDER BY mi.media_item_id DESC',
+            [
+                ':page' => $page,
+                ':media_type' => 'PIC',
+            ]
+        );
+
+        $media = [];
+        foreach ($rows as $row) {
+            $filename = (string)($row['filename'] ?? '');
+            $base = pathinfo($filename, PATHINFO_FILENAME);
+            $ext = pathinfo($filename, PATHINFO_EXTENSION);
+            $miniature = $filename !== ''
+                ? ($ext !== '' ? "{$base}_sm.{$ext}" : "{$base}_sm")
+                : null;
+
+            $media[] = [
+                'media_item_id' => (int)$row['media_item_id'],
+                'post_id' => (int)$row['post_id'],
+                'title' => $row['title'] !== null && $row['title'] !== '' ? $row['title'] : null,
+                'media_type' => (string)$row['media_type'],
+                'filename' => $filename !== '' ? $filename : null,
+                'miniature_filename' => $miniature,
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Page media retrieved.',
+            'error' => '',
+            'media' => $media,
+            'page' => $page,
+        ];
+    }
+
+    /**
      * POST list_posts_admin — id + topic for admin delete UI.
      *
      * @return array{success:bool,message:string,error:string,posts:array}

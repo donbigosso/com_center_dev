@@ -798,6 +798,65 @@ export async function getPost(postId) {
   });
 }
 
+export async function deletePost(postId, sessionToken) {
+  const apiKey = await getSetting("api_key");
+  return POSTJSONRequest({
+    request: "delete_post",
+    api_key: apiKey,
+    token: sessionToken,
+    post_id: postId,
+  });
+}
+
+export async function listPageMedia(pageEnum) {
+  return fetchAPIdataWGetParams({
+    request: "list_page_media",
+    page: pageEnum,
+  });
+}
+
+const RETURN_PAGES = {
+  "trips.html": "Back to Trips",
+  "index.html": "Back to Command Center",
+};
+
+export function getSafeReturnPath() {
+  const raw = new URLSearchParams(window.location.search).get("return");
+  if (!raw) return null;
+  let value = String(raw).trim();
+  try {
+    value = decodeURIComponent(value);
+  } catch (err) {
+    return null;
+  }
+  if (value.includes("..") || value.includes("://") || value.includes("\\") || value.startsWith("/")) {
+    return null;
+  }
+  const file = value.split("/").pop().split("?")[0].split("#")[0];
+  if (!Object.prototype.hasOwnProperty.call(RETURN_PAGES, file)) {
+    return null;
+  }
+  return file;
+}
+
+export function applyReturnLink(anchor) {
+  const path = getSafeReturnPath();
+  if (!path || !(anchor instanceof HTMLElement)) {
+    return null;
+  }
+  anchor.href = path;
+  anchor.textContent = RETURN_PAGES[path] || "Back";
+  anchor.classList.remove("d-none");
+  return path;
+}
+
+export function redirectToReturnPath() {
+  const path = getSafeReturnPath();
+  if (!path) return false;
+  window.location.assign(path);
+  return true;
+}
+
 export async function listPosts({ page = 1, limit = 20, user = null, onPage = null } = {}) {
   const params = {
     request: "list_posts",

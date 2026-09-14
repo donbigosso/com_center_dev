@@ -1,0 +1,171 @@
+/* ==========================================================================
+   TRIPS — dark gold, same layout as command-center-page
+   ========================================================================== */
+
+.command-center-page.trips-page {
+  --cc-bg: #140e06;
+  --cc-bg-elevated: #1d160b;
+  --cc-card: #241b0e;
+  --cc-card-hover: #2f2412;
+  --cc-border: rgba(212, 175, 55, 0.16);
+  --cc-border-strong: rgba(232, 196, 88, 0.32);
+  --cc-text: #f6edd8;
+  --cc-text-muted: #c4b089;
+  --cc-text-dim: #8a7752;
+  --cc-accent: #c9a227;
+  --cc-accent-soft: rgba(201, 162, 39, 0.18);
+  --cc-danger: #ff6b6b;
+
+  background:
+    radial-gradient(ellipse 70% 50% at 50% -10%, rgba(180, 130, 30, 0.28), transparent 55%),
+    var(--cc-bg);
+}
+
+.command-center-page.trips-page .cc-nav {
+  background: rgba(20, 14, 6, 0.88) !important;
+}
+
+.command-center-page.trips-page .cc-hero-glow {
+  background:
+    radial-gradient(ellipse 50% 80% at 20% 50%, rgba(201, 162, 39, 0.14), transparent 60%),
+    radial-gradient(ellipse 40% 70% at 85% 30%, rgba(90, 60, 10, 0.28), transparent 55%);
+}
+
+.command-center-page.trips-page .cc-btn-ghost:hover {
+  background: var(--cc-accent);
+  border-color: var(--cc-accent);
+  color: #1a1306;
+}
+
+.command-center-page.trips-page .cc-feedback {
+  background: #241b0e;
+}
+
+.command-center-page.trips-page .cc-modal {
+  background-color: rgba(14, 10, 4, 0.72);
+}
+
+.command-center-page.trips-page .cc-modal .modal-content {
+  background: #241b0e;
+}
+
+.command-center-page.trips-page .cc-modal .form-control,
+.command-center-page.trips-page .cc-modal .form-control:focus {
+  background: #140e06;
+}
+
+.trips-hero-actions {
+  margin-top: 1.35rem;
+}
+
+.trips-hero-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.trips-carousel-section {
+  border-bottom: 1px solid var(--cc-border);
+}
+
+.trips-carousel-wrap {
+  position: relative;
+  width: min(1100px, calc(100% - 2rem));
+  margin: 1.25rem auto 2rem;
+  aspect-ratio: 16 / 6;
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius);
+  overflow: hidden;
+  background: var(--cc-bg-elevated);
+}
+
+.trips-carousel-wrap .carousel,
+.trips-carousel-wrap .carousel-inner,
+.trips-carousel-wrap .carousel-item {
+  height: 100%;
+}
+
+.trips-carousel-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.trips-carousel-overlay {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 2;
+  padding: 2.4rem 1.5rem 1.6rem;
+  text-align: center;
+  background: linear-gradient(transparent, rgba(12, 8, 2, 0.88) 55%);
+  pointer-events: none;
+}
+
+.trips-carousel-overlay .cc-jumbotron-lead,
+.trips-carousel-overlay .cc-jumbotron-title,
+.trips-carousel-overlay .cc-eyebrow {
+  max-width: none;
+}
+
+.trips-carousel-overlay .trips-hero-actions {
+  pointer-events: auto;
+}
+
+.trips-carousel-wrap .carousel-indicators {
+  margin-bottom: 0.35rem;
+  z-index: 3;
+}
+
+.trips-carousel-wrap .carousel-indicators [data-bs-target] {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background-color: rgba(246, 237, 216, 0.45);
+  border: 0;
+}
+
+.trips-carousel-wrap .carousel-indicators .active {
+  background-color: var(--cc-accent);
+}
+
+.trips-carousel-wrap .carousel-control-prev,
+.trips-carousel-wrap .carousel-control-next {
+  width: 3.25rem;
+  z-index: 3;
+}
+
+.trips-carousel-wrap .carousel-control-prev-icon,
+.trips-carousel-wrap .carousel-control-next-icon {
+  filter: none;
+  background-size: 1.4rem;
+}
+
+.trips-posts-title {
+  margin: 0 0 1.25rem;
+  font-size: 1.65rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.trips-post-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed var(--cc-border);
+}
+
+.command-center-page.trips-page .post-form > .btn-primary,
+.command-center-page.trips-page .cc-btn-submit {
+  background: var(--cc-accent);
+  border-color: var(--cc-accent);
+  color: #1a1306;
+}
+
+@media (max-width: 700px) {
+  .trips-carousel-wrap {
+    aspect-ratio: 16 / 9;
+  }
+}

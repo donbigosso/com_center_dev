@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>Donbigosso — Create Post</title>
-    <meta property="og:title" content="Donbigosso Create Post">
-    <meta property="og:description" content="Create a post for Donbigosso pages">
+    <title>Trips with Donbigosso</title>
+    <meta property="og:title" content="Trips with Donbigosso">
+    <meta property="og:description" content="Explore the world with me. In the business since 2010.">
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://donbigosso.polafri.pl/create_post.html">
+    <meta property="og:url" content="https://donbigosso.polafri.pl/trips.html">
     <meta property="og:image" content="https://donbigosso.polafri.pl/images/logo.png">
     <meta property="og:image:width" content="400">
     <meta property="og:image:height" content="400">
@@ -17,15 +17,16 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="post_styles.css">
+    <link rel="stylesheet" href="trips_styles.css">
 </head>
-<body class="command-center-page create-post-page d-flex flex-column min-vh-100">
+<body class="command-center-page trips-page d-flex flex-column min-vh-100">
     <header class="navbar navbar-expand cc-nav sticky-top">
         <div class="container-fluid cc-nav-inner">
             <a class="navbar-brand cc-brand" href="./">
                 <img src="./images/logo.png" alt="Logo" class="cc-logo" width="40" height="40">
                 <span class="cc-brand-text">Donbigosso</span>
                 <span class="cc-brand-divider" aria-hidden="true"></span>
-                <span class="cc-brand-sub">Create Post</span>
+                <span class="cc-brand-sub">Trips</span>
             </a>
 
             <div class="d-flex align-items-center gap-2 gap-md-3">
@@ -39,40 +40,58 @@
         </div>
     </header>
 
-    <section class="cc-hero">
+    <section class="cc-hero" id="trips-hero-text">
         <div class="cc-hero-glow" aria-hidden="true"></div>
         <div class="container cc-hero-content">
-            <p class="cc-eyebrow" id="create-post-eyebrow">Create post</p>
-            <h1 class="cc-jumbotron-title" id="create-post-title">New post</h1>
-            <p class="cc-jumbotron-lead" id="create-post-lead">
-                Publish to a page of the Donbigosso network.
+            <p class="cc-eyebrow">Trips with Donbigosso</p>
+            <h1 class="cc-jumbotron-title">Trips with Donbigosso</h1>
+            <p class="cc-jumbotron-lead">
+                Explore the world with me. In the business since 2010.
             </p>
-            <a class="cc-return-link d-none" id="post-return-link" href="./">Back</a>
+            <div class="trips-hero-actions logged-only" id="trips-add-wrap">
+                <a class="btn cc-btn-ghost" id="trips-add-post-btn" href="create_post.html?page=TRIP&amp;include_media=yes&amp;return=trips.html">
+                    <i class="bi bi-plus-lg"></i>
+                    Add post
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <section class="trips-carousel-section d-none" id="trips-carousel-section" aria-label="Trip pictures">
+        <div class="trips-carousel-wrap">
+            <div id="trips-carousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5500">
+                <div class="carousel-indicators" id="trips-carousel-indicators"></div>
+                <div class="carousel-inner" id="trips-carousel-inner"></div>
+                <button class="carousel-control-prev" type="button" data-bs-target="#trips-carousel" data-bs-slide="prev" id="trips-carousel-prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Previous</span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#trips-carousel" data-bs-slide="next" id="trips-carousel-next">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Next</span>
+                </button>
+            </div>
+            <div class="trips-carousel-overlay">
+                <p class="cc-eyebrow">Trips with Donbigosso</p>
+                <h1 class="cc-jumbotron-title">Trips with Donbigosso</h1>
+                <p class="cc-jumbotron-lead">
+                    Explore the world with me. In the business since 2010.
+                </p>
+                <div class="trips-hero-actions logged-only">
+                    <a class="btn cc-btn-ghost" href="create_post.html?page=TRIP&amp;include_media=yes&amp;return=trips.html">
+                        <i class="bi bi-plus-lg"></i>
+                        Add post
+                    </a>
+                </div>
+            </div>
         </div>
     </section>
 
     <main class="container cc-main flex-grow-1">
-        <div id="create-post-param-alert" class="alert alert-warning d-none" role="alert"></div>
-
-        <section class="create-post-panel" id="create-post-compose" aria-labelledby="create-post-form-heading">
-            <p class="cc-eyebrow">Compose</p>
-            <h2 class="create-post-section-title" id="create-post-form-heading">Write a post</h2>
-            <p class="create-post-section-lead" id="create-post-form-lead"></p>
-            <div id="create-post-form-slot"></div>
-        </section>
-
-        <section class="create-post-panel unlogged-only" aria-labelledby="create-post-login-heading">
-            <p class="cc-eyebrow">Access</p>
-            <h2 class="create-post-section-title" id="create-post-login-heading">Log in to publish</h2>
-            <p class="create-post-section-lead">
-                You can read posts on this page without an account. Creating a post requires login.
-            </p>
-        </section>
-
-        <section class="create-post-panel" aria-labelledby="create-post-list-heading">
-            <p class="cc-eyebrow">On this page</p>
-            <h2 class="create-post-section-title" id="create-post-list-heading">Recent posts</h2>
-            <div id="create-post-list"></div>
+        <section class="trips-posts" aria-labelledby="trips-posts-heading">
+            <p class="cc-eyebrow">Journal</p>
+            <h2 class="trips-posts-title" id="trips-posts-heading">Recent trips</h2>
+            <div id="trips-posts-list"></div>
         </section>
 
         <div id="global-feedback" class="position-fixed top-50 start-50 translate-middle cc-feedback opacity-0">
@@ -111,6 +130,6 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script type="module" src="./create_post.js"></script>
+    <script type="module" src="./trips.js"></script>
 </body>
 </html>

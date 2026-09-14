@@ -110,6 +110,9 @@ class ApiMethods extends Core
                 case 'list_post_pages':
                     $this->handle_list_post_pages($input);
                     break;
+                case 'list_page_media':
+                    $this->handle_list_page_media($input);
+                    break;
                 case 'download':
                     $this->handle_download();
                     break;
@@ -1096,6 +1099,22 @@ public function handle_clear_token(array $input): void{
             '',
             '',
             ['pages' => $pages]
+        );
+    }
+
+    private function handle_list_page_media(array $input): void
+    {
+        $model = new PostAndMessageModel($this->db_access);
+        $result = $model->list_page_media($input);
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error'],
+            [
+                'media' => $result['media'] ?? [],
+                'page' => $result['page'] ?? null,
+            ]
         );
     }
 

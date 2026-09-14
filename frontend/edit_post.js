@@ -4,8 +4,10 @@ import { handleAutoLogin, handleLogout } from "./functions/LoginFunctions.js";
 import { getSessionToken, initApiAddressCache, initFileSettingsCache } from "./functions/CustomFunctions.js";
 import { getUserByToken } from "./functions/RequestFunctions.js";
 import {
+  applyReturnLink,
   createEditPostForm,
   getPost,
+  redirectToReturnPath,
   renderPostCardWithMedia,
 } from "./functions/PostFunctions.js";
 
@@ -76,6 +78,7 @@ async function mountEditor(post) {
   await createEditPostForm(formSlot, {
     post,
     onSaved: async (updated) => {
+      if (redirectToReturnPath()) return;
       await renderSavedPost(updated);
     },
   });
@@ -120,6 +123,7 @@ document.addEventListener("DOMContentLoaded", () => {
     await initApiAddressCache();
     await initFileSettingsCache();
     await handleAutoLogin();
+    applyReturnLink(document.getElementById("post-return-link"));
     await initEditPage();
   })();
 

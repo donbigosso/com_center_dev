@@ -4,9 +4,11 @@ import { handleAutoLogin, handleLogout } from "./functions/LoginFunctions.js";
 import { initApiAddressCache, initFileSettingsCache } from "./functions/CustomFunctions.js";
 import {
   POST_PAGE_ENUMS,
+  applyReturnLink,
   createPostForm,
   listPostPages,
   listPosts,
+  redirectToReturnPath,
   renderPostCardWithMedia,
 } from "./functions/PostFunctions.js";
 
@@ -123,6 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
     await initApiAddressCache();
     await initFileSettingsCache();
     await handleAutoLogin();
+    applyReturnLink(document.getElementById("post-return-link"));
 
     const { page, includeMedia } = parseCreatePostParams();
     const allowedPages = await resolveAllowedPages();
@@ -153,6 +156,7 @@ document.addEventListener("DOMContentLoaded", () => {
         page,
         includeMedia,
         onCreated: async () => {
+          if (redirectToReturnPath()) return;
           await renderPagePosts(listSlot, page);
         },
       });
