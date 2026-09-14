@@ -270,6 +270,9 @@
   text-decoration: underline;
   text-decoration-color: var(--cc-accent-soft);
   text-underline-offset: 0.15em;
+  pointer-events: auto;
+  cursor: pointer;
+  word-break: break-word;
 }
 
 .command-center-page .post-preview a:hover,

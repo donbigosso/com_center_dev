@@ -1284,6 +1284,7 @@ class PostAndMessageModel
     private function sanitize_href(string $url): ?string
     {
         $url = trim($url);
+        $url = trim($url, " \t\"'");
         if ($url === '' || preg_match('/[\x00-\x1F\x7F]/', $url)) {
             return null;
         }
@@ -1292,12 +1293,24 @@ class PostAndMessageModel
             return null;
         }
 
+        if (str_starts_with($url, '//')) {
+            $url = 'https:' . $url;
+        } elseif (!preg_match('#^[a-zA-Z][a-zA-Z0-9+.-]*://#', $url)) {
+            $url = 'https://' . $url;
+        }
+
         if (!preg_match('#^https?://#i', $url)) {
             return null;
         }
 
         if (filter_var($url, FILTER_VALIDATE_URL) === false) {
-            return null;
+            $parts = parse_url($url);
+            if (!is_array($parts) || empty($parts['scheme']) || empty($parts['host'])) {
+                return null;
+            }
+            if (!in_array(strtolower((string)$parts['scheme']), ['http', 'https'], true)) {
+                return null;
+            }
         }
 
         return $url;

@@ -1,21 +1,21 @@
-import { onClick } from "./functions/EventFunctions.js";
-import { showLoginModal } from "./functions/NewModalMethods.js";
-import { handleAutoLogin, handleLogout } from "./functions/LoginFunctions.js";
+import { onClick } from "../functions/EventFunctions.js";
+import { showLoginModal } from "../functions/NewModalMethods.js";
+import { handleAutoLogin, handleLogout } from "../functions/LoginFunctions.js";
 import {
   getSessionToken,
   initApiAddressCache,
   initFileSettingsCache,
   showFeedback,
-} from "./functions/CustomFunctions.js";
-import { getUserByToken, verifySession } from "./functions/RequestFunctions.js";
-import { getGalleryFolder } from "./functions/GalleryFunctions.js";
+} from "../functions/CustomFunctions.js";
+import { getUserByToken, verifySession } from "../functions/RequestFunctions.js";
+import { getGalleryFolder } from "../functions/GalleryFunctions.js";
 import {
   deletePost,
   listPageMedia,
   listPosts,
   renderPostCardWithMedia,
-} from "./functions/PostFunctions.js";
-import { createButton, createDIV } from "./functions/PageAppearance.js";
+} from "../functions/PostFunctions.js";
+import { createButton, createDIV } from "../functions/PageAppearance.js";
 
 const TRIP_PAGE = "TRIP";
 const CAROUSEL_SIZE = 5;
@@ -115,7 +115,7 @@ function addPostActions(card, post, user, onDeleted) {
   const actions = createDIV("trips-post-actions");
   const edit = document.createElement("a");
   edit.className = "btn btn-sm cc-btn-ghost";
-  edit.href = `edit_post.html?post_id=${encodeURIComponent(post.post_id)}&return=trips.html`;
+  edit.href = `../edit_post.html?post_id=${encodeURIComponent(post.post_id)}&return=trips/`;
   edit.innerHTML = '<i class="bi bi-pencil"></i> Edit';
 
   const remove = createButton("button", "Remove", "btn btn-sm cc-btn-outline");

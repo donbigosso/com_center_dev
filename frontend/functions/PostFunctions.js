@@ -3,7 +3,7 @@ import { getSessionToken, showFeedback } from "./CustomFunctions.js";
 import { showGenericModal } from "./NewModalMethods.js";
 import { newHideModal, createDIV, createLabel, createBootstrapTextInput, createBootstrapTextArea, createButton, createHTMLelement } from "./PageAppearance.js";
 import { verifySession } from "./RequestFunctions.js";
-import { renderPostContent } from "./PostContentFunctions.js";
+import { renderPostContent, normalizeLinkHref } from "./PostContentFunctions.js";
 import { createPictureWrapper, getGalleryFolder } from "./GalleryFunctions.js";
 
 /*
@@ -46,8 +46,13 @@ function wrapSelectionWithTag(textarea, openTag, closeTag) {
 }
 
 function wrapSelectionAsLink(textarea) {
-  const url = window.prompt("Link URL (https://...)");
-  if (!url) return;
+  const raw = window.prompt("Link URL (https://...)");
+  if (!raw) return;
+  const url = normalizeLinkHref(raw);
+  if (!url) {
+    window.alert("Enter a valid http(s) link, e.g. https://example.com");
+    return;
+  }
   wrapSelectionWithTag(textarea, `[url=${url}]`, "[/url]");
 }
 
@@ -816,7 +821,7 @@ export async function listPageMedia(pageEnum) {
 }
 
 const RETURN_PAGES = {
-  "trips.html": "Back to Trips",
+  "trips/": "Back to Trips",
   "index.html": "Back to Command Center",
 };
 
@@ -832,11 +837,14 @@ export function getSafeReturnPath() {
   if (value.includes("..") || value.includes("://") || value.includes("\\") || value.startsWith("/")) {
     return null;
   }
-  const file = value.split("/").pop().split("?")[0].split("#")[0];
-  if (!Object.prototype.hasOwnProperty.call(RETURN_PAGES, file)) {
+  value = value.replace(/^\.\//, "").split("?")[0].split("#")[0];
+  if (value === "trips" || value === "trips.html" || value === "trips/index.html") {
+    value = "trips/";
+  }
+  if (!Object.prototype.hasOwnProperty.call(RETURN_PAGES, value)) {
     return null;
   }
-  return file;
+  return value;
 }
 
 export function applyReturnLink(anchor) {

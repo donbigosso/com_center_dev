@@ -165,6 +165,11 @@ button .bi svg {
   margin: 0 auto;
   padding-left: 1.25rem;
   padding-right: 1.25rem;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
 .galleries-page .galleries-brand {
@@ -229,21 +234,65 @@ button .bi svg {
   }
 }
 
+.galleries-page .galleries-nav-actions {
+  flex: 0 0 auto;
+  min-width: 0;
+  gap: 0.55rem;
+}
+
 .galleries-page .galleries-user {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  max-width: 9.5rem;
   color: var(--gx-text-muted);
   font-size: 0.85rem;
   letter-spacing: 0.02em;
-  vertical-align: middle;
+  white-space: nowrap;
 }
 
 .galleries-page .galleries-user i {
-  margin-right: 0.35rem;
-  vertical-align: -0.05em;
+  margin-right: 0;
+  flex: 0 0 auto;
+  line-height: 1;
 }
 
 .galleries-page .galleries-user strong {
   color: var(--gx-text);
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+@media (max-width: 575.98px) {
+  .galleries-page .galleries-nav-inner {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    gap: 0.6rem;
+  }
+
+  .galleries-page .galleries-brand-text {
+    display: none;
+  }
+
+  .galleries-page .galleries-nav-actions {
+    gap: 0.45rem;
+  }
+
+  .galleries-page .galleries-user {
+    max-width: 7.25rem;
+  }
+
+  .galleries-page .galleries-btn-ghost,
+  .galleries-page .galleries-btn-outline,
+  .galleries-page .galleries-btn-primary {
+    padding: 0.4rem 0.65rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+  }
 }
 
 /* ----- Buttons ----- */

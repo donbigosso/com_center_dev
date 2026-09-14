@@ -52,13 +52,17 @@ function createAnchorSafe(href, label)
     return anchor;
 }
 
-function sanitizeHref(url)
+/**
+ * Turn a typed/pasted URL into an http(s) href, or null if unsafe.
+ * Accepts www.example.com and //example.com by prefixing https://
+ */
+export function normalizeLinkHref(url)
 {
     if (typeof url !== 'string') {
         return null;
     }
 
-    const trimmed = url.trim();
+    let trimmed = url.trim().replace(/^['"]+|['"]+$/g, '');
     if (trimmed === '' || /[\x00-\x1F\x7F]/.test(trimmed)) {
         return null;
     }
@@ -67,18 +71,33 @@ function sanitizeHref(url)
         return null;
     }
 
+    if (trimmed.startsWith('//')) {
+        trimmed = 'https:' + trimmed;
+    } else if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
+        trimmed = 'https://' + trimmed;
+    }
+
     if (!/^https?:\/\//i.test(trimmed)) {
         return null;
     }
 
     try {
-        // Throws on malformed URLs.
-        new URL(trimmed);
+        const parsed = new URL(trimmed);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            return null;
+        }
+        if (!parsed.hostname) {
+            return null;
+        }
+        return parsed.href;
     } catch (e) {
         return null;
     }
+}
 
-    return trimmed;
+function sanitizeHref(url)
+{
+    return normalizeLinkHref(url);
 }
 
 // ---- Tokenizer ----
