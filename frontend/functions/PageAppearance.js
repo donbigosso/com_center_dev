@@ -49,9 +49,11 @@ export function newHideModal(modalID) {
 export function showLoggedOnly(){
     const loggedIn = document.querySelectorAll(".logged-only");
     loggedIn.forEach(el => {
-  //console.log(el);     // ← add this
-  show(el);
-});
+      const display = el.classList.contains("galleries-user") || el.classList.contains("cc-user")
+        ? "inline-flex"
+        : "inline-block";
+      show(el, display);
+    });
   }
 
 export function hideLoggedOnly(){
