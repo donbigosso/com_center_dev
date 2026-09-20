@@ -556,9 +556,16 @@ button .bi svg {
   opacity: 0.75;
 }
 
-.galleries-page .gallery-meta-item strong {
+.galleries-page .gallery-meta-item strong,
+.galleries-page .gallery-meta-item .gallery-owner-link {
   color: var(--gx-text-muted);
   font-weight: 500;
+  text-decoration: none;
+}
+
+.galleries-page .gallery-meta-item .gallery-owner-link:hover {
+  color: var(--gx-text);
+  text-decoration: underline;
 }
 
 /* Floating edit/delete icon bar (gallery tiles + picture tiles) */
@@ -950,9 +957,16 @@ button .bi svg {
   opacity: 0.75;
 }
 
-.galleries-page .gallery-preview-meta .gallery-meta-item strong {
+.galleries-page .gallery-preview-meta .gallery-meta-item strong,
+.galleries-page .gallery-preview-meta .gallery-meta-item .gallery-owner-link {
   color: var(--gx-text);
   font-weight: 500;
+  text-decoration: none;
+}
+
+.galleries-page .gallery-preview-meta .gallery-meta-item .gallery-owner-link:hover {
+  text-decoration: underline;
+}
 }
 
 .galleries-page .gallery-preview-owner-tools .dropdown-toggle::after {

@@ -715,9 +715,22 @@ async function renderGalleries(galleries, options = { replace: true }) {
 }
 
 /**
- * Build a meta chip (icon + label) for gallery cards.
+ * Galleries index URL filtered to one owner (`?user=...`).
+ * @param {string} username
+ * @returns {string}
  */
-function createGalleryMetaItem(iconClass, label, valueText) {
+function galleriesOwnerFilterHref(username) {
+  return `index.html?user=${encodeURIComponent(username)}`;
+}
+
+/**
+ * Build a meta chip (icon + label) for gallery cards.
+ * @param {string} iconClass
+ * @param {string} label
+ * @param {string} valueText
+ * @param {{ href?: string }} [options]
+ */
+function createGalleryMetaItem(iconClass, label, valueText, options = {}) {
   const item = createDIV("gallery-meta-item");
   const icon = document.createElement("i");
   icon.className = iconClass;
@@ -729,9 +742,21 @@ function createGalleryMetaItem(iconClass, label, valueText) {
     item.appendChild(document.createTextNode(" "));
   }
 
-  const value = document.createElement("strong");
-  value.textContent = valueText;
-  item.appendChild(value);
+  const href = options.href || "";
+  if (href) {
+    const value = document.createElement("a");
+    value.className = "gallery-owner-link";
+    value.href = href;
+    value.textContent = valueText;
+    value.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+    item.appendChild(value);
+  } else {
+    const value = document.createElement("strong");
+    value.textContent = valueText;
+    item.appendChild(value);
+  }
   return item;
 }
 
@@ -818,11 +843,13 @@ function createGalleryCard(gallery, loggedUser) {
   adjustElementClassAndText(description, "card-text flex-grow-1", descText);
 
   const meta = createDIV("gallery-meta");
+  const ownerName = gallery.owner || "";
   meta.appendChild(
     createGalleryMetaItem(
       "bi bi-person",
       "",
-      gallery.owner || "Unknown"
+      ownerName || "Unknown",
+      ownerName ? { href: galleriesOwnerFilterHref(ownerName) } : {}
     )
   );
   meta.appendChild(
@@ -2387,8 +2414,14 @@ function renderGalleryPreviewBanner(gallery, coverUrl, isOwner) {
 
   if (metaEl) {
     metaEl.innerHTML = "";
+    const ownerName = gallery.owner || "";
     metaEl.appendChild(
-      createGalleryMetaItem("bi bi-person", "", gallery.owner || "Unknown")
+      createGalleryMetaItem(
+        "bi bi-person",
+        "",
+        ownerName || "Unknown",
+        ownerName ? { href: galleriesOwnerFilterHref(ownerName) } : {}
+      )
     );
     metaEl.appendChild(
       createGalleryMetaItem(
