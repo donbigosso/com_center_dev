@@ -599,6 +599,7 @@ class GalleryModel
                 mi.title,
                 mi.descr AS description,
                 mi.tags,
+                mi.creation_date,
                 f.filename,
                 mic.date_added
             FROM media_in_collection mic
@@ -611,25 +612,7 @@ class GalleryModel
 
         $rows = $this->db->queryAll($sql, [':id' => $galleryId]);
 
-        $media = array_map(static function (array $row): array {
-            $filename = (string)($row['filename'] ?? '');
-            $base = pathinfo($filename, PATHINFO_FILENAME);
-            $ext = pathinfo($filename, PATHINFO_EXTENSION);
-            $miniature = $filename !== ''
-                ? ($ext !== '' ? "{$base}_sm.{$ext}" : "{$base}_sm")
-                : null;
-
-            return [
-                'id' => (int)$row['id'],
-                'media_type' => $row['media_type'] ?? null,
-                'title' => $row['title'] ?? '',
-                'description' => $row['description'] ?? '',
-                'tags' => $row['tags'] ?? null,
-                'filename' => $filename !== '' ? $filename : null,
-                'miniature_filename' => $miniature,
-                'date_added' => $row['date_added'] ?? null,
-            ];
-        }, $rows);
+        $media = array_map([$this, 'map_media_row'], $rows);
 
         $returned = count($media);
         $hasMore = ($offset + $returned) < $total;
@@ -817,6 +800,11 @@ class GalleryModel
             ? ($ext !== '' ? "{$base}_sm.{$ext}" : "{$base}_sm")
             : null;
 
+        $creationDate = $row['creation_date'] ?? null;
+        if ($creationDate === '' || $creationDate === false) {
+            $creationDate = null;
+        }
+
         return [
             'id' => (int)$row['id'],
             'media_type' => $row['media_type'] ?? null,
@@ -826,6 +814,7 @@ class GalleryModel
             'filename' => $filename !== '' ? $filename : null,
             'miniature_filename' => $miniature,
             'date_added' => $row['date_added'] ?? null,
+            'creation_date' => $creationDate,
         ];
     }
 
@@ -852,6 +841,7 @@ class GalleryModel
                 mi.title,
                 mi.descr AS description,
                 mi.tags,
+                mi.creation_date,
                 f.filename,
                 mic.date_added
             FROM media_in_collection mic

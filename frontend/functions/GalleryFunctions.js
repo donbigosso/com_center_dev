@@ -42,7 +42,7 @@ let cachedGalleryFolder = null;
 // Preview page state
 let currentPreviewGallery = null;
 let galleryPicturesScroller = null;
-/** @type {Array<{id:number,title:string,caption:string,url:string|null,fullUrl:string|null}>} */
+/** @type {Array<{id:number,title:string,caption:string,url:string|null,fullUrl:string|null,creation_date:string|null}>} */
 let loadedGalleryPictures = [];
 let lightboxIndex = -1;
 let lightboxKeyHandler = null;
@@ -257,6 +257,20 @@ function fromDatetimeLocalValue(value) {
 }
 
 /**
+ * Date-only watermark label from media_items.creation_date.
+ * Empty string when the date is missing so nothing is shown.
+ * @param {string|null|undefined} value
+ * @returns {string}
+ */
+function formatPictureDateWatermark(value) {
+  if (value == null) return "";
+  const str = String(value).trim();
+  if (!str || str.startsWith("0000-00-00")) return "";
+  const datePart = str.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(datePart) ? datePart : "";
+}
+
+/**
  * Base URL for media files (trailing slash), from settings.json gallery_folder.
  */
 export async function getGalleryFolder() {
@@ -456,6 +470,7 @@ function mapMediaItemFromApi(raw, folder) {
     fullUrl,
     filename: fullName,
     media_type: raw.media_type || null,
+    creation_date: raw.creation_date || null,
   };
 }
 
@@ -1651,6 +1666,15 @@ function ensurePictureLightbox() {
   img.alt = "";
   img.id = "gallery-lightbox-img";
 
+  const frame = createDIV("gallery-lightbox-frame");
+  frame.id = "gallery-lightbox-frame";
+  const dateEl = createHTMLelement("div", "gallery-lightbox-date");
+  dateEl.id = "gallery-lightbox-date";
+  dateEl.setAttribute("aria-hidden", "true");
+  dateEl.hidden = true;
+  frame.appendChild(img);
+  frame.appendChild(dateEl);
+
   const meta = createDIV("gallery-lightbox-meta");
   const titleEl = createHTMLelement("div", "gallery-lightbox-title");
   titleEl.id = "gallery-lightbox-title";
@@ -1662,7 +1686,7 @@ function ensurePictureLightbox() {
   meta.appendChild(captionEl);
   meta.appendChild(counterEl);
 
-  stage.appendChild(img);
+  stage.appendChild(frame);
   stage.appendChild(meta);
 
   toolbar.appendChild(copyBtn);
@@ -1743,6 +1767,7 @@ function showLightboxAt(index) {
 
   const root = ensurePictureLightbox();
   const img = document.getElementById("gallery-lightbox-img");
+  const dateEl = document.getElementById("gallery-lightbox-date");
   const titleEl = document.getElementById("gallery-lightbox-title");
   const captionEl = document.getElementById("gallery-lightbox-caption");
   const counterEl = document.getElementById("gallery-lightbox-counter");
@@ -1753,6 +1778,11 @@ function showLightboxAt(index) {
   if (img) {
     img.src = fullSrc || "";
     img.alt = item.title || "Gallery picture";
+  }
+  if (dateEl) {
+    const dateLabel = formatPictureDateWatermark(item.creation_date);
+    dateEl.textContent = dateLabel;
+    dateEl.hidden = !dateLabel;
   }
   if (titleEl) titleEl.textContent = item.title || "";
   if (captionEl) {
@@ -1878,6 +1908,11 @@ export function closePictureLightbox(options = {}) {
     root.classList.remove("is-open", "is-fill");
     const img = document.getElementById("gallery-lightbox-img");
     if (img) img.removeAttribute("src");
+    const dateEl = document.getElementById("gallery-lightbox-date");
+    if (dateEl) {
+      dateEl.textContent = "";
+      dateEl.hidden = true;
+    }
   }
   document.body.classList.remove("gallery-lightbox-open");
   lightboxIndex = -1;
