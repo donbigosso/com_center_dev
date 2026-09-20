@@ -619,9 +619,18 @@ class FileModel {
                 'file_id' => $fileId,
             ]);
 
+            // New pictures go to the end of the manual order
+            $nextOrder = (int)($this->db->queryValue(
+                'SELECT COALESCE(MAX(sort_order), 0) + 1
+                 FROM media_in_collection
+                 WHERE media_collection_id = :id',
+                [':id' => $galleryId]
+            ) ?? 1);
+
             $this->db->insert('media_in_collection', [
                 'media_item_id' => $mediaItemId,
                 'media_collection_id' => $galleryId,
+                'sort_order' => $nextOrder,
             ]);
 
             // If gallery has no cover yet, use this picture

@@ -52,6 +52,8 @@ let lightboxFillMode = false;
 let previewIsOwner = false;
 /** Optional deep-link picture id from ?picid= */
 let pendingDeepLinkPicId = null;
+/** True while the owner is rearranging pictures ("Arrange" mode). */
+let previewArrangeMode = false;
 
 export function getOwnerFilterFromUrl() {
   const raw = getUrlParam("user");
@@ -1558,7 +1560,7 @@ function createAddPictureGridTile() {
  * Always re-appends so it stays after infinite-scroll batches.
  */
 function ensureAddPictureTileAtEnd() {
-  if (!previewIsOwner) {
+  if (!previewIsOwner || previewArrangeMode) {
     document.getElementById("gallery-add-picture-tile")?.remove();
     return;
   }
@@ -2484,6 +2486,9 @@ async function startGalleryPicturesScroller(galleryId) {
 
   if (!target) return;
 
+  // (Re)starting the normal grid always leaves arrange mode
+  setArrangeUi(false);
+
   if (galleryPicturesScroller) {
     galleryPicturesScroller.destroy();
     galleryPicturesScroller = null;
@@ -2830,6 +2835,241 @@ async function executeUploadPicture() {
   }
 }
 
+// ----- Arrange mode (owner changes picture order) -----
+
+/**
+ * Show/hide the arrange bar and lock the other owner tools while arranging.
+ * @param {boolean} active
+ */
+function setArrangeUi(active) {
+  previewArrangeMode = active;
+  document
+    .getElementById("gallery-arrange-bar")
+    ?.classList.toggle("d-none", !active);
+  ["gallery-arrange-btn", "gallery-add-pics-btn", "gallery-edit-menu-btn"].forEach(
+    (id) => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = active;
+    }
+  );
+}
+
+/**
+ * Load every picture of a gallery (arrange mode needs the full list).
+ * @param {number} galleryId
+ */
+async function fetchAllGalleryPictures(galleryId) {
+  const all = [];
+  let page = 1;
+  // Backend caps page size at 100
+  for (;;) {
+    const result = await fetchGalleryMediaPage(galleryId, page, 100);
+    all.push(...result.items);
+    if (!result.hasMore || !result.items.length) break;
+    page += 1;
+  }
+  return all;
+}
+
+/** Refresh the 1..N position badges after the order changed. */
+function renumberArrangeTiles() {
+  document
+    .querySelectorAll("#gallery-pictures .arrange-tile")
+    .forEach((tile, i) => {
+      const badge = tile.querySelector(".arrange-tile-number");
+      if (badge) badge.textContent = String(i + 1);
+    });
+}
+
+/**
+ * Move a tile one place earlier (-1) or later (+1).
+ * @param {HTMLElement} tile
+ * @param {number} direction
+ */
+function moveArrangeTile(tile, direction) {
+  const sibling =
+    direction < 0 ? tile.previousElementSibling : tile.nextElementSibling;
+  if (!sibling || !tile.parentNode) return;
+  if (direction < 0) {
+    tile.parentNode.insertBefore(tile, sibling);
+  } else {
+    tile.parentNode.insertBefore(sibling, tile);
+  }
+  renumberArrangeTiles();
+}
+
+/**
+ * Picture tile for arrange mode: draggable, position badge, earlier/later arrows.
+ * @param {object} item
+ */
+function createArrangeTile(item) {
+  const col = createMediaTilePic(item.url, item.title, item.caption, {
+    mediaId: item.id,
+  });
+  col.classList.add("arrange-tile");
+  col.draggable = true;
+  col.querySelector(".media-tile-card")?.classList.add("media-tile-card--arrange");
+
+  const img = col.querySelector(".media-tile-img");
+  if (img) img.draggable = false;
+
+  const mediaWrap = col.querySelector(".media-tile-media");
+  if (mediaWrap) {
+    mediaWrap.appendChild(createDIV("arrange-tile-number"));
+    // Arrows also work on touch screens, where drag & drop is unreliable
+    mediaWrap.appendChild(
+      createTileActionBar([
+        {
+          className: "arrange-earlier-btn",
+          icon: "bi bi-arrow-left",
+          title: "Move earlier",
+          onClick: () => moveArrangeTile(col, -1),
+        },
+        {
+          className: "arrange-later-btn",
+          icon: "bi bi-arrow-right",
+          title: "Move later",
+          onClick: () => moveArrangeTile(col, 1),
+        },
+      ])
+    );
+  }
+  return col;
+}
+
+/** Drag & drop reordering inside the arrange grid. */
+function attachArrangeDragHandlers(wrapper) {
+  let dragEl = null;
+
+  wrapper.addEventListener("dragstart", (e) => {
+    const tile = e.target.closest?.(".arrange-tile");
+    if (!tile) return;
+    dragEl = tile;
+    tile.classList.add("arrange-tile-dragging");
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", tile.dataset.mediaId || "");
+  });
+
+  wrapper.addEventListener("dragover", (e) => {
+    if (!dragEl) return;
+    e.preventDefault();
+    const target = e.target.closest?.(".arrange-tile");
+    if (!target || target === dragEl) return;
+
+    const rect = target.getBoundingClientRect();
+    const dragRect = dragEl.getBoundingClientRect();
+    // Same row -> compare horizontally; otherwise (other row / one column) vertically
+    const sameRow = Math.abs(dragRect.top - rect.top) < rect.height / 2;
+    const after = sameRow
+      ? e.clientX > rect.left + rect.width / 2
+      : e.clientY > rect.top + rect.height / 2;
+
+    const ref = after ? target.nextElementSibling : target;
+    if (ref === dragEl || ref === dragEl.nextElementSibling) return;
+    wrapper.insertBefore(dragEl, ref);
+  });
+
+  wrapper.addEventListener("drop", (e) => e.preventDefault());
+
+  wrapper.addEventListener("dragend", () => {
+    if (dragEl) dragEl.classList.remove("arrange-tile-dragging");
+    dragEl = null;
+    renumberArrangeTiles();
+  });
+}
+
+/** Owner clicked "Arrange": load all pictures and show the draggable grid. */
+async function enterArrangeMode() {
+  if (!previewIsOwner || !currentPreviewGallery?.id) {
+    showFeedback("You must own this gallery to arrange pictures");
+    return;
+  }
+  if (previewArrangeMode) return;
+
+  const sessionTest = await verifySession();
+  if (!sessionTest) {
+    showFeedback("You must be logged in");
+    return;
+  }
+
+  const galleryId = currentPreviewGallery.id;
+  const target = document.getElementById("gallery-pictures");
+  const spinner = document.getElementById("loading-spinner");
+  if (!target) return;
+
+  closePictureLightbox({ updateUrl: false });
+  if (galleryPicturesScroller) {
+    galleryPicturesScroller.destroy();
+    galleryPicturesScroller = null;
+  }
+  target.innerHTML = "";
+  if (spinner) spinner.classList.remove("d-none");
+
+  const items = await fetchAllGalleryPictures(galleryId);
+  if (spinner) spinner.classList.add("d-none");
+
+  if (items.length < 2) {
+    showFeedback("Add at least two pictures to arrange them");
+    await startGalleryPicturesScroller(galleryId);
+    return;
+  }
+
+  setArrangeUi(true);
+  const wrapper = createPictureWrapper();
+  items.forEach((item) => wrapper.appendChild(createArrangeTile(item)));
+  attachArrangeDragHandlers(wrapper);
+  target.appendChild(wrapper);
+  renumberArrangeTiles();
+}
+
+/** Leave arrange mode without saving (restores the saved order). */
+async function cancelArrangeMode() {
+  if (!previewArrangeMode || !currentPreviewGallery?.id) return;
+  await startGalleryPicturesScroller(currentPreviewGallery.id);
+}
+
+/** Send the current tile order to the server, then show the normal grid. */
+async function saveArrangeMode() {
+  if (!previewArrangeMode || !currentPreviewGallery?.id) return;
+
+  const sessionToken = getSessionToken();
+  if (!sessionToken) {
+    showFeedback("You must be logged in");
+    return;
+  }
+
+  const order = Array.from(
+    document.querySelectorAll("#gallery-pictures .arrange-tile")
+  )
+    .map((tile) => Number(tile.dataset.mediaId))
+    .filter((id) => id > 0);
+
+  const saveBtn = document.getElementById("gallery-arrange-save-btn");
+  if (saveBtn) saveBtn.disabled = true;
+
+  try {
+    const response = await POSTJSONRequest({
+      request: "reorder_gallery_media",
+      token: sessionToken,
+      gallery_id: currentPreviewGallery.id,
+      order,
+    });
+
+    if (!response?.success) {
+      showFeedback(response?.error || "Failed to save order");
+      return;
+    }
+
+    showFeedback("Order saved");
+    await startGalleryPicturesScroller(currentPreviewGallery.id);
+  } catch (err) {
+    console.error("Save picture order error:", err);
+    showFeedback("Failed to save order");
+  } finally {
+    if (saveBtn) saveBtn.disabled = false;
+  }
+}
+
 /**
  * Wire owner-tool buttons on the preview page.
  */
@@ -2864,6 +3104,18 @@ export function attachGalleryPreviewOwnerHandlers() {
 
   bind("gallery-add-pics-btn", () => {
     handleAddPicture();
+  });
+
+  bind("gallery-arrange-btn", () => {
+    enterArrangeMode();
+  });
+
+  bind("gallery-arrange-save-btn", () => {
+    saveArrangeMode();
+  });
+
+  bind("gallery-arrange-cancel-btn", () => {
+    cancelArrangeMode();
   });
 
   bind("gallery-delete-btn", () => {

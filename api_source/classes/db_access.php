@@ -161,6 +161,16 @@ class DatabaseAccess
     }
 
     /**
+     * Run a prepared write statement (UPDATE/INSERT/DELETE) and return affected rows.
+     */
+    public function execute(string $sql, array $params = []): int
+    {
+        $stmt = $this->connection->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->rowCount();
+    }
+
+    /**
      * Run a prepared query and return a single scalar (first column of first row).
      */
     public function queryValue(string $sql, array $params = [])

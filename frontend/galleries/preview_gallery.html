@@ -103,6 +103,16 @@
                             <span>Add picture</span>
                         </button>
 
+                        <button
+                            type="button"
+                            class="btn galleries-btn-primary"
+                            id="gallery-arrange-btn"
+                            title="Change picture order"
+                        >
+                            <i class="bi bi-arrows-move"></i>
+                            <span>Arrange</span>
+                        </button>
+
                         <div class="dropdown">
                             <button
                                 class="btn galleries-btn-primary dropdown-toggle"
@@ -144,6 +154,22 @@
     <main class="container galleries-main flex-grow-1">
         <div class="galleries-section-head">
             <h2 class="galleries-section-title">Pictures</h2>
+        </div>
+
+        <!-- Arrange mode bar (owner only, shown while arranging) -->
+        <div class="gallery-arrange-bar d-none" id="gallery-arrange-bar">
+            <span class="gallery-arrange-hint">
+                <i class="bi bi-arrows-move"></i>
+                Drag pictures or use the arrows to change their order.
+            </span>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn galleries-btn-primary" id="gallery-arrange-save-btn">
+                    <i class="bi bi-check-lg"></i> <span>Save order</span>
+                </button>
+                <button type="button" class="btn btn-outline-secondary" id="gallery-arrange-cancel-btn">
+                    Cancel
+                </button>
+            </div>
         </div>
 
         <!-- Pictures grid (filled by createInfiniteScroller) -->

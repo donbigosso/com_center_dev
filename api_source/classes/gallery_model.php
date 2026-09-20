@@ -528,7 +528,7 @@ class GalleryModel
 
     /**
      * List media items in a gallery (paginated).
-     * Page is 1-based. Ordered by date_added ASC, then media_item_id ASC.
+     * Page is 1-based. Ordered by sort_order ASC, then date_added ASC, then media_item_id ASC.
      *
      * @return array{
      *   success:bool,
@@ -606,7 +606,7 @@ class GalleryModel
             INNER JOIN media_items mi ON mi.media_item_id = mic.media_item_id
             INNER JOIN files f ON f.file_id = mi.file_id
             WHERE mic.media_collection_id = :id
-            ORDER BY mic.date_added ASC, mi.media_item_id ASC
+            ORDER BY mic.sort_order ASC, mic.date_added ASC, mi.media_item_id ASC
             LIMIT {$limit} OFFSET {$offset}
         ";
 
@@ -984,6 +984,109 @@ class GalleryModel
         }
         } finally {
             (new LogModel())->record_result('update gallery media', $ok, $actor, $logDetail);
+        }
+    }
+
+    /**
+     * Save a manual picture order for a gallery (owner only).
+     * Body: token, gallery_id, order (array of media ids, first = first in gallery).
+     * The list must contain exactly the pictures currently in the gallery.
+     *
+     * @return array{success:bool,message:string,error:string}
+     */
+    public function reorder_gallery_media(array $input): array
+    {
+        $token = trim((string)($input['token'] ?? ''));
+        $galleryId = isset($input['gallery_id']) ? (int)$input['gallery_id'] : 0;
+        $actor = $this->actor_from_token($token);
+        $ok = false;
+        $logDetail = LogModel::id_detail($galleryId);
+        try {
+
+        $fail = static fn(string $error): array => [
+            'success' => false,
+            'message' => '',
+            'error' => $error,
+        ];
+
+        $userId = $this->resolve_user_id_from_token($token);
+        if ($userId === null) {
+            return $fail('User is not logged in or token expired.');
+        }
+
+        if ($galleryId <= 0) {
+            return $fail('Gallery id is required.');
+        }
+
+        if (!$this->user_owns_gallery($userId, $galleryId)) {
+            return $fail('You do not have permission to arrange pictures in this gallery.');
+        }
+
+        $order = $input['order'] ?? null;
+        if (!is_array($order) || empty($order)) {
+            return $fail('Picture order is required.');
+        }
+
+        $ids = [];
+        foreach ($order as $value) {
+            $id = filter_var($value, FILTER_VALIDATE_INT);
+            if ($id === false || $id <= 0) {
+                return $fail('Invalid picture id in order.');
+            }
+            $ids[] = $id;
+        }
+        if (count($ids) !== count(array_unique($ids))) {
+            return $fail('Duplicate picture id in order.');
+        }
+
+        // Must be exactly the set of pictures currently in the gallery
+        $existing = $this->db->queryAll(
+            'SELECT media_item_id
+             FROM media_in_collection
+             WHERE media_collection_id = :id',
+            [':id' => $galleryId]
+        );
+        $existingIds = array_map(static fn($r) => (int)$r['media_item_id'], $existing);
+        sort($existingIds);
+        $sortedIds = $ids;
+        sort($sortedIds);
+        if ($existingIds !== $sortedIds) {
+            return $fail('Picture list does not match the gallery. Reload and try again.');
+        }
+
+        // One atomic UPDATE: sort_order = position in the submitted list (1-based)
+        $cases = [];
+        $params = [':gid' => $galleryId];
+        foreach ($ids as $i => $id) {
+            $cases[] = "WHEN :m{$i} THEN :o{$i}";
+            $params[":m{$i}"] = $id;
+            $params[":o{$i}"] = $i + 1;
+        }
+        $inList = implode(', ', array_map(static fn($i) => ":w{$i}", array_keys($ids)));
+        foreach ($ids as $i => $id) {
+            $params[":w{$i}"] = $id;
+        }
+
+        try {
+            $this->db->execute(
+                'UPDATE media_in_collection
+                 SET sort_order = CASE media_item_id ' . implode(' ', $cases) . ' END
+                 WHERE media_collection_id = :gid
+                   AND media_item_id IN (' . $inList . ')',
+                $params
+            );
+        } catch (Throwable $e) {
+            return $fail('Failed to save picture order.');
+        }
+
+        $ok = true;
+        return [
+            'success' => true,
+            'message' => 'Picture order saved.',
+            'error' => '',
+        ];
+        } finally {
+            (new LogModel())->record_result('reorder gallery media', $ok, $actor, $logDetail);
         }
     }
 

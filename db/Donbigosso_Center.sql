@@ -45,7 +45,7 @@ CREATE TABLE `files` (
   `date_added` datetime DEFAULT (now()),
   `size_in_kb` double DEFAULT NULL,
   PRIMARY KEY (`file_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=332 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=333 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `media_collections`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -65,6 +65,7 @@ DROP TABLE IF EXISTS `media_in_collection`;
 CREATE TABLE `media_in_collection` (
   `media_item_id` int NOT NULL,
   `media_collection_id` int NOT NULL,
+  `sort_order` int NOT NULL DEFAULT '0',
   `date_added` datetime DEFAULT (now()),
   PRIMARY KEY (`media_item_id`,`media_collection_id`),
   KEY `media_item_id_idx` (`media_item_id`),
@@ -100,7 +101,7 @@ CREATE TABLE `media_items` (
   PRIMARY KEY (`media_item_id`),
   KEY `media_file_ref` (`file_id`),
   CONSTRAINT `media_file_ref` FOREIGN KEY (`file_id`) REFERENCES `files` (`file_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=332 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=333 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `page_posting_permissions`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -125,7 +126,7 @@ CREATE TABLE `posts` (
   PRIMARY KEY (`post_id`),
   KEY `posts_index_0` (`author_id`),
   CONSTRAINT `post_authors_ref` FOREIGN KEY (`author_id`) REFERENCES `users` (`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `posts_in_pages`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -147,15 +148,8 @@ CREATE TABLE `recent_changes` (
   `changes_made` varchar(500) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `recent_changes_date` (`date`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-INSERT INTO `recent_changes` (`id`, `date`, `changes_made`) VALUES
-(1, '2026-09-16', 'Trips page created'),
-(2, '2026-08-29', 'File transfer UX improved, infobar added to landing page'),
-(3, '2026-08-21', 'Contact form added to landing page'),
-(4, '2026-08-17', 'Main landing page (Command Center) created'),
-(5, '2026-08-07', 'Gallery page created'),
-(6, '2025-12-31', 'File transfer page created');
 DROP TABLE IF EXISTS `users`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;

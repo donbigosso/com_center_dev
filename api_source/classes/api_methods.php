@@ -225,6 +225,9 @@ class ApiMethods extends Core
                 case 'update_gallery_media':
                     $this->handle_update_gallery_media($input);
                     break;
+                case 'reorder_gallery_media':
+                    $this->handle_reorder_gallery_media($input);
+                    break;
                 case 'remove_media_from_gallery':
                     $this->handle_remove_media_from_gallery($input);
                     break;
@@ -747,6 +750,23 @@ public function handle_clear_token(array $input): void{
             '',
             $result['error'],
             ['media' => $result['media']]
+        );
+    }
+
+    /**
+     * POST reorder_gallery_media — owner saves manual picture order.
+     * Body: token, gallery_id, order (array of media ids).
+     */
+    private function handle_reorder_gallery_media(array $input): void
+    {
+        $gallery_model = new GalleryModel($this->db_access);
+        $result = $gallery_model->reorder_gallery_media($input);
+
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error']
         );
     }
 
