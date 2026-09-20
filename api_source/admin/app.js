@@ -14,6 +14,10 @@ import {
   deletePostAdmin,
   listMediaItemsAdmin,
   deleteMediaItemAdmin,
+  listRecentChangesAdmin,
+  createRecentChangeAdmin,
+  updateRecentChangeAdmin,
+  deleteRecentChangeAdmin,
 } from "./functions/RequestFunctions.js";
 import {
   drawTable,
@@ -26,6 +30,7 @@ import {
   drawMessagesList,
   drawIdTitleDeletionForm,
   drawPostingPermissionsPanel,
+  drawRecentChangesPanel,
 } from "./functions/PageAppearance.js";
 import {
   showFeedback,
@@ -348,6 +353,53 @@ async function showDeleteMediaForm() {
   );
 }
 
+async function showRecentChangesEditor() {
+  const resultArea = clearResultArea();
+  if (!resultArea) return;
+
+  const response = await listRecentChangesAdmin();
+  if (!response?.success) {
+    showFeedback(response?.error || "Failed to load recent changes.", "red");
+    return;
+  }
+
+  const changes = Array.isArray(response.data?.changes)
+    ? response.data.changes
+    : [];
+
+  resultArea.appendChild(
+    drawRecentChangesPanel(changes, {
+      onAdd: async ({ date, changes_made }) => {
+        const result = await createRecentChangeAdmin(date, changes_made);
+        if (!result?.success) {
+          showFeedback(result?.error || "Could not add recent change.", "red");
+          return null;
+        }
+        showFeedback("Recent change added.");
+        return result.data?.change || { date, changes_made };
+      },
+      onUpdate: async ({ id, date, changes_made }) => {
+        const result = await updateRecentChangeAdmin(id, date, changes_made);
+        if (!result?.success) {
+          showFeedback(result?.error || "Could not update recent change.", "red");
+          return null;
+        }
+        showFeedback("Recent change updated.");
+        return result.data?.change || { id, date, changes_made };
+      },
+      onDelete: async (id) => {
+        const result = await deleteRecentChangeAdmin(id);
+        if (!result?.success) {
+          showFeedback(result?.error || "Could not delete recent change.", "red");
+          return false;
+        }
+        showFeedback("Recent change deleted.");
+        return true;
+      },
+    })
+  );
+}
+
 async function showDeletePostsForm() {
   const resultArea = clearResultArea();
   if (!resultArea) return;
@@ -399,6 +451,7 @@ function initAdminTiles() {
   bindClick("tile-posting-permissions", showPostingPermissions);
   bindClick("tile-delete-media", showDeleteMediaForm);
   bindClick("tile-delete-posts", showDeletePostsForm);
+  bindClick("tile-recent-changes", showRecentChangesEditor);
 
   console.info("Admin tiles initialized.");
 }

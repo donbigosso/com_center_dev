@@ -126,6 +126,12 @@
                     Remove posts
                 </button>
             </div>
+            <div class="col-6 col-md-3">
+                <button class="btn w-100 py-4 shadow-sm tile-btn" id="tile-recent-changes">
+                    <i class="bi bi-clock-history fs-2 d-block mb-2"></i>
+                    Edit recent changes
+                </button>
+            </div>
         </div>
     </section>
 

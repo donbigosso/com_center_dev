@@ -138,6 +138,24 @@ CREATE TABLE `posts_in_pages` (
   CONSTRAINT `fk_pip_post_id` FOREIGN KEY (`post_id`) REFERENCES `posts` (`post_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `recent_changes`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `recent_changes` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `date` date NOT NULL,
+  `changes_made` varchar(500) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `recent_changes_date` (`date`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+INSERT INTO `recent_changes` (`id`, `date`, `changes_made`) VALUES
+(1, '2026-09-16', 'Trips page created'),
+(2, '2026-08-29', 'File transfer UX improved, infobar added to landing page'),
+(3, '2026-08-21', 'Contact form added to landing page'),
+(4, '2026-08-17', 'Main landing page (Command Center) created'),
+(5, '2026-08-07', 'Gallery page created'),
+(6, '2025-12-31', 'File transfer page created');
 DROP TABLE IF EXISTS `users`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;

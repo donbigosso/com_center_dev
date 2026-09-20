@@ -4,7 +4,7 @@ import { handleAutoLogin, handleLogout } from "./functions/LoginFunctions.js";
 import { initApiAddressCache, initFileSettingsCache, showFeedback } from "./functions/CustomFunctions.js";
 import { validateContactForm } from "./functions/FormValidation.js";
 import { getSetting } from "./functions/CoreFunctions.js";
-import { createContactMessage } from "./functions/RequestFunctions.js";
+import { createContactMessage, listRecentChanges } from "./functions/RequestFunctions.js";
 import { runtCCtests, initHomepagePostTest } from "./functions/TestFunctions.js";
 import { initInfobar } from "./functions/InfoBarFunctions.js";
 
@@ -100,12 +100,56 @@ function initContactForm() {
   });
 }
 
+function formatChangeDateDisplay(isoDate) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(isoDate || "").trim());
+  if (!match) return "";
+  return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+async function initRecentChanges() {
+  const list = document.getElementById("cc-changes-list");
+  if (!list) return;
+
+  list.replaceChildren();
+
+  try {
+    const response = await listRecentChanges();
+    const changes = Array.isArray(response?.data?.changes)
+      ? response.data.changes
+      : [];
+    if (!response?.success) {
+      console.error("list_recent_changes error:", response?.error || response);
+      return;
+    }
+
+    changes.forEach((item) => {
+      const isoDate = String(item?.date || "").slice(0, 10);
+      const label = formatChangeDateDisplay(isoDate);
+      const text = String(item?.changes_made || "").trim();
+      if (!label || !text) return;
+
+      const li = document.createElement("li");
+      const time = document.createElement("time");
+      time.dateTime = isoDate;
+      time.textContent = label;
+      const span = document.createElement("span");
+      span.textContent = text;
+      li.appendChild(time);
+      li.appendChild(span);
+      list.appendChild(li);
+    });
+  } catch (err) {
+    console.error("Failed to load recent changes:", err);
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   (async () => {
     await initApiAddressCache();
     await initFileSettingsCache();
     await handleAutoLogin();
     initInfobar();
+    await initRecentChanges();
     await runtCCtests();
   })();
   

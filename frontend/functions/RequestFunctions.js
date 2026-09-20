@@ -1,5 +1,4 @@
-import { fetchAPIdataWGetParams } from "./CoreFunctions.js ";
-import { POSTJSONRequest } from "./CoreFunctions.js";
+import { fetchAPIdataWGetParams, POSTJSONRequest } from "./CoreFunctions.js";
 import{getCookie} from "./CookieFunctions.js";
 import { validateUsernameAndPassword } from "./FormValidation.js";
 import { getSetting } from "./CoreFunctions.js";
@@ -94,4 +93,8 @@ export async function createContactMessage(name, email, message) {
         email,
         message,
     });
+}
+
+export async function listRecentChanges() {
+    return fetchAPIdataWGetParams({ request: "list_recent_changes" });
 }

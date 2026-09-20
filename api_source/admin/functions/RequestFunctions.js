@@ -204,3 +204,37 @@ export async function deleteMediaItemAdmin(mediaItemId) {
         media_item_id: mediaItemId,
     });
 }
+
+export async function listRecentChangesAdmin() {
+    return fetchAPIdataWGetParams({ request: "list_recent_changes" });
+}
+
+export async function createRecentChangeAdmin(date, changesMade) {
+    const token = window.SESSION.token;
+    return POSTJSONRequest({
+        request: "create_recent_change",
+        token,
+        date,
+        changes_made: changesMade,
+    });
+}
+
+export async function updateRecentChangeAdmin(id, date, changesMade) {
+    const token = window.SESSION.token;
+    return POSTJSONRequest({
+        request: "update_recent_change",
+        token,
+        id,
+        date,
+        changes_made: changesMade,
+    });
+}
+
+export async function deleteRecentChangeAdmin(id) {
+    const token = window.SESSION.token;
+    return POSTJSONRequest({
+        request: "delete_recent_change",
+        token,
+        id,
+    });
+}

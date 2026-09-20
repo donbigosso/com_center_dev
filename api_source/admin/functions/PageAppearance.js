@@ -762,3 +762,267 @@ function createPermissionRow(page, row, onRemove) {
   item.appendChild(removeBtn);
   return item;
 }
+
+function formatRecentChangeDate(isoDate) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(isoDate || "").trim());
+  if (!match) return String(isoDate || "");
+  return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+function sortRecentChanges(items) {
+  items.sort((a, b) => {
+    const byDate = String(b.date || "").localeCompare(String(a.date || ""));
+    if (byDate !== 0) return byDate;
+    return (Number(b.id) || 0) - (Number(a.id) || 0);
+  });
+  return items;
+}
+
+/**
+ * Admin UI: add / edit / delete rows in recent_changes.
+ * @param {Array<{id:number,date:string,changes_made:string}>} changes
+ * @param {{
+ *   onAdd: (payload:{date:string,changes_made:string}) => Promise<object|null>,
+ *   onUpdate: (payload:{id:number,date:string,changes_made:string}) => Promise<object|null>,
+ *   onDelete: (id:number) => Promise<boolean>,
+ * }} handlers
+ */
+export function drawRecentChangesPanel(changes, handlers) {
+  const wrap = createDIV("recent-changes-admin");
+  const heading = document.createElement("h5");
+  heading.className = "text-muted mb-3 px-1";
+  heading.textContent = "Edit recent changes";
+  wrap.appendChild(heading);
+
+  const items = sortRecentChanges(
+    Array.isArray(changes) ? changes.map((row) => ({ ...row })) : []
+  );
+
+  const formCard = createDIV("card mb-4");
+  const formBody = createDIV("card-body");
+  const formTitle = document.createElement("h6");
+  formTitle.className = "card-title";
+  formTitle.textContent = "Add a change";
+
+  const dateWrap = createDIV("mb-3");
+  const dateLabel = createLabel("Date", "recent-change-date", "form-label");
+  const dateInput = document.createElement("input");
+  dateInput.type = "date";
+  dateInput.className = "form-control";
+  dateInput.id = "recent-change-date";
+  dateInput.required = true;
+  dateWrap.appendChild(dateLabel);
+  dateWrap.appendChild(dateInput);
+
+  const textWrap = createDIV("mb-3");
+  const textLabel = createLabel(
+    "Changes made",
+    "recent-change-text",
+    "form-label"
+  );
+  const textInput = document.createElement("textarea");
+  textInput.className = "form-control";
+  textInput.id = "recent-change-text";
+  textInput.rows = 3;
+  textInput.maxLength = 500;
+  textInput.required = true;
+  textWrap.appendChild(textLabel);
+  textWrap.appendChild(textInput);
+
+  const formAlert = createDIV("alert alert-danger d-none mb-3");
+  formAlert.setAttribute("role", "alert");
+
+  const addBtn = createButton("button", "Add change", "btn btn-primary");
+
+  formBody.append(formTitle, dateWrap, textWrap, formAlert, addBtn);
+  formCard.appendChild(formBody);
+  wrap.appendChild(formCard);
+
+  const list = createDIV("recent-changes-list");
+  wrap.appendChild(list);
+
+  const hideFormAlert = () => {
+    formAlert.classList.add("d-none");
+    formAlert.textContent = "";
+  };
+  const showFormAlert = (text) => {
+    formAlert.textContent = text;
+    formAlert.classList.remove("d-none");
+  };
+
+  const renderList = () => {
+    list.replaceChildren();
+    if (items.length === 0) {
+      const empty = createDIV("text-muted px-1");
+      empty.textContent = "No recent changes yet.";
+      list.appendChild(empty);
+      return;
+    }
+    items.forEach((item) => {
+      list.appendChild(createRecentChangeCard(item, handlers, items, renderList));
+    });
+  };
+
+  addBtn.addEventListener("click", async () => {
+    hideFormAlert();
+    const date = String(dateInput.value || "").trim();
+    const changesMade = String(textInput.value || "").trim();
+    if (!date) {
+      showFormAlert("Date is required.");
+      return;
+    }
+    if (!changesMade) {
+      showFormAlert("Changes made is required.");
+      return;
+    }
+    if (changesMade.length > 500) {
+      showFormAlert("Changes made must be at most 500 characters.");
+      return;
+    }
+    addBtn.disabled = true;
+    try {
+      const created = await handlers.onAdd({
+        date,
+        changes_made: changesMade,
+      });
+      if (!created) return;
+      items.unshift({
+        id: Number(created.id),
+        date: created.date || date,
+        changes_made: created.changes_made || changesMade,
+      });
+      sortRecentChanges(items);
+      dateInput.value = "";
+      textInput.value = "";
+      renderList();
+    } finally {
+      addBtn.disabled = false;
+    }
+  });
+
+  renderList();
+  return wrap;
+}
+
+function createRecentChangeCard(item, handlers, items, renderList) {
+  const card = createDIV("card mb-3 recent-change-card");
+  card.dataset.id = String(item.id);
+
+  const renderView = () => {
+    const body = createDIV("card-body d-flex flex-wrap justify-content-between gap-3");
+    const content = createDIV("");
+    const dateEl = createDIV("small text-muted mb-1");
+    dateEl.textContent = formatRecentChangeDate(item.date);
+    const textEl = document.createElement("p");
+    textEl.className = "mb-0";
+    textEl.textContent = item.changes_made || "";
+    content.appendChild(dateEl);
+    content.appendChild(textEl);
+
+    const actions = createDIV("d-flex gap-2 align-items-start");
+    const editBtn = createButton("button", "Edit", "btn btn-sm btn-outline-primary");
+    const delBtn = createButton("button", "Delete", "btn btn-sm btn-outline-danger");
+
+    editBtn.addEventListener("click", () => {
+      renderEdit();
+    });
+    delBtn.addEventListener("click", async () => {
+      const ok = window.confirm(
+        `Delete this change from ${formatRecentChangeDate(item.date)}?`
+      );
+      if (!ok) return;
+      const deleted = await handlers.onDelete(item.id);
+      if (!deleted) return;
+      const idx = items.findIndex((row) => Number(row.id) === Number(item.id));
+      if (idx >= 0) items.splice(idx, 1);
+      renderList();
+    });
+
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+    body.appendChild(content);
+    body.appendChild(actions);
+    card.replaceChildren(body);
+  };
+
+  const renderEdit = () => {
+    const body = createDIV("card-body");
+    const dateWrap = createDIV("mb-3");
+    const dateLabel = createLabel(
+      "Date",
+      `recent-change-edit-date-${item.id}`,
+      "form-label"
+    );
+    const dateInput = document.createElement("input");
+    dateInput.type = "date";
+    dateInput.className = "form-control";
+    dateInput.id = `recent-change-edit-date-${item.id}`;
+    dateInput.value = String(item.date || "").slice(0, 10);
+    dateWrap.appendChild(dateLabel);
+    dateWrap.appendChild(dateInput);
+
+    const textWrap = createDIV("mb-3");
+    const textLabel = createLabel(
+      "Changes made",
+      `recent-change-edit-text-${item.id}`,
+      "form-label"
+    );
+    const textInput = document.createElement("textarea");
+    textInput.className = "form-control";
+    textInput.id = `recent-change-edit-text-${item.id}`;
+    textInput.rows = 3;
+    textInput.maxLength = 500;
+    textInput.value = item.changes_made || "";
+    textWrap.appendChild(textLabel);
+    textWrap.appendChild(textInput);
+
+    const editAlert = createDIV("alert alert-danger d-none mb-3");
+    editAlert.setAttribute("role", "alert");
+
+    const actions = createDIV("d-flex gap-2");
+    const saveBtn = createButton("button", "Save", "btn btn-sm btn-primary");
+    const cancelBtn = createButton("button", "Cancel", "btn btn-sm btn-outline-secondary");
+
+    saveBtn.addEventListener("click", async () => {
+      editAlert.classList.add("d-none");
+      const date = String(dateInput.value || "").trim();
+      const changesMade = String(textInput.value || "").trim();
+      if (!date) {
+        editAlert.textContent = "Date is required.";
+        editAlert.classList.remove("d-none");
+        return;
+      }
+      if (!changesMade) {
+        editAlert.textContent = "Changes made is required.";
+        editAlert.classList.remove("d-none");
+        return;
+      }
+      saveBtn.disabled = true;
+      try {
+        const updated = await handlers.onUpdate({
+          id: item.id,
+          date,
+          changes_made: changesMade,
+        });
+        if (!updated) return;
+        item.date = updated.date || date;
+        item.changes_made = updated.changes_made || changesMade;
+        sortRecentChanges(items);
+        renderList();
+      } finally {
+        saveBtn.disabled = false;
+      }
+    });
+    cancelBtn.addEventListener("click", () => {
+      renderView();
+    });
+
+    actions.appendChild(saveBtn);
+    actions.appendChild(cancelBtn);
+    body.append(dateWrap, textWrap, editAlert, actions);
+    card.replaceChildren(body);
+  };
+
+  renderView();
+  return card;
+}
