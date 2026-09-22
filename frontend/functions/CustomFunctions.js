@@ -54,6 +54,28 @@ export async function downloadFileFromAPI(filename){
     await downloadFile(fileLink, filename);  
 }
 
+export function generateGalleryMediaDownloadLink(galleryId, mediaId) {
+    if (!cachedApiAddress) {
+        console.error("API address not cached yet.");
+        return null;
+    }
+    const gid = Number(galleryId);
+    const mid = Number(mediaId);
+    if (!Number.isFinite(gid) || gid <= 0 || !Number.isFinite(mid) || mid <= 0) {
+        return null;
+    }
+    return `${cachedApiAddress}?request=download_gallery_media&gallery_id=${gid}&media_id=${mid}`;
+}
+
+export async function downloadGalleryMediaFromAPI(galleryId, mediaId, filename) {
+    const fileLink = generateGalleryMediaDownloadLink(galleryId, mediaId);
+    if (!fileLink) {
+        return;
+    }
+    const downloadName = filename || `picture-${mediaId}`;
+    await downloadFile(fileLink, downloadName);
+}
+
 export function copyToClipboard(text) {
      
     if (navigator.clipboard && window.isSecureContext) {

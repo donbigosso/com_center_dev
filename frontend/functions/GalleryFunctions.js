@@ -12,6 +12,7 @@ import {
   canNativeShare,
   copyTextWithFeedback,
   nativeShare,
+  downloadGalleryMediaFromAPI,
 } from "./CustomFunctions.js";
 import { showGenericModal } from "./NewModalMethods.js";
 import {
@@ -42,7 +43,7 @@ let cachedGalleryFolder = null;
 // Preview page state
 let currentPreviewGallery = null;
 let galleryPicturesScroller = null;
-/** @type {Array<{id:number,title:string,caption:string,url:string|null,fullUrl:string|null,creation_date:string|null}>} */
+/** @type {Array<{id:number,title:string,caption:string,url:string|null,fullUrl:string|null,filename:string|null,creation_date:string|null}>} */
 let loadedGalleryPictures = [];
 let lightboxIndex = -1;
 let lightboxKeyHandler = null;
@@ -1666,6 +1667,15 @@ function ensurePictureLightbox() {
     shareBtn.hidden = true;
   }
 
+  const downloadBtn = createButton(
+    "button",
+    "",
+    "btn gallery-lightbox-close gallery-lightbox-download"
+  );
+  downloadBtn.setAttribute("aria-label", "Download");
+  downloadBtn.title = "Download";
+  downloadBtn.innerHTML = '<i class="bi bi-download"></i>';
+
   const closeBtn = createButton(
     "button",
     "",
@@ -1720,6 +1730,7 @@ function ensurePictureLightbox() {
 
   toolbar.appendChild(copyBtn);
   toolbar.appendChild(shareBtn);
+  toolbar.appendChild(downloadBtn);
   toolbar.appendChild(closeBtn);
 
   root.appendChild(backdrop);
@@ -1742,6 +1753,25 @@ function ensurePictureLightbox() {
       text: item?.caption || item?.title || galleryTitle,
       url: window.location.href,
     });
+  });
+  downloadBtn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    const item = loadedGalleryPictures[lightboxIndex];
+    const galleryId = currentPreviewGallery?.id;
+    if (!item?.id || !galleryId) {
+      showFeedback("Nothing to download");
+      return;
+    }
+    try {
+      await downloadGalleryMediaFromAPI(
+        galleryId,
+        item.id,
+        item.filename || `picture-${item.id}`
+      );
+    } catch (err) {
+      console.error("Gallery picture download failed:", err);
+      showFeedback("Download failed");
+    }
   });
   // Close only via the X button (not backdrop click)
   closeBtn.addEventListener("click", () => closePictureLightbox());

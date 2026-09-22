@@ -4,10 +4,12 @@ require_once __DIR__ . '/log_model.php';
 class GalleryModel
 {
     private DatabaseAccess $db;
+    private string $media_items_folder;
 
     public function __construct(DatabaseAccess $db)
     {
         $this->db = $db;
+        $this->media_items_folder = __DIR__ . '/../media_items';
     }
 
     /**
@@ -872,6 +874,107 @@ class GalleryModel
             'error' => '',
             'media' => $this->map_media_row($rows[0]),
         ];
+    }
+
+    /**
+     * Resolve a gallery picture to a file on disk (media_items/).
+     * Reuses get_gallery_media_item so the picture must belong to the gallery.
+     *
+     * @return array{success:bool,message:string,error:string,path:?string,filename:?string}
+     */
+    public function resolve_gallery_media_file(int $galleryId, int $mediaId): array
+    {
+        $item = $this->get_gallery_media_item($galleryId, $mediaId);
+        if (!$item['success'] || empty($item['media']['filename'])) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => $item['error'] !== ''
+                    ? $item['error']
+                    : 'Picture file not found.',
+                'path' => null,
+                'filename' => null,
+            ];
+        }
+
+        $filename = basename((string)$item['media']['filename']);
+        if ($filename === '' || $filename === '.' || $filename === '..') {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Invalid picture filename.',
+                'path' => null,
+                'filename' => null,
+            ];
+        }
+
+        $path = $this->media_items_folder . '/' . $filename;
+        $realFolder = realpath($this->media_items_folder);
+        $realPath = realpath($path);
+        if (
+            $realFolder === false
+            || $realPath === false
+            || !is_file($realPath)
+            || strpos($realPath, $realFolder . DIRECTORY_SEPARATOR) !== 0
+        ) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'File not found.',
+                'path' => null,
+                'filename' => null,
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Picture file resolved.',
+            'error' => '',
+            'path' => $realPath,
+            'filename' => $filename,
+        ];
+    }
+
+    /**
+     * Stream a local file as a download attachment (same shape as handle_download).
+     */
+    public function stream_file_as_attachment(string $path, string $filename): void
+    {
+        $safeName = str_replace(['"', '\\', "\r", "\n"], '', basename($filename));
+        if ($safeName === '') {
+            $safeName = 'download';
+        }
+
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="' . $safeName . '"');
+        header('Content-Length: ' . filesize($path));
+        header('Cache-Control: no-cache');
+
+        readfile($path);
+    }
+
+    /**
+     * GET download_gallery_media — send the full-size picture as an attachment.
+     * On success streams the file and exits; on failure returns an error payload.
+     *
+     * @return array{success:bool,message:string,error:string}
+     */
+    public function send_gallery_media_download(int $galleryId, int $mediaId): array
+    {
+        $resolved = $this->resolve_gallery_media_file($galleryId, $mediaId);
+        if (!$resolved['success']) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => $resolved['error'],
+            ];
+        }
+
+        $this->stream_file_as_attachment(
+            (string)$resolved['path'],
+            (string)$resolved['filename']
+        );
+        exit;
     }
 
     /**

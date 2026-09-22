@@ -95,6 +95,9 @@ class ApiMethods extends Core
                 case 'get_gallery_media_item':
                     $this->handle_get_gallery_media_item($input);
                     break;
+                case 'download_gallery_media':
+                    $this->handle_download_gallery_media($input);
+                    break;
                 case 'get_gallery_cover_filename':
                     $this->handle_get_gallery_cover_filename($input);
                     break;
@@ -732,6 +735,32 @@ public function handle_clear_token(array $input): void{
             '',
             $result['error'],
             ['media' => $result['media']]
+        );
+    }
+
+    /**
+     * GET download_gallery_media — stream a gallery picture as an attachment.
+     * Query: gallery_id (or id), media_id (or picid).
+     * File bytes are sent by GalleryModel::send_gallery_media_download.
+     */
+    private function handle_download_gallery_media(array $input): void
+    {
+        $galleryId = isset($input['gallery_id'])
+            ? (int)$input['gallery_id']
+            : (isset($input['id']) ? (int)$input['id'] : 0);
+        $mediaId = isset($input['media_id'])
+            ? (int)$input['media_id']
+            : (isset($input['picid']) ? (int)$input['picid'] : 0);
+
+        $gallery_model = new GalleryModel($this->db_access);
+        $result = $gallery_model->send_gallery_media_download($galleryId, $mediaId);
+
+        http_response_code(404);
+        $this->send_JSON_Response(
+            false,
+            '',
+            '',
+            $result['error'] !== '' ? $result['error'] : 'File not found.'
         );
     }
 
