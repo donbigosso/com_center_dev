@@ -249,6 +249,9 @@ class ApiMethods extends Core
                 case 'create_post':
                     $this->handle_create_post($input);
                     break;
+                case 'reorder_page_posts':
+                    $this->handle_reorder_page_posts($input);
+                    break;
                 case 'update_post':
                     $this->handle_update_post($input);
                     break;
@@ -1107,6 +1110,18 @@ public function handle_clear_token(array $input): void{
             '',
             $result['error'],
             ['post' => $result['post']]
+        );
+    }
+
+    private function handle_reorder_page_posts(array $input): void
+    {
+        $model = new PostAndMessageModel($this->db_access);
+        $result = $model->reorder_page_posts($input);
+        $this->send_JSON_Response(
+            $result['success'],
+            $result['message'],
+            '',
+            $result['error']
         );
     }
 

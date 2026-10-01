@@ -49,10 +49,14 @@
                 Explore the world with me. In the business since 2010.
             </p>
             <div class="trips-hero-actions logged-only" id="trips-add-wrap">
-                <a class="btn cc-btn-ghost" id="trips-add-post-btn" href="../create_post.html?page=TRIP&amp;include_media=yes&amp;return=trips/">
+                <a class="btn cc-btn-ghost trips-add-post-link" id="trips-add-post-btn" href="../create_post.html?page=TRIP&amp;include_media=yes&amp;return=trips/">
                     <i class="bi bi-plus-lg"></i>
                     Add post
                 </a>
+                <button type="button" class="btn cc-btn-ghost" id="trips-arrange-btn" title="Change post order">
+                    <i class="bi bi-arrow-down-up"></i>
+                    Arrange
+                </button>
             </div>
         </div>
     </section>
@@ -78,10 +82,14 @@
                     Explore the world with me. In the business since 2010.
                 </p>
                 <div class="trips-hero-actions logged-only">
-                    <a class="btn cc-btn-ghost" href="../create_post.html?page=TRIP&amp;include_media=yes&amp;return=trips/">
+                    <a class="btn cc-btn-ghost trips-add-post-link" href="../create_post.html?page=TRIP&amp;include_media=yes&amp;return=trips/">
                         <i class="bi bi-plus-lg"></i>
                         Add post
                     </a>
+                    <button type="button" class="btn cc-btn-ghost" id="trips-arrange-btn-overlay" title="Change post order">
+                        <i class="bi bi-arrow-down-up"></i>
+                        Arrange
+                    </button>
                 </div>
             </div>
         </div>
@@ -91,6 +99,21 @@
         <section class="trips-posts" aria-labelledby="trips-posts-heading">
             <p class="cc-eyebrow">Journal</p>
             <h2 class="trips-posts-title" id="trips-posts-heading">Trips made to date</h2>
+            <div class="trips-arrange-bar d-none" id="trips-arrange-bar">
+                <span class="trips-arrange-hint">
+                    <i class="bi bi-arrow-down-up"></i>
+                    Use the arrows to change the order of posts.
+                </span>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn cc-btn-ghost" id="trips-arrange-save-btn">
+                        <i class="bi bi-check-lg"></i>
+                        Save order
+                    </button>
+                    <button type="button" class="btn cc-btn-outline" id="trips-arrange-cancel-btn">
+                        Cancel
+                    </button>
+                </div>
+            </div>
             <div id="trips-posts-list"></div>
         </section>
 

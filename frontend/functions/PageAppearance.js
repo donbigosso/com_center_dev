@@ -49,7 +49,9 @@ export function newHideModal(modalID) {
 export function showLoggedOnly(){
     const loggedIn = document.querySelectorAll(".logged-only");
     loggedIn.forEach(el => {
-      const display = el.classList.contains("galleries-user") || el.classList.contains("cc-user")
+      const display = el.classList.contains("galleries-user")
+        || el.classList.contains("cc-user")
+        || el.classList.contains("trips-hero-actions")
         ? "inline-flex"
         : "inline-block";
       show(el, display);

@@ -272,9 +272,18 @@ class PostAndMessageModel
             }
 
             if ($page !== '') {
+                // New posts go to the end of the manual order on that page.
+                $nextOrder = (int)($this->db->queryValue(
+                    'SELECT COALESCE(MAX(sort_order), 0) + 1
+                     FROM posts_in_pages
+                     WHERE page = :page',
+                    [':page' => $page]
+                ) ?? 1);
+
                 $this->db->insert('posts_in_pages', [
                     'post_id' => $postId,
                     'page' => $page,
+                    'sort_order' => $nextOrder,
                 ]);
             }
 
@@ -604,6 +613,7 @@ class PostAndMessageModel
      * Query: page (default 1), limit (default 20, max 100),
      *        user (optional author name),
      *        on_page (optional posts_in_pages.page ENUM: TRIP, BLOG, ABOUT).
+     * When on_page is set, rows are ordered by posts_in_pages.sort_order ASC.
      *
      * @return array{success:bool,message:string,error:string,posts:array,page:int,limit:int,total:int,has_more:bool,author_filter:?string}
      */
@@ -644,10 +654,14 @@ class PostAndMessageModel
 
         $pageJoinSql = '';
         $pageSql = '';
+        $sortSelect = '';
+        $orderSql = 'ORDER BY p.date_added DESC, p.post_id DESC';
         if ($onPage !== null) {
             $pageJoinSql = ' INNER JOIN posts_in_pages pip ON pip.post_id = p.post_id ';
             $pageSql = ' AND pip.page = :on_page ';
             $params[':on_page'] = $onPage;
+            $sortSelect = 'pip.sort_order,';
+            $orderSql = 'ORDER BY pip.sort_order ASC, p.date_added DESC, p.post_id DESC';
         }
 
         $total = (int)($this->db->queryValue(
@@ -666,12 +680,13 @@ class PostAndMessageModel
                 u.name AS author,
                 p.topic,
                 p.content,
+                {$sortSelect}
                 p.date_added
              FROM posts p
              LEFT JOIN users u ON u.user_id = p.author_id
              {$pageJoinSql}
              WHERE 1=1 {$authorSql} {$pageSql}
-             ORDER BY p.date_added DESC, p.post_id DESC
+             {$orderSql}
              LIMIT {$limit} OFFSET {$offset}",
             $params
         );
@@ -698,6 +713,120 @@ class PostAndMessageModel
             'author_filter' => $author,
             'on_page' => $onPage,
         ];
+    }
+
+    /**
+     * POST reorder_page_posts — logged-in poster saves manual order on one page.
+     * Body: api_key, token, page (TRIP|BLOG|ABOUT), order (post ids, first = top).
+     * The list must contain exactly the posts currently on that page.
+     *
+     * @return array{success:bool,message:string,error:string}
+     */
+    public function reorder_page_posts(array $input): array
+    {
+        $actor = '-';
+        $ok = false;
+        $page = strtoupper(trim((string)($input['page'] ?? $input['on_page'] ?? '')));
+        $logDetail = $page !== '' ? $page : '';
+        try {
+            $fail = static fn(string $error): array => [
+                'success' => false,
+                'message' => '',
+                'error' => $error,
+            ];
+
+            if (!$this->is_valid_api_key($input)) {
+                return $fail('Invalid or missing api_key.');
+            }
+
+            $token = trim((string)($input['token'] ?? ''));
+            if ($token === '') {
+                return $fail('Token is required.');
+            }
+
+            $userModel = new UserModel($this->db);
+            $users = $userModel->get_by_token($token);
+            if (empty($users)) {
+                return $fail('User is not logged in or token expired.');
+            }
+
+            $user = $users[0];
+            if (!empty($user['name'])) {
+                $actor = (string)$user['name'];
+            }
+
+            if (!$this->is_valid_post_page($page)) {
+                return $fail('Invalid page. Allowed: ' . implode(', ', $this->get_post_page_enums()) . '.');
+            }
+
+            if (!$this->user_can_post_on_page($user, $page)) {
+                return $fail('You are not allowed to arrange posts on this page.');
+            }
+
+            $order = $input['order'] ?? null;
+            if (!is_array($order) || empty($order)) {
+                return $fail('Post order is required.');
+            }
+
+            $ids = [];
+            foreach ($order as $value) {
+                $id = filter_var($value, FILTER_VALIDATE_INT);
+                if ($id === false || $id <= 0) {
+                    return $fail('Invalid post id in order.');
+                }
+                $ids[] = $id;
+            }
+            if (count($ids) !== count(array_unique($ids))) {
+                return $fail('Duplicate post id in order.');
+            }
+
+            $existing = $this->db->queryAll(
+                'SELECT post_id
+                 FROM posts_in_pages
+                 WHERE page = :page',
+                [':page' => $page]
+            );
+            $existingIds = array_map(static fn($r) => (int)$r['post_id'], $existing);
+            sort($existingIds);
+            $sortedIds = $ids;
+            sort($sortedIds);
+            if ($existingIds !== $sortedIds) {
+                return $fail('Post list does not match this page. Reload and try again.');
+            }
+
+            $cases = [];
+            $params = [':page' => $page];
+            foreach ($ids as $i => $id) {
+                $cases[] = "WHEN :p{$i} THEN :o{$i}";
+                $params[":p{$i}"] = $id;
+                $params[":o{$i}"] = $i + 1;
+            }
+            $inList = implode(', ', array_map(static fn($i) => ":w{$i}", array_keys($ids)));
+            foreach ($ids as $i => $id) {
+                $params[":w{$i}"] = $id;
+            }
+
+            try {
+                $this->db->execute(
+                    'UPDATE posts_in_pages
+                     SET sort_order = CASE post_id ' . implode(' ', $cases) . ' END
+                     WHERE page = :page
+                       AND post_id IN (' . $inList . ')',
+                    $params
+                );
+            } catch (Throwable $e) {
+                return $fail('Failed to save post order.');
+            }
+
+            $ok = true;
+            return [
+                'success' => true,
+                'message' => 'Post order saved.',
+                'error' => '',
+            ];
+        } finally {
+            (new LogModel())->record_result('reorder page posts', $ok, $actor, $logDetail);
+        }
     }
 
     /**
@@ -1022,6 +1151,7 @@ class PostAndMessageModel
             'topic' => $row['topic'] !== null && $row['topic'] !== '' ? $row['topic'] : null,
             'content' => $row['content'] ?? '',
             'date_added' => $row['date_added'] ?? null,
+            'sort_order' => array_key_exists('sort_order', $row) ? (int)$row['sort_order'] : null,
             // 'media' is filled in separately by get_media_for_post_ids()
             // once the caller knows every post_id it needs (see get_post /
             // list_posts) so we only ever run one extra query, not one per post.

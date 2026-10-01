@@ -813,6 +813,21 @@ export async function deletePost(postId, sessionToken) {
   });
 }
 
+/**
+ * Save a manual post order for one page (TRIP, BLOG, ABOUT).
+ * `order` is post ids, first item is shown first.
+ */
+export async function reorderPagePosts(page, order, sessionToken) {
+  const apiKey = await getSetting("api_key");
+  return POSTJSONRequest({
+    request: "reorder_page_posts",
+    api_key: apiKey,
+    token: sessionToken,
+    page,
+    order,
+  });
+}
+
 export async function listPageMedia(pageEnum) {
   return fetchAPIdataWGetParams({
     request: "list_page_media",
