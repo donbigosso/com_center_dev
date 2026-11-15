@@ -69,14 +69,24 @@ async function getECBConversion(currency1, currency2) {
   return data[0].rate;
 }
 
-export async function getPLN_GMD_w_text(){  
+export async function getPLN_GMDrate(){
   let rate = await getECBConversion("PLN", "GMD");
-  return "PLN/GMD: " + rate.toFixed(2);
+  return rate.toFixed(2);
+}
+
+export async function getPLN_GMD_w_text(){  
+  let rate = await getPLN_GMDrate();
+  return "PLN/GMD: " + rate;
+}
+
+export async function getEUR_GMDrate(){
+  let rate = await getECBConversion("EUR", "GMD");
+  return rate.toFixed(2);
 }
 
 export async function getEUR_GMD_w_text(){  
-  let rate = await getECBConversion("EUR", "GMD");
-  return "EUR/GMD: " + rate.toFixed(2);
+  let rate = await getEUR_GMDrate();
+  return "EUR/GMD: " + rate;
 }
 
 
@@ -149,14 +159,14 @@ export async function getBTC_PLNrate() {
   return (btcUsd * usdPln).toFixed(2);
 }
 
-export async function getETH_PLrate(){
+export async function getETH_PLNrate(){
   const ethUsd = await getFreeCryptoData("ETH");
   const usdPln = await getNBPConversion("a", "usd");
   return (ethUsd * usdPln).toFixed(2);
 }
 
 export async function getETH_PLN_w_text(){
-  const rate = await getETH_PLrate();
+  const rate = await getETH_PLNrate();
   return "ETH/PLN: " + rate;
 }
 
